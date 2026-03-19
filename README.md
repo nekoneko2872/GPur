@@ -1,155 +1,206 @@
-<div align="center">
+# GPur
 
-<a href="https://purpurmc.org">
-  <img src="https://user-images.githubusercontent.com/74448585/150906023-101cd383-da82-4a3c-9603-a3b5741c3994.png" alt="Purpur">
-</a>
+GPur is an experimental Minecraft 1.21.11 server fork based on Purpur/Paper.
+It keeps Purpur compatibility while adding GPU-assisted world-pipeline features
+such as directional chunk preloading, Vulkan-backed terrain assist, and optional
+GPU offload paths for anti-xray and other chunk-adjacent workloads.
 
-## Purpur
+If Vulkan initialization fails, GPur automatically falls back to CPU mode.
 
-[![MIT License](https://img.shields.io/github/license/PurpurMC/Purpur?&logo=github)](LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/PurpurMC/Purpur/build.yml?branch=ver%2F1.21.11&event=push&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV9bxSIVh1YQcYhQnSyIiuimVShChVArtOpgcukXNGlIUlwcBdeCgx+LVQcXZ10dXAVB8APE0clJ0UVK/F9SaBHjwXE/3t173L0D/PUyU82OMUDVLCOViAuZ7KrQ9YogwujDEGYkZupzopiE5/i6h4+vdzGe5X3uz9Gj5EwG+ATiWaYbFvEG8dSmpXPeJ46woqQQnxOPGnRB4keuyy6/cS447OeZESOdmieOEAuFNpbbmBUNlXiSOKqoGuX7My4rnLc4q+Uqa96TvzCU01aWuU5zEAksYgkiBMioooQyLMRo1UgxkaL9uId/wPGL5JLJVQIjxwIqUCE5fvA/+N2tmZ8Yd5NCcaDzxbY/hoGuXaBRs+3vY9tunACBZ+BKa/krdWD6k/RaS4seAb3bwMV1S5P3gMsdoP9JlwzJkQI0/fk88H5G35QFwrdA95rbW3Mfpw9AmrpK3gAHh8BIgbLXPd4dbO/t3zPN/n4Ax9dyyerighsAAAAGYktHRAAAAAAAAPlDu38AAAAJcEhZcwAADdcAAA3XAUIom3gAAAAHdElNRQfmCBMWBjFhOpnxAAACyklEQVQ4y32TXWgdZRCGn8k5Z3e/bzcJRFuoDRqIIPGniaSl1qgXKYhiLUgleFESW1qQ4g94oVKQJmga0ILRBuvfheJFIbY3SmzRFsWgQrTQFlRoKSVXgcMxJiS7++1ukvHiNKGU6FzNDO8MMw8zwn9Yz5c6anKeChxiMk599aq8sZ5Obk3sGNd7G5aZCHJ+Oj8gAwD9I3rSJmyvzLHz+HG5frO+vOaNa3NXiUkKQj9hQ1jQgWrlyCCV6gIdtmBjoJwbPqgL+R08PDQkCUADwD0TerqzxFTJY++vz0l7c0q/F7P5+aNUqyvM2CU2RAV7hsek3XPs3/QHF7/YrSfrDVQrxrErdESNNTYByAp3NmWUTYaGGSuho+QltAGYRdqilChMeKbO4Ijang5+CVJmbcr20PG3n9NiY6ZOvCW9ACMHdDLIeDDIqTWmtAQJV6OMyhOTsqWBQQo/hvP7pFcWeDxwtAQxGqbEq3isI7EOjRy3NyuPPHtOur0UXWMQZXgAX78uP3sJpTBmyHfsGDmotdF+rQWObq/gnSCm9PQ3chnA3qgRgL5jmjXlTM/n7Ny8yJXRY2IA3tur0yaHF8blLoAzj2kaNNBpZvk2iGntuiZBHWLOtXJC3hbzV5SxtDq6yZmzCXOrsRezHNa4YBzlKGN6bQXryD96W+4PU14zGbw/oLMf79EPbAI2g7M9+smP3fqPKVAT81LnFWnzM1y9gYC9gWtwTD6MEsq+Y8Lm7DMZ7cZxt5/T5xd8Fy5SfuC6fA4QZjdd8eEX9eLwAZ1StHKiT1MARStnHtWZH7bpjKIVgKutmipq50O94Mr6+9oKR8ekyy7x5qd9/NmYslynK4WfUjWOqiAFgElZmY+41BTzcrAkW9d9ptO9etgU7I8S3vVyDtkY/JzPwoxXzCJjt6Uy+r/fuGq/3affezkPRSniJ0y2zsqT6+n+BfRHKWgwbKNIAAAAAElFTkSuQmCC)](https://purpurmc.org/downloads/)
-[![CodeFactor Grade](https://img.shields.io/codefactor/grade/github/PurpurMC/Purpur?logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8%2F9hAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV9bxSIVh1YQcYhQnSyIiuimVShChVArtOpgcukXNGlIUlwcBdeCgx%2BLVQcXZ10dXAVB8APE0clJ0UVK%2FF9SaBHjwXE%2F3t173L0D%2FPUyU82OMUDVLCOViAuZ7KrQ9YogwujDEGYkZupzopiE5%2Fi6h4%2BvdzGe5X3uz9Gj5EwG%2BATiWaYbFvEG8dSmpXPeJ46woqQQnxOPGnRB4keuyy6%2FcS447OeZESOdmieOEAuFNpbbmBUNlXiSOKqoGuX7My4rnLc4q%2BUqa96TvzCU01aWuU5zEAksYgkiBMioooQyLMRo1UgxkaL9uId%2FwPGL5JLJVQIjxwIqUCE5fvA%2F%2BN2tmZ8Yd5NCcaDzxbY%2FhoGuXaBRs%2B3vY9tunACBZ%2BBKa%2FkrdWD6k%2FRaS4seAb3bwMV1S5P3gMsdoP9JlwzJkQI0%2Ffk88H5G35QFwrdA95rbW3Mfpw9AmrpK3gAHh8BIgbLXPd4dbO%2Ft3zPN%2Fn4Ax9dyyerighsAAAAGYktHRAAAAAAAAPlDu38AAAAJcEhZcwAADdcAAA3XAUIom3gAAAAHdElNRQfmCBMVKAA5pS6%2BAAABlElEQVQ4y82PP2gVQRDGf7N3t%2Bvdixpi0N5OELFKJ1iohBciKlgYJLX6YkBbC0sVooVFBAvBPw%2BFZzrJs7DR2iYHRhBsxNI8VLwUx92MRXJGxKCp9AfL7DfDfPutFO3z5wy5DuRlWU2OvLj7hduLYXh0ZSEkOh4SjUKiBK%2BEZP34Gu%2FtbebLE86Qa8BO4FDwyWmAbPjzMWACiNgEMdun6macwfJ6z2qxZYBI6ndAxR%2BRN%2FL1ZGeXlDqFkm%2Fv33nZjHZ0u2OZrw%2F7pBYf16Re8UEJ8VpNE33fP3BxgX%2BOFOOdtjmuGpoPtT51pNcrMZORx4%2FmslQnslAlWahItymZrz%2Bmqc4%2B2z%2B71BjE5uwesEeQsaLY%2FQp42LrfPUqwy2DNO03ZK9hN4Ehj4IDBjzjKCoC5aMDG9q%2BhBz%2BrWCN3KqptBtG89Xx%2BEWB1%2Bszr8OTBFMgkSLKWQAA%2BVCU3%2BK%2BQb%2B0LB4FLGHmrP39LNv3773Ei9IBphLnVduf4VhM4M9JGqGzc%2F5bYnDsrqlcQloaK0adbNfgOUn6NRlZZ46YAAAAASUVORK5CYII%3D)](https://www.codefactor.io/repository/github/PurpurMC/Purpur)
-[![Join us on Discord](https://discord.com/api/guilds/685683385313919172/widget.png?style=shield)](https://purpurmc.org/discord)
+## Goals
 
-[![Stargazers](https://img.shields.io/github/stars/PurpurMC/Purpur?label=stars&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV9bxSIVh1YQcYhQnSyIiuimVShChVArtOpgcukXNGlIUlwcBdeCgx+LVQcXZ10dXAVB8APE0clJ0UVK/F9SaBHjwXE/3t173L0D/PUyU82OMUDVLCOViAuZ7KrQ9YogwujDEGYkZupzopiE5/i6h4+vdzGe5X3uz9Gj5EwG+ATiWaYbFvEG8dSmpXPeJ46woqQQnxOPGnRB4keuyy6/cS447OeZESOdmieOEAuFNpbbmBUNlXiSOKqoGuX7My4rnLc4q+Uqa96TvzCU01aWuU5zEAksYgkiBMioooQyLMRo1UgxkaL9uId/wPGL5JLJVQIjxwIqUCE5fvA/+N2tmZ8Yd5NCcaDzxbY/hoGuXaBRs+3vY9tunACBZ+BKa/krdWD6k/RaS4seAb3bwMV1S5P3gMsdoP9JlwzJkQI0/fk88H5G35QFwrdA95rbW3Mfpw9AmrpK3gAHh8BIgbLXPd4dbO/t3zPN/n4Ax9dyyerighsAAAAGYktHRAAAAAAAAPlDu38AAAAJcEhZcwAADdcAAA3XAUIom3gAAAAHdElNRQfmCBMVNjtc7/hFAAABIElEQVQ4y62SzS5DURSFv6smXkAUCRU0UdKYGNTPyCsYYOYFGGi8Ao9QM0PxCh6CgQ4qfiLpBFEjdKCfySaXtDch1uScs9Ze62TvcyAD6o66zV+gjqpvalsd61XXl5GxBySx3/3t7UPqi1pTD9VXdaRbbZIyDQLTwBSwBqzGGaABnAInwCXQSJLk/tO4orb8jra6nwo/CC6NlrqMOq421Y5aVSfUXJe2cqFVo7b5NdwIuVaf1IWM2cyrD+qdOvlTLERIS53pYi6FdqMWet2wGP1tdNE2Q1vK+gfDsdbDlFfzwV3Ems8KmAXegcd4hSvgVq0Bz6GV0ob+HgF1YAA4Cn4LWA9tLusHnscTHavFFF8MrqOeZQVU1HKGXlYr/Cc+AKuOI2h/Jrf7AAAAAElFTkSuQmCC)](https://github.com/PurpurMC/Purpur/stargazers)
-[![Forks](https://img.shields.io/github/forks/PurpurMC/Purpur?label=forks&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV9bxSIVh1YQcYhQnSyIiuimVShChVArtOpgcukXNGlIUlwcBdeCgx+LVQcXZ10dXAVB8APE0clJ0UVK/F9SaBHjwXE/3t173L0D/PUyU82OMUDVLCOViAuZ7KrQ9YogwujDEGYkZupzopiE5/i6h4+vdzGe5X3uz9Gj5EwG+ATiWaYbFvEG8dSmpXPeJ46woqQQnxOPGnRB4keuyy6/cS447OeZESOdmieOEAuFNpbbmBUNlXiSOKqoGuX7My4rnLc4q+Uqa96TvzCU01aWuU5zEAksYgkiBMioooQyLMRo1UgxkaL9uId/wPGL5JLJVQIjxwIqUCE5fvA/+N2tmZ8Yd5NCcaDzxbY/hoGuXaBRs+3vY9tunACBZ+BKa/krdWD6k/RaS4seAb3bwMV1S5P3gMsdoP9JlwzJkQI0/fk88H5G35QFwrdA95rbW3Mfpw9AmrpK3gAHh8BIgbLXPd4dbO/t3zPN/n4Ax9dyyerighsAAAAGYktHRAAAAAAAAPlDu38AAAAJcEhZcwAADdcAAA3XAUIom3gAAAAHdElNRQfmCBMVNCYN3/YeAAAA/UlEQVQ4y7WTQUoDQRBFf01czlJcxUyOINGjjAvFHMFzZGdygOwDwTtk6UZcqLlAxCAuMigug89FamIzdAIN+qGhq/6v6qrqbumvAJwBj8AHMAQs4DJgBHy65jSW4Bl4AaZsUAbcufumrnmquSzIcSzpTtLA7XbA1fuBa9qxCob8YgUUAdcFqoC/iSXIgLELOhG+49w4nM+2BTP7ljR3M4/MufbNzYxdN1E0Sm2ialZnsVIllZKOJF24eyLpXdKtmS1S3sYMmO3THOwJziUdbrbkZvaVcnILeAh6vweylAQ9D7z2BXCS0sJS0lrSpdtrSW+pn6sPLIFX4Er/hR9C0wl1FTBzNwAAAABJRU5ErkJggg==)](https://github.com/PurpurMC/Purpur/network/members)
-[![Watchers](https://img.shields.io/github/watchers/PurpurMC/Purpur?label=watchers&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV9bxSIVh1YQcYhQnSyIiuimVShChVArtOpgcukXNGlIUlwcBdeCgx+LVQcXZ10dXAVB8APE0clJ0UVK/F9SaBHjwXE/3t173L0D/PUyU82OMUDVLCOViAuZ7KrQ9YogwujDEGYkZupzopiE5/i6h4+vdzGe5X3uz9Gj5EwG+ATiWaYbFvEG8dSmpXPeJ46woqQQnxOPGnRB4keuyy6/cS447OeZESOdmieOEAuFNpbbmBUNlXiSOKqoGuX7My4rnLc4q+Uqa96TvzCU01aWuU5zEAksYgkiBMioooQyLMRo1UgxkaL9uId/wPGL5JLJVQIjxwIqUCE5fvA/+N2tmZ8Yd5NCcaDzxbY/hoGuXaBRs+3vY9tunACBZ+BKa/krdWD6k/RaS4seAb3bwMV1S5P3gMsdoP9JlwzJkQI0/fk88H5G35QFwrdA95rbW3Mfpw9AmrpK3gAHh8BIgbLXPd4dbO/t3zPN/n4Ax9dyyerighsAAAAGYktHRAAAAAAAAPlDu38AAAAJcEhZcwAADdcAAA3XAUIom3gAAAAHdElNRQfmCBMVNw4TRw0nAAAA3UlEQVQ4y83SP04CURAG8I0lewHOwAFUaiwkdmAlp8CL4FHopfIvtOIJWE3opIBK489mQPKy6xYWOskkL9/MN/PNzMuyf2fIcYkZVuGzwPI68gle8Yl7jMIfAntBp4o8wAeecFgSP8I8cgZp8DwC12j8oLCBCd7R34ItbHCzT8ZZSC7QTYrcYo1WhjGWaCbdCt+2SGLN4IwPfnu07QjrkhG6oWKB0+TMd7sRAuzHYuqWmO8tsVd1xjmOS8htPEfORVWHTmweHnEVPg2sqPxIicxhFFjhLd7D2q/8J/YFHSJt9VSqQ08AAAAASUVORK5CYII=)](https://github.com/PurpurMC/Purpur/watchers)
+- Keep Purpur/Paper behavior as the baseline.
+- Improve perceived chunk delivery during movement, especially elytra travel.
+- Experiment with moving heavy numeric world-generation work to the GPU.
+- Expose runtime status clearly through `/gpur status` and `gpur.yml`.
 
-Purpur is a drop-in replacement for [Paper](https://github.com/PaperMC/Paper) servers designed for configurability, new fun and exciting gameplay features, and performance built on top of [Paper](https://github.com/PaperMC/Paper/).
+## What GPur Adds
 
-</div>
+### Directional Chunk Preloading
 
-## Contact
-Join us on Discord:
+GPur extends the player chunk loader with movement-aware preloading:
 
-[![Join us on Discord](https://discord.com/api/guilds/685683385313919172/widget.png?style=banner2)](https://purpurmc.org/discord)
+- base lookahead
+- elytra-specific lookahead and turn boost
+- shared preload anchors for nearby players
+- retained priority hits for recently relevant chunks
+- send burst and throughput stabilization controls
 
-## Downloads
-Downloads can be obtained from the [downloads page](https://purpurmc.org/downloads/) or the [downloads API](https://api.purpurmc.org).
+These settings live under `chunk-generation.preloading` in `gpur.yml`.
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/PurpurMC/Purpur/build.yml?branch=ver%2F1.21.11event=push&label=Downloads&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV9bxSIVh1YQcYhQnSyIiuimVShChVArtOpgcukXNGlIUlwcBdeCgx+LVQcXZ10dXAVB8APE0clJ0UVK/F9SaBHjwXE/3t173L0D/PUyU82OMUDVLCOViAuZ7KrQ9YogwujDEGYkZupzopiE5/i6h4+vdzGe5X3uz9Gj5EwG+ATiWaYbFvEG8dSmpXPeJ46woqQQnxOPGnRB4keuyy6/cS447OeZESOdmieOEAuFNpbbmBUNlXiSOKqoGuX7My4rnLc4q+Uqa96TvzCU01aWuU5zEAksYgkiBMioooQyLMRo1UgxkaL9uId/wPGL5JLJVQIjxwIqUCE5fvA/+N2tmZ8Yd5NCcaDzxbY/hoGuXaBRs+3vY9tunACBZ+BKa/krdWD6k/RaS4seAb3bwMV1S5P3gMsdoP9JlwzJkQI0/fk88H5G35QFwrdA95rbW3Mfpw9AmrpK3gAHh8BIgbLXPd4dbO/t3zPN/n4Ax9dyyerighsAAAAGYktHRAAAAAAAAPlDu38AAAAJcEhZcwAADdcAAA3XAUIom3gAAAAHdElNRQfmCBMWBjFhOpnxAAACyklEQVQ4y32TXWgdZRCGn8k5Z3e/bzcJRFuoDRqIIPGniaSl1qgXKYhiLUgleFESW1qQ4g94oVKQJmga0ILRBuvfheJFIbY3SmzRFsWgQrTQFlRoKSVXgcMxJiS7++1ukvHiNKGU6FzNDO8MMw8zwn9Yz5c6anKeChxiMk599aq8sZ5Obk3sGNd7G5aZCHJ+Oj8gAwD9I3rSJmyvzLHz+HG5frO+vOaNa3NXiUkKQj9hQ1jQgWrlyCCV6gIdtmBjoJwbPqgL+R08PDQkCUADwD0TerqzxFTJY++vz0l7c0q/F7P5+aNUqyvM2CU2RAV7hsek3XPs3/QHF7/YrSfrDVQrxrErdESNNTYByAp3NmWUTYaGGSuho+QltAGYRdqilChMeKbO4Ijang5+CVJmbcr20PG3n9NiY6ZOvCW9ACMHdDLIeDDIqTWmtAQJV6OMyhOTsqWBQQo/hvP7pFcWeDxwtAQxGqbEq3isI7EOjRy3NyuPPHtOur0UXWMQZXgAX78uP3sJpTBmyHfsGDmotdF+rQWObq/gnSCm9PQ3chnA3qgRgL5jmjXlTM/n7Ny8yJXRY2IA3tur0yaHF8blLoAzj2kaNNBpZvk2iGntuiZBHWLOtXJC3hbzV5SxtDq6yZmzCXOrsRezHNa4YBzlKGN6bQXryD96W+4PU14zGbw/oLMf79EPbAI2g7M9+smP3fqPKVAT81LnFWnzM1y9gYC9gWtwTD6MEsq+Y8Lm7DMZ7cZxt5/T5xd8Fy5SfuC6fA4QZjdd8eEX9eLwAZ1StHKiT1MARStnHtWZH7bpjKIVgKutmipq50O94Mr6+9oKR8ekyy7x5qd9/NmYslynK4WfUjWOqiAFgElZmY+41BTzcrAkW9d9ptO9etgU7I8S3vVyDtkY/JzPwoxXzCJjt6Uy+r/fuGq/3affezkPRSniJ0y2zsqT6+n+BfRHKWgwbKNIAAAAAElFTkSuQmCC)](https://purpurmc.org/downloads/)
+### Terrain Assist
 
-Downloads API endpoints:
- * List versions of Minecraft with builds available:
-   `https://api.purpurmc.org/v2/purpur`
- * List builds for a version of Minecraft:
-   `https://api.purpurmc.org/v2/purpur/<version>`
- * Download a specific build of a specific version:
-   `https://api.purpurmc.org/v2/purpur/<version>/<build>/download`
- * Download the latest build for a version of Minecraft:
-   `https://api.purpurmc.org/v2/purpur/<version>/latest/download`
+GPur can offload part of `NoiseChunk` interpolation work to a Vulkan compute
+backend.
 
-## License
-All patches are licensed under the MIT license, unless otherwise noted in the patch headers.
+- This is controlled by `chunk-generation.gpu-acceleration`.
+- The current safe path is `terrain assist`, not the old direct terrain batch.
+- `legacy-terrain-batch-enabled` is available for experiments, but it is not the
+  recommended default for production use.
 
-[![MIT License](https://img.shields.io/github/license/PurpurMC/Purpur?&logo=github)](LICENSE)
+### GPU Offload
 
-See [PaperMC/Paper](https://github.com/PaperMC/Paper), and [PaperMC/Paperweight](https://github.com/PaperMC/paperweight) for the license of material used by this project.
+Optional GPU offload paths are available for:
 
-## bStats
+- Paper anti-xray packet obfuscation
+- structure candidate scans
+- mob spawn candidate scans
 
-[![bStats Graph Data](https://bstats.org/signatures/server-implementation/Purpur.svg)](https://bstats.org/plugin/server-implementation/Purpur)
+Important:
 
+- Anti-xray GPU offload only works if Paper anti-xray itself is enabled in the
+  Paper world configuration.
+- `engine-mode: 1` (`HIDE`) is the safest mode for GPU anti-xray.
+- GPur can still run with GPU acceleration enabled even when individual GPU
+  workloads decide to fall back to CPU.
 
-## API
+### Reload Optimization
 
-### [Javadoc](https://purpurmc.org/javadoc)
+GPur includes a short-lived hot-reload ticket cache for explicit unload/reload
+patterns. This is controlled by `chunk-generation.reload-optimization`.
 
-### Dependency Information
-Maven
-```xml
-<repository>
-    <id>purpur</id>
-    <url>https://repo.purpurmc.org/snapshots</url>
-</repository>
+## Runtime Commands
+
+### `/gpur status`
+
+Shows the current GPur runtime state, including:
+
+- backend mode and device
+- terrain assist state
+- assist gate state
+- active noise tasks
+- terrain assist dispatch totals
+- anti-xray totals
+- preload and send-burst counters
+
+This is the main command to verify whether GPU-assisted paths are actually being
+used.
+
+### `/gpur reload`
+
+Reloads GPur configuration. As with most deep server config reloads, full
+restart is still safer for critical changes.
+
+## Configuration
+
+GPur reads its settings from `gpur.yml`.
+
+High-level layout:
+
+- `chunk-generation.gpu-acceleration`
+- `chunk-generation.preloading`
+- `chunk-generation.turbo-mode`
+- `chunk-generation.reload-optimization`
+- `gpu-offload`
+- `logging`
+
+Logging supports public-safe output and per-feature verbosity:
+
+- `off`
+- `summary`
+- `verbose`
+
+Example:
+
+```yml
+chunk-generation:
+  gpu-acceleration:
+    enabled: true
+    terrain-enabled: true
+    legacy-terrain-batch-enabled: false
+    terrain-heavy-load-only: true
+
+gpu-offload:
+  anti-xray:
+    enabled: true
+    allow-inexact-results: false
+    min-sections: 8
+
+logging:
+  public-safe: true
+  gpu:
+    terrain-assist: summary
+    anti-xray: summary
 ```
-```xml
-<dependency>
-    <groupId>org.purpurmc.purpur</groupId>
-    <artifactId>purpur-api</artifactId>
-    <version>1.21.11-R0.1-SNAPSHOT</version>
-    <scope>provided</scope>
-</dependency>
-```
 
-Gradle
-```kotlin
-repositories {
-    maven("https://repo.purpurmc.org/snapshots")
-}
-```
-```kotlin
-dependencies {
-    compileOnly("org.purpurmc.purpur:purpur-api:1.21.11-R0.1-SNAPSHOT")
-}
-```
+## Current Status
 
-Yes, this also includes all API provided by Paper, Spigot, and Bukkit.
+GPur is not a drop-in "faster than Purpur in every benchmark" fork.
 
-## Building and setting up
+What is relatively mature:
 
-#### Initial setup
-First, <u>clone</u> this repository. Do not download it.
+- movement-aware preload tuning
+- `/gpur status` visibility
+- CPU fallback behavior
+- optional GPU packet/offload paths
 
-Then run the following command in the root directory:
+What is still experimental:
 
-```
+- terrain-assist effectiveness under all workloads
+- benchmark wins in raw chunk-generation throughput
+- GPU offload behavior across all server configurations
+
+In other words: GPur is intended for experimentation and targeted tuning, not as
+a guaranteed universal replacement for stock Purpur.
+
+## Building
+
+### Initial setup
+
+Clone the repository, then run:
+
+```bash
 ./gradlew applyAllPatches
 ```
 
-The project is now ready for use in your IDE.
+### Development build
 
-#### Creating a patch
+```bash
+./gradlew :purpur-server:assemble
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+This produces the main development jar in:
 
-#### Compiling
+- `purpur-server/build/libs`
 
-Use the command `./gradlew build` to build the API and server. Compiled JARs
-will be placed under `purpur-api/build/libs` and `purpur-server/build/libs`.
-**These JARs are not used to start a server.**
+### Server-ready artifacts
 
-To compile a server-ready purpurclip jar, run `./gradlew createMojmapBundlerJar`.
-To install the `purpur-api` and `purpur` dependencies to your local Maven repo, run `./gradlew publishToMavenLocal`. The compiled purpurclip jar will be in `purpur-server/build/libs`.
+To build server-startable Paperclip/Bundler artifacts:
 
-Special Thanks To:
--------------
+```bash
+./gradlew :purpur-server:createMojmapPaperclipJar :purpur-server:createMojmapBundlerJar
+```
 
-<table>
-<tr>
-<td>
+Typical outputs:
 
-### YourKit
+- `purpur-paperclip-<version>-mojmap.jar`
+- `purpur-bundler-<version>-mojmap.jar`
 
-![YourKit-Logo](https://www.yourkit.com/images/yklogo.png)
+Both are written under:
 
-[YourKit](https://www.yourkit.com/), makers of the outstanding Java profiler,
-support open source projects of all kinds with their full-featured [Java](https://www.yourkit.com/java/profiler)
-and [.NET](https://www.yourkit.com/.net/profiler) application profilers. We thank them for allowing us to use their
-software so we can make Purpur the best it can be.
+- `purpur-server/build/libs`
 
-</td>
+## Project Structure
 
-<td>
+- `paper-api`, `paper-server`: imported Paper sources
+- `purpur-api`, `purpur-server`: Purpur-based patched sources
+- `patches`: patch metadata
+- `purpur-server/src/main/java/org/gpur`: GPur-specific Java sources
+- `purpur-server/src/main/resources/shaders/gpur`: Vulkan compute shaders
 
-### JetBrains
+## Compatibility
 
-[<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.png" alt="JetBrains Logo" height="75">](https://www.jetbrains.com)
+GPur is built on top of Purpur, so the API and general plugin compatibility
+target remain close to Purpur/Paper unless a GPur-specific experiment says
+otherwise.
 
-[JetBrains](https://www.jetbrains.com/), creators of the IntelliJ IDEA, supports Purpur with one of their [Open Source Licenses](https://www.jetbrains.com/opensource/). IntelliJ IDEA is the recommended IDE for working with Purpur, and most of the Purpur team uses it.
+## License
 
-</td>
-</tr>
-</table>
+All GPur patches are licensed under the MIT license unless noted otherwise.
 
-### Our Contributors
+See also:
 
-[![Contributors](https://purpurmc.org/svg?type=contributors&size=64&gap=4&cols=10)](https://github.com/PurpurMC/Purpur/graphs/contributors)
-
-### Our Sponsors
-
-[![GitHub Sponsors](https://purpurmc.org/svg?type=sponsors&size=64&gap=4&cols=10)](https://github.com/sponsors/PurpurMC)
-
-### Our Backers
-
-[![Sponsors](https://purpurmc.org/svg?type=opencollective&size=64&gap=4&cols=10)](https://opencollective.com/purpurmc)
+- [LICENSE](LICENSE)
+- [PaperMC/Paper](https://github.com/PaperMC/Paper)
+- [PurpurMC/Purpur](https://github.com/PurpurMC/Purpur)
+- [PaperMC/paperweight](https://github.com/PaperMC/paperweight)
