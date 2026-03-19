@@ -1,0 +1,31 @@
+# This is the main configuration file for GPur.
+# GPur adds directional chunk preloading and experimental Vulkan-backed
+# chunk generation infrastructure on top of Purpur.
+#
+# If Vulkan initialization fails or no compatible GPU is present, GPur
+# will automatically continue in CPU mode.
+
+chunk-generation:
+  gpu-acceleration:
+    enabled: true
+    queue-threshold: 10
+    gpu-usage-fallback: 90
+    batch-size: 16
+    min-batch-size: 4
+    max-queue-wait-ms: 8
+  preloading:
+    enabled: true
+    base-lookahead: 3
+    elytra-lookahead-factor: 0.6
+    elytra-angle-degrees: 60.0
+gpu-offload:
+  anti-xray:
+    enabled: true
+    min-sections: 2
+  structure-scan:
+    enabled: true
+    min-candidates: 8
+  mob-spawn:
+    enabled: true
+    min-candidates: 4
+config-version: 1

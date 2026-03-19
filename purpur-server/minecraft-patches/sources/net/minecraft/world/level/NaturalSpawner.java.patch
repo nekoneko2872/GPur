@@ -1,11 +1,231 @@
 --- a/net/minecraft/world/level/NaturalSpawner.java
 +++ b/net/minecraft/world/level/NaturalSpawner.java
-@@ -264,7 +_,7 @@
-                     mutableBlockPos.set(x, y, z);
-                     double d = x + 0.5;
-                     double d1 = z + 0.5;
+@@ -49,6 +_,7 @@
+ import net.minecraft.world.level.material.FluidState;
+ import net.minecraft.world.level.storage.LevelData;
+ import net.minecraft.world.phys.Vec3;
++import org.gpur.GPurServices;
+ import org.jspecify.annotations.Nullable;
+ import org.slf4j.Logger;
+ 
+@@ -247,89 +_,158 @@
+         BlockState blockState = level.getBlockStateIfLoadedAndInBounds(pos); // Paper - don't load chunks for mob spawn
+         if (blockState != null && !blockState.isRedstoneConductor(chunk, pos)) { // Paper - don't load chunks for mob spawn
+             BlockPos.MutableBlockPos mutableBlockPos = new BlockPos.MutableBlockPos();
++            List<Vec3> gpurPlayerPositions = collectMobScanPlayers(level);
+             int i = 0;
+ 
+             for (int i1 = 0; i1 < 3; i1++) {
+-                int x = pos.getX();
+-                int z = pos.getZ();
++                int[] randomWalk = new int[]{pos.getX(), pos.getZ()};
+                 int i2 = 6;
+                 MobSpawnSettings.SpawnerData spawnerData = null;
+                 SpawnGroupData spawnGroupData = null;
+                 int ceil = Mth.ceil(level.random.nextFloat() * 4.0F);
+                 int i3 = 0;
++                boolean gpurUseGpuScan = GPurServices.generation().shouldUseMobSpawnGpuScan(ceil, gpurPlayerPositions.size());
++                List<BlockPos> gpurCandidateBlocks = new ArrayList<>(gpurUseGpuScan ? Math.max(ceil, 4) : 0);
++                List<Vec3> gpurCandidatePositions = new ArrayList<>(gpurUseGpuScan ? Math.max(ceil, 4) : 0);
++                float[] gpurNearestDistances = null;
++                if (gpurUseGpuScan) {
++                    extendMobSpawnCandidates(level, y, ceil, randomWalk, gpurCandidateBlocks, gpurCandidatePositions);
++                    gpurNearestDistances = GPurServices.generation().scanMobSpawnCandidates(gpurCandidatePositions, gpurPlayerPositions);
++                    gpurUseGpuScan = gpurNearestDistances != null;
++                }
+ 
+                 for (int i4 = 0; i4 < ceil; i4++) {
+-                    x += level.random.nextInt(6) - level.random.nextInt(6);
+-                    z += level.random.nextInt(6) - level.random.nextInt(6);
+-                    mutableBlockPos.set(x, y, z);
+-                    double d = x + 0.5;
+-                    double d1 = z + 0.5;
 -                    Player nearestPlayer = level.getNearestPlayer(d, y, d1, -1.0, false);
-+                    Player nearestPlayer = level.getNearestPlayer(d, y, d1, -1.0, level.purpurConfig.mobSpawningIgnoreCreativePlayers); // Purpur - mob spawning option to ignore creative players
-                     if (nearestPlayer != null) {
-                         double d2 = nearestPlayer.distanceToSqr(d, y, d1);
-                         if (level.isLoadedAndInBounds(mutableBlockPos) && isRightDistanceToPlayerAndSpawnPoint(level, chunk, mutableBlockPos, d2)) { // Paper - don't load chunks for mob spawn
+-                    if (nearestPlayer != null) {
+-                        double d2 = nearestPlayer.distanceToSqr(d, y, d1);
+-                        if (level.isLoadedAndInBounds(mutableBlockPos) && isRightDistanceToPlayerAndSpawnPoint(level, chunk, mutableBlockPos, d2)) { // Paper - don't load chunks for mob spawn
+-                            if (spawnerData == null) {
+-                                Optional<MobSpawnSettings.SpawnerData> randomSpawnMobAt = getRandomSpawnMobAt(
+-                                    level, structureManager, generator, category, level.random, mutableBlockPos
+-                                );
+-                                if (randomSpawnMobAt.isEmpty()) {
+-                                    break;
+-                                }
+-
+-                                spawnerData = randomSpawnMobAt.get();
+-                                ceil = spawnerData.minCount() + level.random.nextInt(1 + spawnerData.maxCount() - spawnerData.minCount());
+-                            }
+-
+-                            // Paper start - PreCreatureSpawnEvent
+-                            PreSpawnStatus doSpawning = isValidSpawnPostitionForType(level, category, structureManager, generator, spawnerData, mutableBlockPos, d2);
+-                            // Paper start - per player mob count backoff
+-                            if (doSpawning == PreSpawnStatus.ABORT || doSpawning == PreSpawnStatus.CANCELLED) {
+-                                level.getChunkSource().chunkMap.updateFailurePlayerMobTypeMap(mutableBlockPos.getX() >> 4, mutableBlockPos.getZ() >> 4, category);
+-                            }
+-                            // Paper end - per player mob count backoff
+-                            if (doSpawning == PreSpawnStatus.ABORT) {
++                    if (gpurUseGpuScan && i4 >= gpurCandidateBlocks.size()) {
++                        extendMobSpawnCandidates(level, y, ceil, randomWalk, gpurCandidateBlocks, gpurCandidatePositions);
++                        gpurNearestDistances = GPurServices.generation().scanMobSpawnCandidates(gpurCandidatePositions, gpurPlayerPositions);
++                        gpurUseGpuScan = gpurNearestDistances != null;
++                    }
++
++                    double d;
++                    double d1;
++                    double d2;
++                    if (gpurUseGpuScan) {
++                        BlockPos candidatePos = gpurCandidateBlocks.get(i4);
++                        mutableBlockPos.set(candidatePos);
++                        d = candidatePos.getX() + 0.5;
++                        d1 = candidatePos.getZ() + 0.5;
++                        d2 = gpurNearestDistances[i4];
++                        if (!Double.isFinite(d2)) {
++                            continue;
++                        }
++                    } else {
++                        randomWalk[0] += level.random.nextInt(6) - level.random.nextInt(6);
++                        randomWalk[1] += level.random.nextInt(6) - level.random.nextInt(6);
++                        mutableBlockPos.set(randomWalk[0], y, randomWalk[1]);
++                        d = randomWalk[0] + 0.5;
++                        d1 = randomWalk[1] + 0.5;
++                        Player nearestPlayer = level.getNearestPlayer(d, y, d1, -1.0, level.purpurConfig.mobSpawningIgnoreCreativePlayers); // Purpur - mob spawning option to ignore creative players
++                        if (nearestPlayer == null) {
++                            continue;
++                        }
++                        d2 = nearestPlayer.distanceToSqr(d, y, d1);
++                    }
++
++                    if (level.isLoadedAndInBounds(mutableBlockPos) && isRightDistanceToPlayerAndSpawnPoint(level, chunk, mutableBlockPos, d2)) { // Paper - don't load chunks for mob spawn
++                        if (spawnerData == null) {
++                            Optional<MobSpawnSettings.SpawnerData> randomSpawnMobAt = getRandomSpawnMobAt(
++                                level, structureManager, generator, category, level.random, mutableBlockPos
++                            );
++                            if (randomSpawnMobAt.isEmpty()) {
++                                break;
++                            }
++
++                            spawnerData = randomSpawnMobAt.get();
++                            ceil = spawnerData.minCount() + level.random.nextInt(1 + spawnerData.maxCount() - spawnerData.minCount());
++                            if (gpurUseGpuScan && ceil > gpurCandidateBlocks.size()) {
++                                extendMobSpawnCandidates(level, y, ceil, randomWalk, gpurCandidateBlocks, gpurCandidatePositions);
++                                gpurNearestDistances = GPurServices.generation().scanMobSpawnCandidates(gpurCandidatePositions, gpurPlayerPositions);
++                                gpurUseGpuScan = gpurNearestDistances != null;
++                            }
++                        }
++
++                        // Paper start - PreCreatureSpawnEvent
++                        PreSpawnStatus doSpawning = isValidSpawnPostitionForType(level, category, structureManager, generator, spawnerData, mutableBlockPos, d2);
++                        // Paper start - per player mob count backoff
++                        if (doSpawning == PreSpawnStatus.ABORT || doSpawning == PreSpawnStatus.CANCELLED) {
++                            level.getChunkSource().chunkMap.updateFailurePlayerMobTypeMap(mutableBlockPos.getX() >> 4, mutableBlockPos.getZ() >> 4, category);
++                        }
++                        // Paper end - per player mob count backoff
++                        if (doSpawning == PreSpawnStatus.ABORT) {
++                            return;
++                        }
++                        if (doSpawning == PreSpawnStatus.SUCCESS
++                        // Paper end - PreCreatureSpawnEvent
++                            && filter.test(spawnerData.type(), mutableBlockPos, chunk)) {
++                            Mob mobForSpawn = getMobForSpawn(level, spawnerData.type());
++                            if (mobForSpawn == null) {
+                                 return;
+                             }
+-                            if (doSpawning == PreSpawnStatus.SUCCESS
+-                            // Paper end - PreCreatureSpawnEvent
+-                                && filter.test(spawnerData.type(), mutableBlockPos, chunk)) {
+-                                Mob mobForSpawn = getMobForSpawn(level, spawnerData.type());
+-                                if (mobForSpawn == null) {
++
++                            mobForSpawn.snapTo(d, y, d1, level.random.nextFloat() * 360.0F, 0.0F);
++                            if (isValidPositionForMob(level, mobForSpawn, d2)) {
++                                spawnGroupData = mobForSpawn.finalizeSpawn(
++                                    level, level.getCurrentDifficultyAt(mobForSpawn.blockPosition()), EntitySpawnReason.NATURAL, spawnGroupData
++                                );
++                                // CraftBukkit start
++                                // SPIGOT-7045: Give ocelot babies back their special spawn reason. Note: This is the only modification required as ocelots count as monsters which means they only spawn during normal chunk ticking and do not spawn during chunk generation as starter mobs.
++                                level.addFreshEntityWithPassengers(mobForSpawn, (mobForSpawn instanceof net.minecraft.world.entity.animal.feline.Ocelot && !((org.bukkit.entity.Ageable) mobForSpawn.getBukkitEntity()).isAdult()) ? org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.OCELOT_BABY : org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL);
++                                if (!mobForSpawn.isRemoved()) {
++                                    ++i;
++                                    ++i3;
++                                    callback.run(mobForSpawn, chunk);
++                                    // Paper start - Optional per player mob spawns
++                                    if (trackEntity != null) {
++                                        trackEntity.accept(mobForSpawn);
++                                    }
++                                    // Paper end - Optional per player mob spawns
++                                }
++                                // CraftBukkit end
++                                if (i >= mobForSpawn.getMaxSpawnClusterSize() || i >= maxSpawns) { // Paper - Optional per player mob spawns
+                                     return;
+                                 }
+ 
+-                                mobForSpawn.snapTo(d, y, d1, level.random.nextFloat() * 360.0F, 0.0F);
+-                                if (isValidPositionForMob(level, mobForSpawn, d2)) {
+-                                    spawnGroupData = mobForSpawn.finalizeSpawn(
+-                                        level, level.getCurrentDifficultyAt(mobForSpawn.blockPosition()), EntitySpawnReason.NATURAL, spawnGroupData
+-                                    );
+-                                    // CraftBukkit start
+-                                    // SPIGOT-7045: Give ocelot babies back their special spawn reason. Note: This is the only modification required as ocelots count as monsters which means they only spawn during normal chunk ticking and do not spawn during chunk generation as starter mobs.
+-                                    level.addFreshEntityWithPassengers(mobForSpawn, (mobForSpawn instanceof net.minecraft.world.entity.animal.feline.Ocelot && !((org.bukkit.entity.Ageable) mobForSpawn.getBukkitEntity()).isAdult()) ? org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.OCELOT_BABY : org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL);
+-                                    if (!mobForSpawn.isRemoved()) {
+-                                        ++i;
+-                                        ++i3;
+-                                        callback.run(mobForSpawn, chunk);
+-                                        // Paper start - Optional per player mob spawns
+-                                        if (trackEntity != null) {
+-                                            trackEntity.accept(mobForSpawn);
+-                                        }
+-                                        // Paper end - Optional per player mob spawns
+-                                    }
+-                                    // CraftBukkit end
+-                                    if (i >= mobForSpawn.getMaxSpawnClusterSize() || i >= maxSpawns) { // Paper - Optional per player mob spawns
+-                                        return;
+-                                    }
+-
+-                                    if (mobForSpawn.isMaxGroupSizeReached(i3)) {
+-                                        break;
+-                                    }
++                                if (mobForSpawn.isMaxGroupSizeReached(i3)) {
++                                    break;
+                                 }
+                             }
+                         }
+                     }
+                 }
+             }
++        }
++    }
++
++    private static List<Vec3> collectMobScanPlayers(ServerLevel level) {
++        List<Vec3> playerPositions = new ArrayList<>(level.players().size());
++
++        for (Player player : level.players()) {
++            if (!player.isAlive()) {
++                continue;
++            }
++            if (level.purpurConfig.mobSpawningIgnoreCreativePlayers && player.isCreative()) {
++                continue;
++            }
++
++            playerPositions.add(player.position());
++        }
++
++        return playerPositions;
++    }
++
++    private static void extendMobSpawnCandidates(
++        ServerLevel level,
++        int y,
++        int targetCount,
++        int[] randomWalk,
++        List<BlockPos> candidateBlocks,
++        List<Vec3> candidatePositions
++    ) {
++        while (candidateBlocks.size() < targetCount) {
++            randomWalk[0] += level.random.nextInt(6) - level.random.nextInt(6);
++            randomWalk[1] += level.random.nextInt(6) - level.random.nextInt(6);
++            candidateBlocks.add(new BlockPos(randomWalk[0], y, randomWalk[1]));
++            candidatePositions.add(new Vec3(randomWalk[0] + 0.5, y, randomWalk[1] + 0.5));
+         }
+     }
+ 

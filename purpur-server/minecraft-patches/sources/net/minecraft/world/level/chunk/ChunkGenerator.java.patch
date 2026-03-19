@@ -1,0 +1,97 @@
+--- a/net/minecraft/world/level/chunk/ChunkGenerator.java
++++ b/net/minecraft/world/level/chunk/ChunkGenerator.java
+@@ -76,6 +_,7 @@
+ import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
+ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+ import org.apache.commons.lang3.mutable.MutableBoolean;
++import org.gpur.GPurServices;
+ import org.jspecify.annotations.Nullable;
+ 
+ public abstract class ChunkGenerator {
+@@ -188,6 +_,39 @@
+                     int sectionPosZ = SectionPos.blockToSectionCoord(pos.getZ());
+ 
+                     for (int i = 0; i <= radius; i++) {
++                        List<GPurStructureLocateCandidate> gpurCandidates = new ArrayList<>();
++                        List<BlockPos> gpurLocatePositions = new ArrayList<>();
++                        for (Entry<StructurePlacement, Set<Holder<Structure>>> entry1 : list) {
++                            collectRandomSpreadLocateCandidates(
++                                entry1.getValue(),
++                                sectionPosX,
++                                sectionPosZ,
++                                i,
++                                generatorState.getLevelSeed(),
++                                (RandomSpreadStructurePlacement)entry1.getKey(),
++                                gpurCandidates,
++                                gpurLocatePositions
++                            );
++                        }
++                        int[] gpurOrder = GPurServices.generation().orderStructureCandidates(pos, gpurLocatePositions);
++                        if (gpurOrder != null) {
++                            for (int candidateIndex : gpurOrder) {
++                                GPurStructureLocateCandidate candidate = gpurCandidates.get(candidateIndex);
++                                Pair<BlockPos, Holder<Structure>> structureGeneratingAt = getStructureGeneratingAt(
++                                    candidate.structureHoldersSet(),
++                                    level,
++                                    structureManager,
++                                    skipKnownStructures,
++                                    candidate.placement(),
++                                    candidate.chunkPos()
++                                );
++                                if (structureGeneratingAt != null) {
++                                    return structureGeneratingAt;
++                                }
++                            }
++                            continue;
++                        }
++
+                         boolean flag = false;
+ 
+                         for (Entry<StructurePlacement, Set<Holder<Structure>>> entry1 : list) {
+@@ -260,6 +_,32 @@
+         }
+     }
+ 
++    private static void collectRandomSpreadLocateCandidates(
++        Set<Holder<Structure>> structureHoldersSet,
++        int x,
++        int y,
++        int radius,
++        long seed,
++        RandomSpreadStructurePlacement spreadPlacement,
++        List<GPurStructureLocateCandidate> candidates,
++        List<BlockPos> locatePositions
++    ) {
++        int spacing = spreadPlacement.spacing();
++
++        for (int i = -radius; i <= radius; i++) {
++            boolean onBorderAlongZAxis = i == -radius || i == radius;
++
++            for (int i1 = -radius; i1 <= radius; i1 += onBorderAlongZAxis ? 1 : radius * 2) {
++                int i2 = x + spacing * i;
++                int i3 = y + spacing * i1;
++                ChunkPos potentialStructureChunk = spreadPlacement.getPotentialStructureChunk(seed, i2, i3);
++                BlockPos locatePos = spreadPlacement.getLocatePos(potentialStructureChunk);
++                candidates.add(new GPurStructureLocateCandidate(structureHoldersSet, spreadPlacement, potentialStructureChunk));
++                locatePositions.add(locatePos);
++            }
++        }
++    }
++
+     private static @Nullable Pair<BlockPos, Holder<Structure>> getNearestGeneratedStructure(
+         Set<Holder<Structure>> structureHoldersSet,
+         LevelReader level,
+@@ -332,6 +_,13 @@
+         } else {
+             return false;
+         }
++    }
++
++    private static record GPurStructureLocateCandidate(
++        Set<Holder<Structure>> structureHoldersSet,
++        RandomSpreadStructurePlacement placement,
++        ChunkPos chunkPos
++    ) {
+     }
+ 
+     public void addVanillaDecorations(WorldGenLevel level, ChunkAccess chunk, StructureManager structureManager) { // CraftBukkit - rename

@@ -1,0 +1,821 @@
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/player/RegionizedPlayerChunkLoader.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/player/RegionizedPlayerChunkLoader.java
+@@ -22,6 +_,12 @@
+ import it.unimi.dsi.fastutil.longs.LongComparator;
+ import it.unimi.dsi.fastutil.longs.LongHeapPriorityQueue;
+ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
++import org.gpur.GPurConfig;
++import org.gpur.GPurServices;
++import org.gpur.preload.GPurElytraPreloadMath;
++import org.gpur.preload.GPurElytraPreloadMath.PreloadProfile;
++import org.gpur.preload.GPurSharedPreloadService.SharedPreloadAnchor;
++import org.gpur.preload.GPurSharedPreloadService.SharedPreloadSelection;
+ import net.minecraft.network.protocol.Packet;
+ import net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket;
+ import net.minecraft.network.protocol.game.ClientboundSetChunkCacheCenterPacket;
+@@ -40,6 +_,7 @@
+ import net.minecraft.world.level.levelgen.BelowZeroRetrogen;
+ import java.lang.invoke.VarHandle;
+ import java.util.ArrayDeque;
++import java.util.List;
+ import java.util.concurrent.TimeUnit;
+ import java.util.concurrent.atomic.AtomicLong;
+ import java.util.function.Function;
+@@ -342,6 +_,10 @@
+         private int lastSentSimulationDistance = Integer.MIN_VALUE;
+ 
+         private boolean canGenerateChunks = true;
++        private int effectiveLoadDistance = 1;
++        private PreloadProfile preloadProfile = GPurElytraPreloadMath.inactive(GPurConfig.baseLookahead, GPurConfig.elytraAngleDegrees);
++        private RetainedPreloadWindow retainedPreload = RetainedPreloadWindow.inactive();
++        private SharedPreloadSelection sharedPreloadSelection = new SharedPreloadSelection(List.of(), 0L);
+ 
+         private final ArrayDeque<ChunkHolderManager.TicketOperation<?, ?>> delayedTicketOps = new ArrayDeque<>();
+         private final LongOpenHashSet sentChunks = new LongOpenHashSet();
+@@ -372,21 +_,7 @@
+         private final AllocatingRateLimiter chunkGenerateTicketLimiter = new AllocatingRateLimiter(ALLOCATION_GRANULARITY);
+ 
+         // queues
+-        private final LongComparator CLOSEST_MANHATTAN_DIST = (final long c1, final long c2) -> {
+-            final int c1x = CoordinateUtils.getChunkX(c1);
+-            final int c1z = CoordinateUtils.getChunkZ(c1);
+-
+-            final int c2x = CoordinateUtils.getChunkX(c2);
+-            final int c2z = CoordinateUtils.getChunkZ(c2);
+-
+-            final int centerX = PlayerChunkLoaderData.this.lastChunkX;
+-            final int centerZ = PlayerChunkLoaderData.this.lastChunkZ;
+-
+-            return Integer.compare(
+-                Math.abs(c1x - centerX) + Math.abs(c1z - centerZ),
+-                Math.abs(c2x - centerX) + Math.abs(c2z - centerZ)
+-            );
+-        };
++        private final LongComparator CLOSEST_MANHATTAN_DIST = this::compareByQueuePriority;
+         private final LongHeapPriorityQueue sendQueue = new LongHeapPriorityQueue(CLOSEST_MANHATTAN_DIST);
+         private final LongHeapPriorityQueue tickingQueue = new LongHeapPriorityQueue(CLOSEST_MANHATTAN_DIST);
+         private final LongHeapPriorityQueue generatingQueue = new LongHeapPriorityQueue(CLOSEST_MANHATTAN_DIST);
+@@ -401,6 +_,23 @@
+             this.player = player;
+         }
+ 
++        private enum PreloadPriorityType {
++            NONE,
++            CURRENT,
++            RETAINED,
++            SHARED
++        }
++
++        private record RetainedPreloadWindow(int centerChunkX, int centerChunkZ, PreloadProfile profile, long expiresAtNanos) {
++            private static RetainedPreloadWindow inactive() {
++                return new RetainedPreloadWindow(0, 0, null, Long.MIN_VALUE);
++            }
++
++            private boolean active(final long nowNanos) {
++                return this.profile != null && this.profile.active() && nowNanos <= this.expiresAtNanos;
++            }
++        }
++
+         private void flushDelayedTicketOps() {
+             if (this.delayedTicketOps.isEmpty()) {
+                 return;
+@@ -562,26 +_,219 @@
+             return !this.player.isSpectator() || this.world.getGameRules().get(GameRules.SPECTATORS_GENERATE_CHUNKS);
+         }
+ 
++        private PreloadProfile computePreloadProfile() {
++            final net.minecraft.world.phys.Vec3 deltaMovement = this.player.getDeltaMovement();
++            final net.minecraft.world.phys.Vec3 lookAngle = this.player.getLookAngle();
++            return GPurElytraPreloadMath.fromMotion(
++                GPurConfig.preloadingEnabled,
++                this.player.isFallFlying(),
++                deltaMovement.x,
++                deltaMovement.z,
++                lookAngle.x,
++                lookAngle.z,
++                GPurConfig.baseLookahead,
++                GPurConfig.elytraLookaheadFactor,
++                GPurConfig.elytraAngleDegrees,
++                GPurConfig.elytraLookDirectionBlend,
++                GPurConfig.elytraTurnLookaheadBoost,
++                GPurConfig.elytraTurnAngleBoostDegrees
++            );
++        }
++
++        private RetainedPreloadWindow computeRetainedPreloadWindow(
++            final int currentChunkX,
++            final int currentChunkZ,
++            final PreloadProfile nextProfile,
++            final long nowNanos
++        ) {
++            if (!GPurConfig.preloadRetentionEnabled || GPurConfig.preloadRetentionMillis <= 0) {
++                return RetainedPreloadWindow.inactive();
++            }
++
++            RetainedPreloadWindow retained = this.retainedPreload.active(nowNanos) ? this.retainedPreload : RetainedPreloadWindow.inactive();
++
++            if (this.preloadProfile.active()) {
++                boolean shouldRetainPrevious = !nextProfile.active();
++                if (!shouldRetainPrevious && nextProfile.active()) {
++                    shouldRetainPrevious = this.directionDot(this.preloadProfile, nextProfile) < GPurConfig.preloadRetentionDirectionDotThreshold;
++                }
++
++                if (shouldRetainPrevious) {
++                    retained = new RetainedPreloadWindow(
++                        currentChunkX,
++                        currentChunkZ,
++                        this.preloadProfile,
++                        nowNanos + TimeUnit.MILLISECONDS.toNanos(GPurConfig.preloadRetentionMillis)
++                    );
++                }
++            }
++
++            if (!retained.active(nowNanos)) {
++                return RetainedPreloadWindow.inactive();
++            }
++
++            if (nextProfile.active() && this.directionDot(retained.profile(), nextProfile) >= GPurConfig.preloadRetentionDirectionDotThreshold) {
++                return RetainedPreloadWindow.inactive();
++            }
++
++            return retained;
++        }
++
++        private SharedPreloadSelection refreshSharedPreloadState(
++            final int currentChunkX,
++            final int currentChunkZ,
++            final PreloadProfile profile,
++            final long nowNanos
++        ) {
++            final SharedPreloadSelection selection = GPurServices.preload().selectAnchors(
++                this.player,
++                this.world,
++                currentChunkX,
++                currentChunkZ,
++                profile,
++                nowNanos
++            );
++            GPurServices.preload().updateAnchor(this.player, this.world, currentChunkX, currentChunkZ, profile, nowNanos);
++            return selection;
++        }
++
++        private int calculateEffectiveLoadDistance(
++            final int loadViewDistance,
++            final PreloadProfile profile,
++            final RetainedPreloadWindow retained,
++            final SharedPreloadSelection sharedSelection,
++            final long nowNanos
++        ) {
++            int effectiveDistance = loadViewDistance + 1;
++            if (profile.active()) {
++                effectiveDistance = Math.max(effectiveDistance, profile.lookaheadChunks());
++            }
++            if (retained.active(nowNanos)) {
++                effectiveDistance = Math.max(effectiveDistance, retained.profile().lookaheadChunks());
++            }
++            for (final SharedPreloadAnchor anchor : sharedSelection.anchors()) {
++                effectiveDistance = Math.max(effectiveDistance, anchor.profile().lookaheadChunks());
++            }
++
++            if (GPurConfig.turboModeEnabled) {
++                effectiveDistance = Math.max(effectiveDistance, (loadViewDistance + 1) + GPurConfig.turboExtraLookahead);
++                if (profile.active()) {
++                    effectiveDistance = Math.max(effectiveDistance, profile.lookaheadChunks() + GPurConfig.turboExtraLookahead);
++                }
++                if (retained.active(nowNanos)) {
++                    effectiveDistance = Math.max(effectiveDistance, retained.profile().lookaheadChunks() + Math.max(1, GPurConfig.turboExtraLookahead / 2));
++                }
++                for (final SharedPreloadAnchor anchor : sharedSelection.anchors()) {
++                    effectiveDistance = Math.max(effectiveDistance, anchor.profile().lookaheadChunks() + Math.max(1, GPurConfig.turboExtraLookahead / 2));
++                }
++            }
++
++            return effectiveDistance;
++        }
++
++        private double directionDot(final PreloadProfile left, final PreloadProfile right) {
++            return (left.directionX() * right.directionX()) + (left.directionZ() * right.directionZ());
++        }
++
++        private double getElytraThroughputBoostFactor() {
++            if (!GPurConfig.elytraThroughputBoostEnabled || !this.preloadProfile.active()) {
++                return 0.0D;
++            }
++
++            final double speed = this.preloadProfile.horizontalSpeedBlocksPerSecond();
++            if (speed <= GPurConfig.elytraBoostStartSpeed) {
++                return 0.0D;
++            }
++
++            final double fullRange = Math.max(0.1D, GPurConfig.elytraBoostFullSpeed - GPurConfig.elytraBoostStartSpeed);
++            return Math.min(1.0D, (speed - GPurConfig.elytraBoostStartSpeed) / fullRange);
++        }
++
++        private double applyRateMultiplier(final double baseRate, final double configuredMultiplier) {
++            if (baseRate >= (double)MAX_RATE || configuredMultiplier <= 1.0D) {
++                return baseRate;
++            }
++
++            final double boostFactor = this.getElytraThroughputBoostFactor();
++            if (boostFactor <= 0.0D) {
++                return baseRate;
++            }
++
++            final double effectiveMultiplier = 1.0D + ((configuredMultiplier - 1.0D) * boostFactor);
++            return Math.max(baseRate, Math.min((double)MAX_RATE, baseRate * effectiveMultiplier));
++        }
++
++        private double applyTurboRateMultiplier(final double baseRate, final double configuredMultiplier) {
++            if (!GPurConfig.turboModeEnabled || baseRate >= (double)MAX_RATE || configuredMultiplier <= 1.0D) {
++                return baseRate;
++            }
++
++            return Math.max(baseRate, Math.min((double)MAX_RATE, baseRate * configuredMultiplier));
++        }
++
++        private long applyConcurrentBudgetMultiplier(final long baseBudget, final double configuredMultiplier) {
++            if (baseBudget <= 0L || baseBudget >= MAX_RATE || configuredMultiplier <= 1.0D) {
++                return baseBudget;
++            }
++
++            final double boostFactor = this.getElytraThroughputBoostFactor();
++            if (boostFactor <= 0.0D) {
++                return baseBudget;
++            }
++
++            final double effectiveMultiplier = 1.0D + ((configuredMultiplier - 1.0D) * boostFactor);
++            return Math.max(baseBudget, Math.min(MAX_RATE, (long)Math.ceil(baseBudget * effectiveMultiplier)));
++        }
++
++        private long applyTurboBudgetMultiplier(final long baseBudget, final double configuredMultiplier) {
++            if (!GPurConfig.turboModeEnabled || baseBudget <= 0L || baseBudget >= MAX_RATE || configuredMultiplier <= 1.0D) {
++                return baseBudget;
++            }
++
++            return Math.max(baseBudget, Math.min(MAX_RATE, (long)Math.ceil(baseBudget * configuredMultiplier)));
++        }
++
++        private int getQueueProgressScanLimit(final int queueSize) {
++            if (queueSize <= 1) {
++                return queueSize;
++            }
++
++            final boolean assistedPreload = this.preloadProfile.active()
++                || this.retainedPreload.active(System.nanoTime())
++                || !this.sharedPreloadSelection.anchors().isEmpty();
++            int baseLimit = assistedPreload ? Math.min(64, Math.max(12, this.getMaxPreloadLookaheadChunks())) : 8;
++            if (GPurConfig.turboModeEnabled) {
++                baseLimit = Math.min(96, Math.max(baseLimit, 24 + GPurConfig.turboExtraLookahead));
++            }
++            return Math.min(queueSize, baseLimit);
++        }
++
++        private void requeueDeferred(final LongHeapPriorityQueue queue, final LongArrayList deferred) {
++            for (int i = 0, size = deferred.size(); i < size; ++i) {
++                queue.enqueue(deferred.getLong(i));
++            }
++        }
++
+         private double getMaxChunkLoadRate() {
+             final double configRate = PlatformHooks.get().configPlayerMaxLoadRate();
+-
+-            return configRate <= 0.0 || configRate > (double)MAX_RATE ? (double)MAX_RATE : Math.max(1.0, configRate);
++            final double baseRate = configRate <= 0.0 || configRate > (double)MAX_RATE ? (double)MAX_RATE : Math.max(1.0, configRate);
++            return this.applyTurboRateMultiplier(this.applyRateMultiplier(baseRate, GPurConfig.elytraLoadRateMultiplier), GPurConfig.turboLoadRateMultiplier);
+         }
+ 
+         private double getMaxChunkGenRate() {
+             final double configRate = PlatformHooks.get().configPlayerMaxGenRate();
+-
+-            return configRate <= 0.0 || configRate > (double)MAX_RATE ? (double)MAX_RATE : Math.max(1.0, configRate);
++            final double baseRate = configRate <= 0.0 || configRate > (double)MAX_RATE ? (double)MAX_RATE : Math.max(1.0, configRate);
++            return this.applyTurboRateMultiplier(this.applyRateMultiplier(baseRate, GPurConfig.elytraGenRateMultiplier), GPurConfig.turboGenRateMultiplier);
+         }
+ 
+         private double getMaxChunkSendRate() {
+             final double configRate = PlatformHooks.get().configPlayerMaxSendRate();
+-
+-            return configRate <= 0.0 || configRate > (double)MAX_RATE ? (double)MAX_RATE : Math.max(1.0, configRate);
++            final double baseRate = configRate <= 0.0 || configRate > (double)MAX_RATE ? (double)MAX_RATE : Math.max(1.0, configRate);
++            return this.applyTurboRateMultiplier(this.applyRateMultiplier(baseRate, GPurConfig.elytraSendRateMultiplier), GPurConfig.turboSendRateMultiplier);
+         }
+ 
+         private long getMaxChunkLoads() {
+-            final long radiusChunks = (2L * this.lastLoadDistance + 1L) * (2L * this.lastLoadDistance + 1L);
++            final long radiusChunks = (2L * this.effectiveLoadDistance + 1L) * (2L * this.effectiveLoadDistance + 1L);
+             long configLimit = (long)PlatformHooks.get().configPlayerMaxConcurrentLoads();
+             if (configLimit == 0L) {
+                 // by default, only allow 1/5th of the chunks in the view distance to be concurrently active
+@@ -591,11 +_,14 @@
+             } // else: use the value configured
+             configLimit = configLimit - this.loadingQueue.size();
+ 
+-            return configLimit;
++            return this.applyTurboBudgetMultiplier(
++                this.applyConcurrentBudgetMultiplier(configLimit, GPurConfig.elytraConcurrentLoadsMultiplier),
++                GPurConfig.turboConcurrentLoadsMultiplier
++            );
+         }
+ 
+         private long getMaxChunkGenerates() {
+-            final long radiusChunks = (2L * this.lastLoadDistance + 1L) * (2L * this.lastLoadDistance + 1L);
++            final long radiusChunks = (2L * this.effectiveLoadDistance + 1L) * (2L * this.effectiveLoadDistance + 1L);
+             long configLimit = (long)PlatformHooks.get().configPlayerMaxConcurrentGens();
+             if (configLimit == 0L) {
+                 // by default, only allow 1/5th of the chunks in the view distance to be concurrently active
+@@ -605,7 +_,219 @@
+             } // else: use the value configured
+             configLimit = configLimit - this.generatingQueue.size();
+ 
+-            return configLimit;
++            return this.applyTurboBudgetMultiplier(
++                this.applyConcurrentBudgetMultiplier(configLimit, GPurConfig.elytraConcurrentGeneratesMultiplier),
++                GPurConfig.turboConcurrentGeneratesMultiplier
++            );
++        }
++
++        private int compareByQueuePriority(final long c1, final long c2) {
++            final int c1Band = this.getQueuePriorityBand(c1);
++            final int c2Band = this.getQueuePriorityBand(c2);
++            final int bandComparison = Integer.compare(c1Band, c2Band);
++            if (bandComparison != 0) {
++                return bandComparison;
++            }
++
++            if (c1Band <= 1) {
++                final int forwardComparison = Double.compare(this.getForwardPriorityScore(c2), this.getForwardPriorityScore(c1));
++                if (forwardComparison != 0) {
++                    return forwardComparison;
++                }
++            }
++
++            return this.compareByManhattan(c1, c2);
++        }
++
++        private int compareByManhattan(final long c1, final long c2) {
++            final int c1x = CoordinateUtils.getChunkX(c1);
++            final int c1z = CoordinateUtils.getChunkZ(c1);
++            final int c2x = CoordinateUtils.getChunkX(c2);
++            final int c2z = CoordinateUtils.getChunkZ(c2);
++            final int centerX = this.lastChunkX;
++            final int centerZ = this.lastChunkZ;
++
++            return Integer.compare(
++                Math.abs(c1x - centerX) + Math.abs(c1z - centerZ),
++                Math.abs(c2x - centerX) + Math.abs(c2z - centerZ)
++            );
++        }
++
++        private int getQueuePriorityBand(final long chunkKey) {
++            final int chunkX = CoordinateUtils.getChunkX(chunkKey);
++            final int chunkZ = CoordinateUtils.getChunkZ(chunkKey);
++            final PreloadPriorityType priorityType = this.getPreloadPriorityType(chunkX, chunkZ);
++            if (priorityType == PreloadPriorityType.CURRENT) {
++                return 0;
++            }
++            if (priorityType == PreloadPriorityType.RETAINED || priorityType == PreloadPriorityType.SHARED) {
++                return 1;
++            }
++
++            final int dx = this.lastChunkX - chunkX;
++            final int dz = this.lastChunkZ - chunkZ;
++            return Math.max(Math.abs(dx), Math.abs(dz)) <= this.lastLoadDistance + 1 ? 2 : 3;
++        }
++
++        private double getForwardPriorityScore(final long chunkKey) {
++            final int chunkX = CoordinateUtils.getChunkX(chunkKey);
++            final int chunkZ = CoordinateUtils.getChunkZ(chunkKey);
++
++            double bestScore = Double.NEGATIVE_INFINITY;
++            if (this.preloadProfile.active()) {
++                bestScore = Math.max(bestScore, GPurElytraPreloadMath.forwardPriorityScore(
++                    this.preloadProfile,
++                    this.lastChunkX,
++                    this.lastChunkZ,
++                    chunkX,
++                    chunkZ
++                ));
++            }
++
++            final long nowNanos = System.nanoTime();
++            if (this.retainedPreload.active(nowNanos)) {
++                bestScore = Math.max(bestScore, GPurElytraPreloadMath.forwardPriorityScore(
++                    this.retainedPreload.profile(),
++                    this.retainedPreload.centerChunkX(),
++                    this.retainedPreload.centerChunkZ(),
++                    chunkX,
++                    chunkZ
++                ));
++            }
++
++            for (final SharedPreloadAnchor anchor : this.sharedPreloadSelection.anchors()) {
++                bestScore = Math.max(bestScore, GPurElytraPreloadMath.forwardPriorityScore(
++                    anchor.profile(),
++                    anchor.centerChunkX(),
++                    anchor.centerChunkZ(),
++                    chunkX,
++                    chunkZ
++                ));
++            }
++
++            return bestScore;
++        }
++
++        private PreloadPriorityType getPreloadPriorityType(final int chunkX, final int chunkZ) {
++            if (GPurElytraPreloadMath.isWithinPreloadCone(this.preloadProfile, this.lastChunkX, this.lastChunkZ, chunkX, chunkZ)) {
++                return PreloadPriorityType.CURRENT;
++            }
++            if (this.isWithinRetainedPreload(chunkX, chunkZ)) {
++                return PreloadPriorityType.RETAINED;
++            }
++            if (this.isWithinSharedPreload(chunkX, chunkZ)) {
++                return PreloadPriorityType.SHARED;
++            }
++            return PreloadPriorityType.NONE;
++        }
++
++        private boolean isPriorityPreloadChunk(final int chunkX, final int chunkZ) {
++            return this.getPreloadPriorityType(chunkX, chunkZ) != PreloadPriorityType.NONE;
++        }
++
++        private boolean isWithinRetainedPreload(final int chunkX, final int chunkZ) {
++            final long nowNanos = System.nanoTime();
++            return this.retainedPreload.active(nowNanos) && GPurElytraPreloadMath.isWithinPreloadCone(
++                this.retainedPreload.profile(),
++                this.retainedPreload.centerChunkX(),
++                this.retainedPreload.centerChunkZ(),
++                chunkX,
++                chunkZ
++            );
++        }
++
++        private boolean isWithinSharedPreload(final int chunkX, final int chunkZ) {
++            for (final SharedPreloadAnchor anchor : this.sharedPreloadSelection.anchors()) {
++                if (GPurElytraPreloadMath.isWithinPreloadCone(anchor.profile(), anchor.centerChunkX(), anchor.centerChunkZ(), chunkX, chunkZ)) {
++                    return true;
++                }
++            }
++            return false;
++        }
++
++        private int getMaxPreloadLookaheadChunks() {
++            int maxLookahead = this.preloadProfile.active() ? this.preloadProfile.lookaheadChunks() : GPurConfig.baseLookahead;
++            final long nowNanos = System.nanoTime();
++            if (this.retainedPreload.active(nowNanos)) {
++                maxLookahead = Math.max(maxLookahead, this.retainedPreload.profile().lookaheadChunks());
++            }
++            for (final SharedPreloadAnchor anchor : this.sharedPreloadSelection.anchors()) {
++                maxLookahead = Math.max(maxLookahead, anchor.profile().lookaheadChunks());
++            }
++            return maxLookahead;
++        }
++
++        private void recordPreloadPriorityHit(final PreloadPriorityType priorityType) {
++            if (priorityType == PreloadPriorityType.RETAINED) {
++                GPurServices.preload().recordRetainedPriorityHit();
++            } else if (priorityType == PreloadPriorityType.SHARED) {
++                GPurServices.preload().recordSharedPriorityHit();
++            }
++        }
++
++        private int getExtraSendBurstBudget() {
++            if (!this.isPriorityBurstActive()) {
++                return 0;
++            }
++
++            int extraBudget = GPurConfig.elytraSendBurstEnabled ? GPurConfig.elytraSendBurstExtraChunks : 0;
++            if (GPurConfig.elytraSendBurstEnabled && this.preloadProfile.active()) {
++                extraBudget += (int)Math.ceil(this.getElytraThroughputBoostFactor() * GPurConfig.elytraSendBurstExtraChunks);
++            }
++            if (GPurConfig.turboModeEnabled) {
++                extraBudget += GPurConfig.turboSendBurstExtraChunks;
++            }
++            return extraBudget;
++        }
++
++        private boolean isPriorityBurstActive() {
++            return this.preloadProfile.active()
++                || this.retainedPreload.active(System.nanoTime())
++                || !this.sharedPreloadSelection.anchors().isEmpty()
++                || GPurConfig.turboModeEnabled;
++        }
++
++        private boolean isBurstEligibleChunk(final int chunkX, final int chunkZ) {
++            return this.getPreloadPriorityType(chunkX, chunkZ) != PreloadPriorityType.NONE || GPurConfig.turboModeEnabled;
++        }
++
++        private Priority getChunkTaskPriority(final int chunkX, final int chunkZ) {
++            final PreloadPriorityType priorityType = this.getPreloadPriorityType(chunkX, chunkZ);
++            if (priorityType == PreloadPriorityType.NONE) {
++                return Priority.NORMAL;
++            }
++
++            final int dx = chunkX - this.lastChunkX;
++            final int dz = chunkZ - this.lastChunkZ;
++            final int squareDistance = Math.max(Math.abs(dx), Math.abs(dz));
++            final int priorityBoundary = Math.max(this.lastLoadDistance + 2, this.preloadProfile.lookaheadChunks() / 2);
++
++            if (priorityType == PreloadPriorityType.CURRENT) {
++                return squareDistance >= priorityBoundary || GPurConfig.turboModeEnabled ? Priority.HIGHEST : Priority.HIGHER;
++            }
++
++            return GPurConfig.turboModeEnabled ? Priority.HIGHEST : Priority.HIGHER;
++        }
++
++        private void raiseChunkPriority(final int chunkX, final int chunkZ) {
++            final Priority priority = this.getChunkTaskPriority(chunkX, chunkZ);
++            if (priority == Priority.NORMAL) {
++                return;
++            }
++
++            this.recordPreloadPriorityHit(this.getPreloadPriorityType(chunkX, chunkZ));
++            final ChunkTaskScheduler scheduler = ((ChunkSystemServerLevel)this.world).moonrise$getChunkTaskScheduler();
++            final ChunkHolderManager chunkHolderManager = scheduler.chunkHolderManager;
++            final ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder holder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
++            if (holder == null) {
++                return;
++            }
++
++            try {
++                holder.raisePriority(priority);
++            } catch (final NullPointerException ignored) {
++                // Holders can disappear while Moonrise recalculates neighbours; skip this frame and let the next update retry.
++            }
+         }
+ 
+         private boolean wantChunkSent(final int chunkX, final int chunkZ) {
+@@ -656,17 +_,16 @@
+             this.chunkSendLimiter.tickAllocation(time, sendRate, sendRate);
+ 
+             // try to progress chunk loads
+-            while (!this.loadingQueue.isEmpty()) {
+-                final long pendingLoadChunk = this.loadingQueue.firstLong();
++            final LongArrayList deferredLoadingChunks = new LongArrayList();
++            for (int loadingScans = this.getQueueProgressScanLimit(this.loadingQueue.size()); loadingScans > 0 && !this.loadingQueue.isEmpty(); --loadingScans) {
++                final long pendingLoadChunk = this.loadingQueue.dequeueLong();
+                 final int pendingChunkX = CoordinateUtils.getChunkX(pendingLoadChunk);
+                 final int pendingChunkZ = CoordinateUtils.getChunkZ(pendingLoadChunk);
+                 final ChunkAccess pending = ((ChunkSystemLevel)this.world).moonrise$getAnyChunkIfLoaded(pendingChunkX, pendingChunkZ);
+                 if (pending == null) {
+-                    // nothing to do here
+-                    break;
++                    deferredLoadingChunks.add(pendingLoadChunk);
++                    continue;
+                 }
+-                // chunk has loaded, so we can take it out of the queue
+-                this.loadingQueue.dequeueLong();
+ 
+                 // try to move to generate queue
+                 final byte prev = this.chunkTicketStage.put(pendingLoadChunk, CHUNK_TICKET_STAGE_LOADED);
+@@ -675,9 +_,11 @@
+                 }
+ 
+                 if (this.canGenerateChunks || this.isLoadedChunkGeneratable(pending)) {
++                    this.raiseChunkPriority(pendingChunkX, pendingChunkZ);
+                     this.genQueue.enqueue(pendingLoadChunk);
+                 } // else: don't want to generate, so just leave it loaded
+             }
++            this.requeueDeferred(this.loadingQueue, deferredLoadingChunks);
+ 
+             // try to push more chunk loads
+             final long maxLoads = Math.max(0L, Math.min(MAX_RATE, Math.min(this.loadQueue.size(), this.getMaxChunkLoads())));
+@@ -717,7 +_,7 @@
+                     final int queuedChunkX = CoordinateUtils.getChunkX(queuedLoadChunk);
+                     final int queuedChunkZ = CoordinateUtils.getChunkZ(queuedLoadChunk);
+                     ((ChunkSystemServerLevel)this.world).moonrise$getChunkTaskScheduler().scheduleChunkLoad(
+-                        queuedChunkX, queuedChunkZ, ChunkStatus.EMPTY, false, Priority.NORMAL, null
++                        queuedChunkX, queuedChunkZ, ChunkStatus.EMPTY, false, this.getChunkTaskPriority(queuedChunkX, queuedChunkZ), null
+                     );
+                     if (this.removed) {
+                         return;
+@@ -726,18 +_,16 @@
+             }
+ 
+             // try to progress chunk generations
+-            while (!this.generatingQueue.isEmpty()) {
+-                final long pendingGenChunk = this.generatingQueue.firstLong();
++            final LongArrayList deferredGeneratingChunks = new LongArrayList();
++            for (int generatingScans = this.getQueueProgressScanLimit(this.generatingQueue.size()); generatingScans > 0 && !this.generatingQueue.isEmpty(); --generatingScans) {
++                final long pendingGenChunk = this.generatingQueue.dequeueLong();
+                 final int pendingChunkX = CoordinateUtils.getChunkX(pendingGenChunk);
+                 final int pendingChunkZ = CoordinateUtils.getChunkZ(pendingGenChunk);
+                 final LevelChunk pending = ((ChunkSystemLevel)this.world).moonrise$getFullChunkIfLoaded(pendingChunkX, pendingChunkZ);
+                 if (pending == null) {
+-                    // nothing to do here
+-                    break;
++                    deferredGeneratingChunks.add(pendingGenChunk);
++                    continue;
+                 }
+-
+-                // chunk has generated, so we can take it out of queue
+-                this.generatingQueue.dequeueLong();
+ 
+                 final byte prev = this.chunkTicketStage.put(pendingGenChunk, CHUNK_TICKET_STAGE_GENERATED);
+                 if (prev != CHUNK_TICKET_STAGE_GENERATING) {
+@@ -753,6 +_,7 @@
+                     this.tickingQueue.enqueue(pendingGenChunk);
+                 }
+             }
++            this.requeueDeferred(this.generatingQueue, deferredGeneratingChunks);
+ 
+             // try to push more chunk generations
+             final long maxGens = Math.max(0L, Math.min(MAX_RATE, Math.min(this.genQueue.size(), this.getMaxChunkGenerates())));
+@@ -785,6 +_,7 @@
+                             PLAYER_TICKET, LOADED_TICKET_LEVEL, this.idBoxed
+                     )
+                 );
++                this.raiseChunkPriority(chunkX, chunkZ);
+                 this.generatingQueue.enqueue(chunkKey);
+             }
+             // take the allocations we actually used
+@@ -819,35 +_,53 @@
+ 
+             // try to pull sending chunks
+             final long maxSends = Math.max(0L, Math.min(MAX_RATE, Integer.MAX_VALUE)); // note: no logic to track concurrent sends
+-            final int maxSendsThisTick = Math.min((int)this.chunkSendLimiter.takeAllocation(time, sendRate, maxSends), this.sendQueue.size());
++            final int baseSendsThisTick = Math.min((int)this.chunkSendLimiter.takeAllocation(time, sendRate, maxSends), this.sendQueue.size());
++            final int extraBurstBudget = this.getExtraSendBurstBudget();
++            final int maxSendsThisTick = Math.min(this.sendQueue.size(), baseSendsThisTick + extraBurstBudget);
+             // we do not return sends that we took from the allocation back because we want to limit the max send rate, not target it
+-            for (int i = 0; i < maxSendsThisTick; ++i) {
+-                final long pendingSend = this.sendQueue.firstLong();
++            final LongArrayList deferredSendChunks = new LongArrayList();
++            final int sendScanLimit = Math.min(
++                this.sendQueue.size(),
++                Math.max((maxSendsThisTick + Math.max(0, extraBurstBudget)) * 3, this.getQueueProgressScanLimit(this.sendQueue.size()))
++            );
++            int sentChunksThisTick = 0;
++            for (int sendScans = 0; sendScans < sendScanLimit && sentChunksThisTick < maxSendsThisTick && !this.sendQueue.isEmpty(); ++sendScans) {
++                final long pendingSend = this.sendQueue.dequeueLong();
+                 final int pendingSendX = CoordinateUtils.getChunkX(pendingSend);
+                 final int pendingSendZ = CoordinateUtils.getChunkZ(pendingSend);
++                final boolean usingBurstBudget = sentChunksThisTick >= baseSendsThisTick;
++                if (usingBurstBudget && !this.isBurstEligibleChunk(pendingSendX, pendingSendZ)) {
++                    deferredSendChunks.add(pendingSend);
++                    continue;
++                }
+                 final LevelChunk chunk = ((ChunkSystemLevel)this.world).moonrise$getFullChunkIfLoaded(pendingSendX, pendingSendZ);
+                 if (!this.areNeighboursGenerated(pendingSendX, pendingSendZ, 1) || !TickThread.isTickThreadFor(this.world, pendingSendX, pendingSendZ)) {
+-                    // nothing to do
+-                    // the target chunk may not be owned by this region, but this should be resolved in the future
+-                    break;
++                    deferredSendChunks.add(pendingSend);
++                    continue;
+                 }
+                 if (!((ChunkSystemLevelChunk)chunk).moonrise$isPostProcessingDone()) {
+                     // not yet post-processed, need to do this so that tile entities can properly be sent to clients
+                     chunk.postProcessGeneration(this.world);
+-                    // check if there was any recursive action
+-                    if (this.removed || this.sendQueue.isEmpty() || this.sendQueue.firstLong() != pendingSend) {
++                    if (this.removed) {
++                        this.requeueDeferred(this.sendQueue, deferredSendChunks);
+                         return;
+-                    } // else: good to dequeue and send, fall through
++                    }
+                 }
+-                this.sendQueue.dequeueLong();
+ 
+                 this.sendChunk(pendingSendX, pendingSendZ);
++                if (usingBurstBudget) {
++                    GPurServices.preload().recordSendBurst(GPurConfig.turboModeEnabled);
++                    this.recordPreloadPriorityHit(this.getPreloadPriorityType(pendingSendX, pendingSendZ));
++                }
++                ++sentChunksThisTick;
+ 
+                 if (this.removed) {
+                     // sendChunk may invoke plugin logic
++                    this.requeueDeferred(this.sendQueue, deferredSendChunks);
+                     return;
+                 }
+             }
++            this.requeueDeferred(this.sendQueue, deferredSendChunks);
+ 
+             this.flushDelayedTicketOps();
+         }
+@@ -871,6 +_,17 @@
+             // send view cannot be greater-than load view
+             final int clientViewDistance = getClientViewDistance(this.player);
+             final int sendViewDistance = getSendViewDistance(loadViewDistance, clientViewDistance, playerDistances.sendViewDistance, worldDistances.sendViewDistance);
++            final long nowNanos = System.nanoTime();
++            final PreloadProfile preloadProfile = this.computePreloadProfile();
++            final RetainedPreloadWindow retainedPreload = this.computeRetainedPreloadWindow(chunkX, chunkZ, preloadProfile, nowNanos);
++            final SharedPreloadSelection sharedPreloadSelection = this.refreshSharedPreloadState(chunkX, chunkZ, preloadProfile, nowNanos);
++            final int effectiveLoadDistance = this.calculateEffectiveLoadDistance(
++                loadViewDistance,
++                preloadProfile,
++                retainedPreload,
++                sharedPreloadSelection,
++                nowNanos
++            );
+ 
+             // send view distances
+             this.player.connection.send(this.updateClientChunkRadius(sendViewDistance));
+@@ -878,7 +_,7 @@
+ 
+             // add to distance maps
+             this.broadcastMap.add(chunkX, chunkZ, sendViewDistance + 1);
+-            this.loadTicketCleanup.add(chunkX, chunkZ, loadViewDistance + 1);
++            this.loadTicketCleanup.add(chunkX, chunkZ, effectiveLoadDistance);
+             this.tickMap.add(chunkX, chunkZ, tickViewDistance);
+ 
+             // update chunk center
+@@ -889,6 +_,10 @@
+             this.chunkLoadTicketLimiter.reset(time);
+             this.chunkGenerateTicketLimiter.reset(time);
+             this.chunkSendLimiter.reset(time);
++            this.preloadProfile = preloadProfile;
++            this.retainedPreload = retainedPreload;
++            this.sharedPreloadSelection = sharedPreloadSelection;
++            this.effectiveLoadDistance = effectiveLoadDistance;
+ 
+             // now we can update
+             this.update();
+@@ -924,11 +_,21 @@
+             // send view cannot be greater-than load view
+             final int clientViewDistance = getClientViewDistance(this.player);
+             final int sendViewDistance = getSendViewDistance(loadViewDistance, clientViewDistance, playerDistances.sendViewDistance, worldDistances.sendViewDistance);
+-
+             final ChunkPos playerPos = this.player.chunkPosition();
+             final boolean canGenerateChunks = this.canPlayerGenerateChunks();
+             final int currentChunkX = playerPos.x;
+             final int currentChunkZ = playerPos.z;
++            final long nowNanos = System.nanoTime();
++            final PreloadProfile preloadProfile = this.computePreloadProfile();
++            final RetainedPreloadWindow retainedPreload = this.computeRetainedPreloadWindow(currentChunkX, currentChunkZ, preloadProfile, nowNanos);
++            final SharedPreloadSelection sharedPreloadSelection = this.refreshSharedPreloadState(currentChunkX, currentChunkZ, preloadProfile, nowNanos);
++            final int effectiveLoadDistance = this.calculateEffectiveLoadDistance(
++                loadViewDistance,
++                preloadProfile,
++                retainedPreload,
++                sharedPreloadSelection,
++                nowNanos
++            );
+ 
+             final int prevChunkX = this.lastChunkX;
+             final int prevChunkZ = this.lastChunkZ;
+@@ -945,6 +_,10 @@
+ 
+                     // can we still generate chunks?
+                     && this.canGenerateChunks == canGenerateChunks
++                    && this.effectiveLoadDistance == effectiveLoadDistance
++                    && this.preloadProfile.equals(preloadProfile)
++                    && this.retainedPreload.equals(retainedPreload)
++                    && this.sharedPreloadSelection.version() == sharedPreloadSelection.version()
+             ) {
+                 // nothing we care about changed, so we're not re-calculating
+                 return;
+@@ -952,7 +_,7 @@
+ 
+             // update distance maps
+             this.broadcastMap.update(currentChunkX, currentChunkZ, sendViewDistance + 1);
+-            this.loadTicketCleanup.update(currentChunkX, currentChunkZ, loadViewDistance + 1);
++            this.loadTicketCleanup.update(currentChunkX, currentChunkZ, effectiveLoadDistance);
+             this.tickMap.update(currentChunkX, currentChunkZ, tickViewDistance);
+             if (sendViewDistance > loadViewDistance || tickViewDistance > loadViewDistance) {
+                 throw new IllegalStateException();
+@@ -980,9 +_,13 @@
+             this.lastLoadDistance = loadViewDistance;
+             this.lastTickDistance = tickViewDistance;
+             this.canGenerateChunks = canGenerateChunks;
++            this.preloadProfile = preloadProfile;
++            this.retainedPreload = retainedPreload;
++            this.sharedPreloadSelection = sharedPreloadSelection;
++            this.effectiveLoadDistance = effectiveLoadDistance;
+ 
+             // +1 since we need to load chunks +1 around the load view distance...
+-            final long[] toIterate = ParallelSearchRadiusIteration.getSearchIteration(loadViewDistance + 1);
++            final long[] toIterate = ParallelSearchRadiusIteration.getSearchIteration(effectiveLoadDistance);
+             // the iteration order is by increasing manhattan distance - so, we do NOT need to
+             // sort anything in the queue!
+             for (final long deltaChunk : toIterate) {
+@@ -992,7 +_,10 @@
+                 final int chunkZ = dz + currentChunkZ;
+                 final long chunk = CoordinateUtils.getChunkKey(chunkX, chunkZ);
+                 final int squareDistance = Math.max(Math.abs(dx), Math.abs(dz));
+-                final int manhattanDistance = Math.abs(dx) + Math.abs(dz);
++                final boolean priorityPreloadChunk = this.isPriorityPreloadChunk(chunkX, chunkZ);
++                if (squareDistance > loadViewDistance + 1 && !priorityPreloadChunk) {
++                    continue;
++                }
+ 
+                 // since chunk sending is not by radius alone, we need an extra check here to account for
+                 // everything <= sendDistance
+@@ -1002,6 +_,10 @@
+                     && wantChunkLoaded(currentChunkX, currentChunkZ, chunkX, chunkZ, sendViewDistance);
+                 final boolean sentChunk = sendChunk ? this.sentChunks.contains(chunk) : this.sentChunks.remove(chunk);
+ 
++                if (priorityPreloadChunk) {
++                    this.raiseChunkPriority(chunkX, chunkZ);
++                }
++
+                 if (!sendChunk && sentChunk) {
+                     // have sent the chunk, but don't want it anymore
+                     // unload it now
+@@ -1064,6 +_,7 @@
+             if (this.removed) {
+                 throw new IllegalStateException("Removing removed player chunk loader");
+             }
++            GPurServices.preload().removeAnchor(this.player, this.world);
+             this.removed = true;
+             // sends the chunk unload packets
+             this.broadcastMap.remove();

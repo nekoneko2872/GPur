@@ -21,11 +21,13 @@
  
          CraftRegistry.setMinecraftRegistry(console.registryAccess());
  
-@@ -992,6 +_,7 @@
+@@ -992,6 +_,9 @@
  
          org.spigotmc.SpigotConfig.init((File) this.console.options.valueOf("spigot-settings")); // Spigot
          this.console.paperConfigurations.reloadConfigs(this.console);
 +        org.purpurmc.purpur.PurpurConfig.init((File) console.options.valueOf("purpur-settings")); // Purpur - Purpur config files
++        org.gpur.GPurConfig.init((File) console.options.valueOf("gpur-settings"));
++        org.gpur.GPurServices.reload(this.console);
          for (ServerLevel world : this.console.getAllLevels()) {
              // world.serverLevelData.setDifficulty(config.difficulty); // Paper - per level difficulty
              world.setSpawnSettings(world.isSpawningMonsters()); // Paper - per level difficulty (from MinecraftServer#setDifficulty(ServerLevel, Difficulty, boolean))

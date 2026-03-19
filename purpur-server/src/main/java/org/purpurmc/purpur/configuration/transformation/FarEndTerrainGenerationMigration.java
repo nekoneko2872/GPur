@@ -19,6 +19,10 @@ public class FarEndTerrainGenerationMigration implements TransformAction {
 
     @Override
     public Object @Nullable [] visitPath(final NodePath path, final ConfigurationNode value) throws ConfigurateException {
+        if (PurpurConfig.config == null) {
+            return null;
+        }
+
         String purpurGenerateEndVoidRingsPath = "settings.generate-end-void-rings";
         ConfigurationNode fixFarEndTerrainGenerationNode = value.node(MISC_KEY, FIX_FAR_END_TERRAIN_GENERATION_KEY);
         if (PurpurConfig.config.contains(purpurGenerateEndVoidRingsPath)) {
@@ -33,8 +37,8 @@ public class FarEndTerrainGenerationMigration implements TransformAction {
     }
 
     public static void apply(final ConfigurationTransformation.Builder builder) {
-        if (PurpurConfig.version < 46) {
-            HAS_BEEN_REGISTERED = true;
+        HAS_BEEN_REGISTERED = PurpurConfig.config != null && PurpurConfig.version < 46;
+        if (HAS_BEEN_REGISTERED) {
             builder.addAction(path(), new FarEndTerrainGenerationMigration());
         }
     }

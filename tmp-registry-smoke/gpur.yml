@@ -1,0 +1,97 @@
+# This is the main configuration file for GPur.
+# GPur adds directional chunk preloading and experimental Vulkan-backed
+# chunk generation infrastructure on top of Purpur.
+#
+# If Vulkan initialization fails or no compatible GPU is present, GPur
+# will automatically continue in CPU mode.
+
+chunk-generation:
+  gpu-acceleration:
+    enabled: true
+    terrain-enabled: true
+    legacy-terrain-batch-enabled: false
+    queue-threshold: 10
+    gpu-usage-fallback: 90
+    batch-size: 16
+    min-batch-size: 4
+    max-queue-wait-ms: 8
+    terrain-heavy-load-only: true
+    terrain-heavy-load:
+      min-active-noise-tasks: 8
+      min-pending-requests: 8
+      min-oldest-pending-ms: 20
+      sustain-ms: 40
+  preloading:
+    enabled: true
+    base-lookahead: 3
+    elytra-lookahead-factor: 0.6
+    elytra-angle-degrees: 60.0
+    elytra-look-direction-blend: 0.35
+    elytra-turn-lookahead-boost: 6
+    elytra-turn-angle-boost-degrees: 18.0
+    shared:
+      enabled: true
+      max-distance: 12
+      direction-dot-threshold: 0.85
+      anchor-expiry-ms: 1500
+      max-anchors: 3
+    retention:
+      enabled: true
+      duration-ms: 1750
+      direction-dot-threshold: 0.82
+    send-burst:
+      enabled: true
+      extra-chunks: 8
+    elytra-throughput-boost:
+      enabled: true
+      start-speed: 18.0
+      full-speed: 32.0
+      load-rate-multiplier: 2.0
+      generate-rate-multiplier: 2.0
+      send-rate-multiplier: 2.5
+      concurrent-loads-multiplier: 2.0
+      concurrent-generates-multiplier: 2.0
+    throughput-stabilization:
+      enabled: true
+      target-queue-size: 10
+      max-rate-multiplier: 1.35
+      max-concurrent-multiplier: 1.5
+      max-scan-multiplier: 1.75
+      send-burst-extra-chunks: 6
+  turbo-mode:
+    enabled: false
+    extra-lookahead: 6
+    load-rate-multiplier: 1.7
+    generate-rate-multiplier: 1.9
+    send-rate-multiplier: 2.1
+    concurrent-loads-multiplier: 1.7
+    concurrent-generates-multiplier: 1.8
+    send-burst-extra-chunks: 12
+    gpu-queue-threshold: 1
+    gpu-min-batch-size: 1
+  reload-optimization:
+    enabled: true
+    hot-cache-ticks: 12
+    max-retained-chunks: 512
+gpu-offload:
+  anti-xray:
+    enabled: true
+    allow-inexact-results: false
+    min-sections: 12
+  structure-scan:
+    enabled: true
+    min-candidates: 16
+  mob-spawn:
+    enabled: true
+    min-candidates: 32
+    min-players: 2
+    min-distance-checks: 128
+config-version: 1
+logging:
+  public-safe: true
+  gpu:
+    terrain-assist: summary
+    terrain-batch: 'off'
+    anti-xray: summary
+    structure-scan: summary
+    mob-spawn: summary

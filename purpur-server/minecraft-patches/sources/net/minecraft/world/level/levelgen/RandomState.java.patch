@@ -1,0 +1,28 @@
+--- a/net/minecraft/world/level/levelgen/RandomState.java
++++ b/net/minecraft/world/level/levelgen/RandomState.java
+@@ -14,6 +_,7 @@
+ import net.minecraft.world.level.levelgen.synth.NormalNoise;
+ 
+ public final class RandomState {
++    private final long levelSeed;
+     final PositionalRandomFactory random;
+     private final HolderGetter<NormalNoise.NoiseParameters> noises;
+     private final NoiseRouter router;
+@@ -35,6 +_,7 @@
+     }
+ 
+     private RandomState(NoiseGeneratorSettings settings, HolderGetter<NormalNoise.NoiseParameters> noiseParametersGetter, final long levelSeed) {
++        this.levelSeed = levelSeed;
+         this.random = settings.getRandomSource().newInstance(levelSeed).forkPositional();
+         this.noises = noiseParametersGetter;
+         this.aquiferRandom = this.random.fromHashOf(Identifier.withDefaultNamespace("aquifer")).forkPositional();
+@@ -150,5 +_,9 @@
+ 
+     public PositionalRandomFactory oreRandom() {
+         return this.oreRandom;
++    }
++
++    public long levelSeed() {
++        return this.levelSeed;
+     }
+ }

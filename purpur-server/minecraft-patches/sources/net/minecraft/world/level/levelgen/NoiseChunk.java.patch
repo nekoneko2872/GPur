@@ -1,0 +1,163 @@
+--- a/net/minecraft/world/level/levelgen/NoiseChunk.java
++++ b/net/minecraft/world/level/levelgen/NoiseChunk.java
+@@ -19,6 +_,8 @@
+ import net.minecraft.world.level.chunk.ChunkAccess;
+ import net.minecraft.world.level.levelgen.blending.Blender;
+ import net.minecraft.world.level.levelgen.material.MaterialRuleList;
++import org.gpur.GPurConfig;
++import org.gpur.GPurServices;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class NoiseChunk implements DensityFunction.ContextProvider, DensityFunction.FunctionContext {
+@@ -56,6 +_,11 @@
+     long interpolationCounter;
+     long arrayInterpolationCounter;
+     int arrayIndex;
++    private int gpurCurrentCellY = -1;
++    private int gpurCurrentCellZ = -1;
++    private int gpurInterpolationCacheCellX = Integer.MIN_VALUE;
++    private @Nullable float[] gpurInterpolationCache;
+     private final DensityFunction.ContextProvider sliceFillingContextProvider = new DensityFunction.ContextProvider() {
+         @Override
+         public DensityFunction.FunctionContext forIndex(int arrayIndex) {
+@@ -245,12 +_,83 @@
+         this.arrayInterpolationCounter++;
+     }
+ 
++    private void invalidateGpurInterpolationCache() {
++        this.gpurInterpolationCache = null;
++        this.gpurInterpolationCacheCellX = Integer.MIN_VALUE;
++    }
++
++    private void prepareGpurInterpolationCache() {
++        if (!GPurConfig.terrainGpuEnabled || this.interpolators.isEmpty() || this.cellCountY <= 0) {
++            this.invalidateGpurInterpolationCache();
++            return;
++        }
++        if (this.gpurInterpolationCache != null
++            && this.gpurInterpolationCacheCellX == this.cellStartBlockX
++            && this.validateGpurInterpolationCache(this.gpurInterpolationCache)) {
++            return;
++        }
++
++        final int interpolatorCount = this.interpolators.size();
++        final float[] packedCorners = new float[interpolatorCount * this.cellCountXZ * this.cellCountY * 8];
++        int cornerIndex = 0;
++        for (NoiseChunk.NoiseInterpolator noiseInterpolator : this.interpolators) {
++            for (int cellZ = 0; cellZ < this.cellCountXZ; cellZ++) {
++                for (int cellY = 0; cellY < this.cellCountY; cellY++) {
++                    packedCorners[cornerIndex++] = (float)noiseInterpolator.slice0[cellZ][cellY];
++                    packedCorners[cornerIndex++] = (float)noiseInterpolator.slice1[cellZ][cellY];
++                    packedCorners[cornerIndex++] = (float)noiseInterpolator.slice0[cellZ][cellY + 1];
++                    packedCorners[cornerIndex++] = (float)noiseInterpolator.slice1[cellZ][cellY + 1];
++                    packedCorners[cornerIndex++] = (float)noiseInterpolator.slice0[cellZ + 1][cellY];
++                    packedCorners[cornerIndex++] = (float)noiseInterpolator.slice1[cellZ + 1][cellY];
++                    packedCorners[cornerIndex++] = (float)noiseInterpolator.slice0[cellZ + 1][cellY + 1];
++                    packedCorners[cornerIndex++] = (float)noiseInterpolator.slice1[cellZ + 1][cellY + 1];
++                }
++            }
++        }
++
++        final float[] values = GPurServices.generation()
++            .interpolateNoiseSlice(this.cellWidth, this.cellHeight, this.cellCountY, this.cellCountXZ, interpolatorCount, packedCorners);
++        if (!this.validateGpurInterpolationCache(values)) {
++            this.invalidateGpurInterpolationCache();
++            return;
++        }
++
++        this.gpurInterpolationCache = values;
++        this.gpurInterpolationCacheCellX = this.cellStartBlockX;
++    }
++
++    private boolean validateGpurInterpolationCache(final @Nullable float[] values) {
++        if (values == null) {
++            return false;
++        }
++
++        final int samplesPerInterpolator = this.cellCountXZ * this.cellCountY * this.cellHeight * this.cellWidth * this.cellWidth;
++        return values.length == this.interpolators.size() * samplesPerInterpolator;
++    }
++
++    private boolean validateGpurInterpolationSample(final int index) {
++        return this.gpurInterpolationCache != null && index >= 0 && index < this.gpurInterpolationCache.length;
++    }
++
++    private int gpurInterpolationIndex(final int interpolatorIndex) {
++        final int samplesPerLayer = this.cellWidth * this.cellWidth;
++        final int samplesPerCell = this.cellHeight * samplesPerLayer;
++        final int samplesPerColumn = this.cellCountY * samplesPerCell;
++        final int samplesPerInterpolator = this.cellCountXZ * samplesPerColumn;
++        return interpolatorIndex * samplesPerInterpolator
++            + this.gpurCurrentCellZ * samplesPerColumn
++            + this.gpurCurrentCellY * samplesPerCell
++            + (this.cellHeight - 1 - this.inCellY) * samplesPerLayer
++            + this.inCellX * this.cellWidth
++            + this.inCellZ;
++    }
++
+     public void initializeForFirstCellX() {
+         if (this.interpolating) {
+             throw new IllegalStateException("Staring interpolation twice");
+         } else {
+             this.interpolating = true;
+             this.interpolationCounter = 0L;
++            this.invalidateGpurInterpolationCache();
+             this.fillSlice(true, this.firstCellX);
+         }
+     }
+@@ -258,6 +_,7 @@
+     public void advanceCellX(int increment) {
+         this.fillSlice(false, this.firstCellX + increment + 1);
+         this.cellStartBlockX = (this.firstCellX + increment) * this.cellWidth;
++        this.invalidateGpurInterpolationCache();
+     }
+ 
+     @Override
+@@ -296,6 +_,9 @@
+             noiseInterpolator.selectCellYZ(y, z);
+         }
+ 
++        this.gpurCurrentCellY = y;
++        this.gpurCurrentCellZ = z;
++        this.prepareGpurInterpolationCache();
+         this.fillingCell = true;
+         this.cellStartBlockY = (y + this.cellNoiseMinY) * this.cellHeight;
+         this.cellStartBlockZ = (this.firstCellZ + z) * this.cellWidth;
+@@ -339,6 +_,7 @@
+             throw new IllegalStateException("Staring interpolation twice");
+         } else {
+             this.interpolating = false;
++            this.invalidateGpurInterpolationCache();
+         }
+     }
+ 
+@@ -683,6 +_,7 @@
+         double[][] slice0;
+         double[][] slice1;
+         private final DensityFunction noiseFiller;
++        private final int gpurInterpolatorIndex;
+         private double noise000;
+         private double noise001;
+         private double noise100;
+@@ -701,6 +_,7 @@
+ 
+         NoiseInterpolator(final DensityFunction noiseFiller) {
+             this.noiseFiller = noiseFiller;
++            this.gpurInterpolatorIndex = NoiseChunk.this.interpolators.size();
+             this.slice0 = this.allocateSlice(NoiseChunk.this.cellCountY, NoiseChunk.this.cellCountXZ);
+             this.slice1 = this.allocateSlice(NoiseChunk.this.cellCountY, NoiseChunk.this.cellCountXZ);
+             NoiseChunk.this.interpolators.add(this);
+@@ -752,6 +_,13 @@
+             } else if (!NoiseChunk.this.interpolating) {
+                 throw new IllegalStateException("Trying to sample interpolator outside the interpolation loop");
+             } else {
++                if (NoiseChunk.this.fillingCell && NoiseChunk.this.gpurInterpolationCache != null) {
++                    final int interpolationIndex = NoiseChunk.this.gpurInterpolationIndex(this.gpurInterpolatorIndex);
++                    if (NoiseChunk.this.validateGpurInterpolationSample(interpolationIndex)) {
++                        return NoiseChunk.this.gpurInterpolationCache[interpolationIndex];
++                    }
++                }
++
+                 return NoiseChunk.this.fillingCell
+                     ? Mth.lerp3(
+                         (double)NoiseChunk.this.inCellX / NoiseChunk.this.cellWidth,

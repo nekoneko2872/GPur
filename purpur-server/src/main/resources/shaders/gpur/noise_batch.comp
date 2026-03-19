@@ -1,0 +1,382 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer InputData {
+    int inputData[];
+};
+
+layout(std430, binding = 1) buffer OutputData {
+    uint outputData[];
+};
+
+const int WORKLOAD_TERRAIN = 1;
+const int WORKLOAD_ANTI_XRAY = 2;
+const int WORKLOAD_STRUCTURE_SCAN = 3;
+const int WORKLOAD_MOB_SPAWN = 4;
+const int WORKLOAD_NOISE_INTERPOLATION = 5;
+
+const int HEADER_INTS = 16;
+const int CHUNK_INPUT_STRIDE = 2;
+const int COLUMN_COUNT = 256;
+const int SURFACE_WORDS_PER_CHUNK = 128;
+const int ANTI_XRAY_SECTION_VOLUME = 4096;
+const int ANTI_XRAY_PADDED_EDGE = 18;
+const int ANTI_XRAY_PADDED_SLICE = ANTI_XRAY_PADDED_EDGE * ANTI_XRAY_PADDED_EDGE;
+const int ANTI_XRAY_PADDED_VOLUME = ANTI_XRAY_PADDED_EDGE * ANTI_XRAY_PADDED_EDGE * ANTI_XRAY_PADDED_EDGE;
+const int INTERPOLATION_CORNERS_PER_CELL = 8;
+
+uint hash_u32(uint x) {
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+
+float hash_to_unit(uint x) {
+    return float(hash_u32(x)) / 4294967295.0;
+}
+
+float fade(float t) {
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+float grad2(ivec2 cell, vec2 offset, uint seed) {
+    float angle = hash_to_unit(uint(cell.x) * 73856093u ^ uint(cell.y) * 19349663u ^ seed) * 6.28318530718;
+    return dot(vec2(cos(angle), sin(angle)), offset);
+}
+
+float grad3(ivec3 cell, vec3 offset, uint seed) {
+    uint hashed = hash_u32(uint(cell.x) * 73856093u ^ uint(cell.y) * 19349663u ^ uint(cell.z) * 83492791u ^ seed);
+    vec3 grad = normalize(vec3(
+        hash_to_unit(hashed) * 2.0 - 1.0,
+        hash_to_unit(hashed ^ 0x68bc21ebu) * 2.0 - 1.0,
+        hash_to_unit(hashed ^ 0x02e5be93u) * 2.0 - 1.0
+    ));
+    return dot(grad, offset);
+}
+
+float perlin2(vec2 p, uint seed) {
+    ivec2 cell = ivec2(floor(p));
+    vec2 local = fract(p);
+    vec2 f = vec2(fade(local.x), fade(local.y));
+
+    float n00 = grad2(cell + ivec2(0, 0), local - vec2(0.0, 0.0), seed);
+    float n10 = grad2(cell + ivec2(1, 0), local - vec2(1.0, 0.0), seed);
+    float n01 = grad2(cell + ivec2(0, 1), local - vec2(0.0, 1.0), seed);
+    float n11 = grad2(cell + ivec2(1, 1), local - vec2(1.0, 1.0), seed);
+
+    float nx0 = mix(n00, n10, f.x);
+    float nx1 = mix(n01, n11, f.x);
+    return mix(nx0, nx1, f.y);
+}
+
+float perlin3(vec3 p, uint seed) {
+    ivec3 cell = ivec3(floor(p));
+    vec3 local = fract(p);
+    vec3 f = vec3(fade(local.x), fade(local.y), fade(local.z));
+
+    float n000 = grad3(cell + ivec3(0, 0, 0), local - vec3(0.0, 0.0, 0.0), seed);
+    float n100 = grad3(cell + ivec3(1, 0, 0), local - vec3(1.0, 0.0, 0.0), seed);
+    float n010 = grad3(cell + ivec3(0, 1, 0), local - vec3(0.0, 1.0, 0.0), seed);
+    float n110 = grad3(cell + ivec3(1, 1, 0), local - vec3(1.0, 1.0, 0.0), seed);
+    float n001 = grad3(cell + ivec3(0, 0, 1), local - vec3(0.0, 0.0, 1.0), seed);
+    float n101 = grad3(cell + ivec3(1, 0, 1), local - vec3(1.0, 0.0, 1.0), seed);
+    float n011 = grad3(cell + ivec3(0, 1, 1), local - vec3(0.0, 1.0, 1.0), seed);
+    float n111 = grad3(cell + ivec3(1, 1, 1), local - vec3(1.0, 1.0, 1.0), seed);
+
+    float nx00 = mix(n000, n100, f.x);
+    float nx10 = mix(n010, n110, f.x);
+    float nx01 = mix(n001, n101, f.x);
+    float nx11 = mix(n011, n111, f.x);
+    float nxy0 = mix(nx00, nx10, f.y);
+    float nxy1 = mix(nx01, nx11, f.y);
+    return mix(nxy0, nxy1, f.z);
+}
+
+float fbm2(vec2 p, uint seed, int octaves, float gain, float lacunarity) {
+    float amplitude = 1.0;
+    float frequency = 1.0;
+    float sum = 0.0;
+    float norm = 0.0;
+
+    for (int octave = 0; octave < octaves; octave++) {
+        sum += perlin2(p * frequency, seed + uint(octave * 131)) * amplitude;
+        norm += amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+
+    return sum / max(0.0001, norm);
+}
+
+float fbm3(vec3 p, uint seed, int octaves, float gain, float lacunarity) {
+    float amplitude = 1.0;
+    float frequency = 1.0;
+    float sum = 0.0;
+    float norm = 0.0;
+
+    for (int octave = 0; octave < octaves; octave++) {
+        sum += perlin3(p * frequency, seed + uint(octave * 197)) * amplitude;
+        norm += amplitude;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+
+    return sum / max(0.0001, norm);
+}
+
+int anti_xray_padded_index(int x, int y, int z) {
+    return y * ANTI_XRAY_PADDED_SLICE + z * ANTI_XRAY_PADDED_EDGE + x;
+}
+
+int compute_terrain_material(
+    int worldX,
+    int worldY,
+    int worldZ,
+    int minY,
+    int seaLevel,
+    int lavaLevel,
+    uint seed,
+    out int surfaceHeightOut
+) {
+    vec2 worldPos = vec2(float(worldX), float(worldZ));
+    float temperature = fbm2(worldPos * 0.0015, seed ^ 0x1234abceu, 4, 0.55, 2.02);
+    float moisture = fbm2(worldPos * 0.0018, seed ^ 0x56ef0199u, 4, 0.58, 2.10);
+    float biomeBlend = clamp((temperature * 0.55 + moisture * 0.45) * 0.5 + 0.5, 0.0, 1.0);
+
+    float continent = fbm2(worldPos * 0.00085, seed ^ 0x31415926u, 5, 0.53, 2.0);
+    float ridge = 1.0 - abs(fbm2(worldPos * 0.00135, seed ^ 0x27182818u, 4, 0.55, 2.12));
+    float detail = fbm2(worldPos * 0.00475, seed ^ 0xfeedb00cu, 3, 0.60, 2.0);
+    float surfaceHeight = float(seaLevel) - 18.0 + continent * 54.0 + ridge * 20.0 + detail * 8.0 + biomeBlend * 9.0;
+    surfaceHeightOut = int(round(surfaceHeight));
+
+    vec3 cavePos = vec3(worldPos * 0.028, float(worldY) * 0.032);
+    float caveNoise = abs(fbm3(cavePos, seed ^ 0x0ddc0ffeu, 3, 0.60, 2.05));
+    float cheeseNoise = fbm3(vec3(worldPos * 0.015, float(worldY) * 0.020), seed ^ 0x7f4a7c15u, 4, 0.56, 2.0);
+    float overhangNoise = fbm3(vec3(worldPos * 0.008, float(worldY) * 0.010), seed ^ 0x6b8b4567u, 2, 0.50, 2.0);
+
+    float caveThreshold = 0.28 + biomeBlend * 0.10;
+    float density = (surfaceHeight - float(worldY)) + cheeseNoise * 7.5 + overhangNoise * 4.0 - max(0.0, caveNoise - caveThreshold) * 34.0;
+
+    if (worldY <= minY + 2) {
+        return 1;
+    }
+    if (density > 0.0) {
+        return 1;
+    }
+    if (worldY <= lavaLevel) {
+        return 3;
+    }
+    if (worldY <= seaLevel) {
+        return 2;
+    }
+    return 0;
+}
+
+void run_terrain(uint invocation) {
+    int chunkCount = inputData[1];
+    int minY = inputData[2];
+    int height = inputData[3];
+    int seaLevel = inputData[4];
+    int lavaLevel = inputData[5];
+    uint seedLow = uint(inputData[6]);
+    uint seedHigh = uint(inputData[7]);
+    uint seed = seedLow ^ (seedHigh * 0x9e3779b9u);
+
+    int chunkVolume = height * COLUMN_COUNT;
+    int totalVoxelCount = chunkCount * chunkVolume;
+    int packedMaterialWordCount = (totalVoxelCount + 3) / 4;
+    if (invocation >= uint(packedMaterialWordCount)) {
+        return;
+    }
+
+    uint packedMaterials = 0u;
+    for (int subIndex = 0; subIndex < 4; subIndex++) {
+        int absoluteIndex = (int(invocation) * 4) + subIndex;
+        if (absoluteIndex >= totalVoxelCount) {
+            break;
+        }
+
+        int chunkIndex = absoluteIndex / chunkVolume;
+        int localIndex = absoluteIndex - (chunkIndex * chunkVolume);
+    int yIndex = localIndex / COLUMN_COUNT;
+    int columnIndex = localIndex - (yIndex * COLUMN_COUNT);
+    int localX = columnIndex & 15;
+    int localZ = columnIndex >> 4;
+    int worldY = minY + yIndex;
+
+    int chunkDataOffset = HEADER_INTS + (chunkIndex * CHUNK_INPUT_STRIDE);
+    int chunkX = inputData[chunkDataOffset];
+    int chunkZ = inputData[chunkDataOffset + 1];
+    int worldX = chunkX * 16 + localX;
+    int worldZ = chunkZ * 16 + localZ;
+
+        int surfaceHeight;
+        int material = compute_terrain_material(worldX, worldY, worldZ, minY, seaLevel, lavaLevel, seed, surfaceHeight);
+        packedMaterials |= (uint(material) & 0xFFu) << uint(subIndex * 8);
+
+        if (yIndex == 0) {
+            int packedHeightIndex = packedMaterialWordCount + (chunkIndex * SURFACE_WORDS_PER_CHUNK) + (columnIndex >> 1);
+            uint encodedHeight = (uint(surfaceHeight) & 0xFFFFu) << uint((columnIndex & 1) * 16);
+            outputData[packedHeightIndex] |= encodedHeight;
+        }
+    }
+
+    outputData[int(invocation)] = packedMaterials;
+}
+
+void run_anti_xray(uint invocation) {
+    int sectionCount = inputData[1];
+    uint totalInvocations = uint(sectionCount * ANTI_XRAY_SECTION_VOLUME);
+    if (invocation >= totalInvocations) {
+        return;
+    }
+
+    int sectionIndex = int(invocation) / ANTI_XRAY_SECTION_VOLUME;
+    int blockIndex = int(invocation) - (sectionIndex * ANTI_XRAY_SECTION_VOLUME);
+    int x = (blockIndex & 15) + 1;
+    int z = ((blockIndex >> 4) & 15) + 1;
+    int y = (blockIndex >> 8) + 1;
+
+    int sectionOffset = HEADER_INTS + (sectionIndex * (ANTI_XRAY_SECTION_VOLUME + ANTI_XRAY_PADDED_VOLUME));
+    int stateFlags = inputData[sectionOffset + blockIndex];
+    bool solid = (stateFlags & 1) != 0;
+    bool obfuscate = (stateFlags & 2) != 0;
+
+    if (!solid || !obfuscate) {
+        outputData[(sectionIndex * ANTI_XRAY_SECTION_VOLUME) + blockIndex] = 0u;
+        return;
+    }
+
+    int transparencyOffset = sectionOffset + ANTI_XRAY_SECTION_VOLUME;
+    bool hasTransparentNeighbor = false;
+    hasTransparentNeighbor = hasTransparentNeighbor || inputData[transparencyOffset + anti_xray_padded_index(x - 1, y, z)] != 0;
+    hasTransparentNeighbor = hasTransparentNeighbor || inputData[transparencyOffset + anti_xray_padded_index(x + 1, y, z)] != 0;
+    hasTransparentNeighbor = hasTransparentNeighbor || inputData[transparencyOffset + anti_xray_padded_index(x, y - 1, z)] != 0;
+    hasTransparentNeighbor = hasTransparentNeighbor || inputData[transparencyOffset + anti_xray_padded_index(x, y + 1, z)] != 0;
+    hasTransparentNeighbor = hasTransparentNeighbor || inputData[transparencyOffset + anti_xray_padded_index(x, y, z - 1)] != 0;
+    hasTransparentNeighbor = hasTransparentNeighbor || inputData[transparencyOffset + anti_xray_padded_index(x, y, z + 1)] != 0;
+
+    outputData[(sectionIndex * ANTI_XRAY_SECTION_VOLUME) + blockIndex] = hasTransparentNeighbor ? 0u : 1u;
+}
+
+void run_structure_scan(uint invocation) {
+    int candidateCount = inputData[1];
+    if (invocation >= uint(candidateCount)) {
+        return;
+    }
+
+    int originBlockX = inputData[2];
+    int originBlockZ = inputData[3];
+    int offset = HEADER_INTS + (int(invocation) * 2);
+    float dx = float(inputData[offset] - originBlockX);
+    float dz = float(inputData[offset + 1] - originBlockZ);
+    outputData[int(invocation)] = floatBitsToUint(dx * dx + dz * dz);
+}
+
+void run_mob_spawn(uint invocation) {
+    int candidateCount = inputData[1];
+    int playerCount = inputData[2];
+    if (invocation >= uint(candidateCount)) {
+        return;
+    }
+
+    int candidateOffset = HEADER_INTS + (int(invocation) * 3);
+    vec3 candidatePos = vec3(
+        intBitsToFloat(inputData[candidateOffset]),
+        intBitsToFloat(inputData[candidateOffset + 1]),
+        intBitsToFloat(inputData[candidateOffset + 2])
+    );
+
+    float nearestDistanceSquared = 3.402823466e+38;
+    int playerBase = HEADER_INTS + (candidateCount * 3);
+    for (int playerIndex = 0; playerIndex < playerCount; playerIndex++) {
+        int playerOffset = playerBase + (playerIndex * 3);
+        vec3 playerPos = vec3(
+            intBitsToFloat(inputData[playerOffset]),
+            intBitsToFloat(inputData[playerOffset + 1]),
+            intBitsToFloat(inputData[playerOffset + 2])
+        );
+        vec3 delta = candidatePos - playerPos;
+        nearestDistanceSquared = min(nearestDistanceSquared, dot(delta, delta));
+    }
+
+    outputData[int(invocation)] = floatBitsToUint(nearestDistanceSquared);
+}
+
+float lerp3_noise(float x, float y, float z, float n000, float n100, float n010, float n110, float n001, float n101, float n011, float n111) {
+    float valueXZ00 = mix(n000, n010, y);
+    float valueXZ10 = mix(n100, n110, y);
+    float valueXZ01 = mix(n001, n011, y);
+    float valueXZ11 = mix(n101, n111, y);
+    float valueZ0 = mix(valueXZ00, valueXZ10, x);
+    float valueZ1 = mix(valueXZ01, valueXZ11, x);
+    return mix(valueZ0, valueZ1, z);
+}
+
+void run_noise_interpolation(uint invocation) {
+    int interpolatorCount = inputData[1];
+    int cellCountY = inputData[2];
+    int cellWidth = inputData[3];
+    int cellHeight = inputData[4];
+    int cellCountZ = max(inputData[5], 1);
+    int cellVolume = cellWidth * cellWidth * cellHeight;
+    int valuesPerInterpolator = cellCountZ * cellCountY * cellVolume;
+    int totalValueCount = interpolatorCount * valuesPerInterpolator;
+    if (invocation >= uint(totalValueCount)) {
+        return;
+    }
+
+    int absoluteIndex = int(invocation);
+    int interpolatorIndex = absoluteIndex / valuesPerInterpolator;
+    int interpolatorOffset = absoluteIndex - (interpolatorIndex * valuesPerInterpolator);
+    int valuesPerColumn = cellCountY * cellVolume;
+    int cellZ = interpolatorOffset / valuesPerColumn;
+    int columnOffset = interpolatorOffset - (cellZ * valuesPerColumn);
+    int cellY = columnOffset / cellVolume;
+    int voxelIndex = columnOffset - (cellY * cellVolume);
+
+    int topToBottomY = voxelIndex / (cellWidth * cellWidth);
+    int voxelRemainder = voxelIndex - (topToBottomY * cellWidth * cellWidth);
+    int localX = voxelRemainder / cellWidth;
+    int localZ = voxelRemainder - (localX * cellWidth);
+    int localY = (cellHeight - 1) - topToBottomY;
+
+    float fx = float(localX) / float(cellWidth);
+    float fy = float(localY) / float(cellHeight);
+    float fz = float(localZ) / float(cellWidth);
+
+    int cornerOffset = HEADER_INTS + ((((interpolatorIndex * cellCountZ) + cellZ) * cellCountY + cellY) * INTERPOLATION_CORNERS_PER_CELL);
+    float noise000 = intBitsToFloat(inputData[cornerOffset]);
+    float noise100 = intBitsToFloat(inputData[cornerOffset + 1]);
+    float noise010 = intBitsToFloat(inputData[cornerOffset + 2]);
+    float noise110 = intBitsToFloat(inputData[cornerOffset + 3]);
+    float noise001 = intBitsToFloat(inputData[cornerOffset + 4]);
+    float noise101 = intBitsToFloat(inputData[cornerOffset + 5]);
+    float noise011 = intBitsToFloat(inputData[cornerOffset + 6]);
+    float noise111 = intBitsToFloat(inputData[cornerOffset + 7]);
+
+    outputData[absoluteIndex] = floatBitsToUint(
+        lerp3_noise(fx, fy, fz, noise000, noise100, noise010, noise110, noise001, noise101, noise011, noise111)
+    );
+}
+
+void main() {
+    uint invocation = gl_GlobalInvocationID.x;
+    int workload = inputData[0];
+
+    if (workload == WORKLOAD_TERRAIN) {
+        run_terrain(invocation);
+    } else if (workload == WORKLOAD_ANTI_XRAY) {
+        run_anti_xray(invocation);
+    } else if (workload == WORKLOAD_STRUCTURE_SCAN) {
+        run_structure_scan(invocation);
+    } else if (workload == WORKLOAD_MOB_SPAWN) {
+        run_mob_spawn(invocation);
+    } else if (workload == WORKLOAD_NOISE_INTERPOLATION) {
+        run_noise_interpolation(invocation);
+    }
+}

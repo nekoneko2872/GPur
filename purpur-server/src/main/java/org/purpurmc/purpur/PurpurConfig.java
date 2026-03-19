@@ -20,6 +20,7 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import org.gpur.command.GPurCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.configuration.ConfigurationSection;
@@ -72,6 +73,7 @@ public class PurpurConfig {
         verbose = getBoolean("verbose", false);
 
         commands = new HashMap<>();
+        commands.put("gpur", new GPurCommand("gpur"));
         commands.put("purpur", new PurpurCommand("purpur"));
 
         version = getInt("config-version", 47);
@@ -230,7 +232,7 @@ public class PurpurConfig {
         deathMessageOnlyBroadcastToAffectedPlayer = getBoolean("settings.broadcasts.death.only-broadcast-to-affected-player", deathMessageOnlyBroadcastToAffectedPlayer);
     }
 
-    public static String serverModName = io.papermc.paper.ServerBuildInfo.buildInfo().brandName();
+    public static String serverModName = "GPur";
     private static void serverModName() {
         serverModName = getString("settings.server-mod-name", serverModName);
     }

@@ -1,0 +1,8 @@
+[13:48:51] [ServerMain/INFO]: [bootstrap] Running Java 21 (Java HotSpot(TM) 64-Bit Server VM 21.0.5+9-LTS-239; Oracle Corporation null) on Windows 11 10.0 (amd64)
+[13:48:51] [ServerMain/INFO]: [bootstrap] Loading GPur 1.21.11-DEV-codex/beta/1.21.11@0fbf8d2 (1970-01-01T00:00:00Z) for Minecraft 1.21.11
+[13:48:52] [ServerMain/INFO]: [PluginInitializerManager] Initializing plugins...
+[13:48:52] [ServerMain/INFO]: [PluginInitializerManager] Initialized 0 plugins
+[13:48:52] [Paper Plugin Remapper Thread - 0/INFO]: [ReobfServer] Remapping server...
+[13:48:58] [Paper Plugin Remapper Thread - 0/INFO]: [ReobfServer] Done remapping server in 5720ms.
+[13:49:00] [ServerMain/WARN]: Failed to load eula.txt
+[13:49:00] [ServerMain/INFO]: You need to agree to the EULA in order to run the server. Go to eula.txt for more info.

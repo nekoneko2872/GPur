@@ -4,6 +4,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import org.gpur.GPurConfig;
+import org.gpur.GPurServices;
 import org.purpurmc.purpur.PurpurConfig;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -48,6 +50,8 @@ public class PurpurCommand extends Command {
 
             MinecraftServer console = MinecraftServer.getServer();
             PurpurConfig.init((File) console.options.valueOf("purpur-settings"));
+            GPurConfig.init((File) console.options.valueOf("gpur-settings"));
+            GPurServices.reload(console);
             for (ServerLevel level : console.getAllLevels()) {
                 level.purpurConfig.init();
                 level.resetBreedingCooldowns(); // Purpur - Add adjustable breeding cooldown to config

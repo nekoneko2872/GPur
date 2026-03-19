@@ -1,18 +1,21 @@
 --- a/paper-server/build.gradle.kts
 +++ b/paper-server/build.gradle.kts
-@@ -2,6 +_,7 @@
- import io.papermc.paperweight.attribute.DevBundleOutput
- import io.papermc.paperweight.util.*
- import java.time.Instant
-+import kotlin.io.path.writeText
+@@ -11,6 +11,10 @@
+     id("io.papermc.fill.gradle") version "1.0.10"
+ }
  
- plugins {
-     `java-library`
-@@ -22,6 +_,18 @@
++base {
++    archivesName.set("gpur-server")
++}
++
+ val paperMavenPublicUrl = "https://repo.papermc.io/repository/maven-public/"
+ 
+ dependencies {
+@@ -21,6 +25,16 @@
+ paperweight {
      minecraftVersion = providers.gradleProperty("mcVersion")
      gitFilePatches = false
- 
-+    // Purpur start - Rebrand
++
 +    val purpur = forks.register("purpur") {
 +        upstream.patchDir("paperServer") {
 +            upstreamPath = "paper-server"
@@ -22,17 +25,14 @@
 +        }
 +    }
 +    activeFork = purpur
-+    // Purpur end - Rebrand
-+
+ 
      spigot {
          enabled = true
-         buildDataRef = "17f77cee7117ab9d6175f088ae8962bfd04e61a9"
-@@ -104,7 +_,21 @@
+@@ -104,7 +118,20 @@
      }
  }
  
 -val log4jPlugins = sourceSets.create("log4jPlugins")
-+// Purpur start - Rebrand
 +sourceSets {
 +    main {
 +        java { srcDir("../paper-server/src/main/java") }
@@ -43,39 +43,80 @@
 +        resources { srcDir("../paper-server/src/test/resources") }
 +    }
 +}
++
 +val log4jPlugins = sourceSets.create("log4jPlugins") {
 +    java { srcDir("../paper-server/src/log4jPlugins/java") }
 +}
-+// Purpur end - Rebrand
  configurations.named(log4jPlugins.compileClasspathConfigurationName) {
      extendsFrom(configurations.compileClasspath.get())
  }
-@@ -127,7 +_,7 @@
+@@ -127,7 +154,9 @@
  }
  
  dependencies {
 -    implementation(project(":paper-api"))
-+    implementation(project(":purpur-api")) // Purpur
++    implementation(platform("org.lwjgl:lwjgl-bom:3.4.1"))
++
++    implementation(project(":purpur-api"))
      implementation("ca.spottedleaf:concurrentutil:0.0.8")
      implementation("org.jline:jline-terminal-ffm:3.27.1") // use ffm on java 22+
      implementation("org.jline:jline-terminal-jni:3.27.1") // fall back to jni on java 21
-@@ -153,6 +_,10 @@
+@@ -152,12 +181,29 @@
+     implementation("org.apache.logging.log4j:log4j-iostreams:2.24.1")
      implementation("org.ow2.asm:asm-commons:9.8")
      implementation("org.spongepowered:configurate-yaml:4.2.0")
- 
-+    implementation("org.mozilla:rhino-runtime:1.7.14") // Purpur
-+    implementation("org.mozilla:rhino-engine:1.7.14") // Purpur
-+    implementation("dev.omega24:upnp4j:1.0") // Purpur
++    implementation("org.lwjgl:lwjgl")
++    implementation("org.lwjgl:lwjgl-vulkan")
++    implementation("org.lwjgl:lwjgl-shaderc")
 +
++    implementation("org.mozilla:rhino-runtime:1.7.14")
++    implementation("org.mozilla:rhino-engine:1.7.14")
++    implementation("dev.omega24:upnp4j:1.0")
+ 
      // Deps that were previously in the API but have now been moved here for backwards compat, eventually to be removed
      runtimeOnly("commons-lang:commons-lang:2.6")
      runtimeOnly("org.xerial:sqlite-jdbc:3.49.1.0")
-@@ -191,21 +_,21 @@
+     runtimeOnly("com.mysql:mysql-connector-j:9.2.0")
+     runtimeOnly("com.lmax:disruptor:3.4.4")
++    runtimeOnly("org.lwjgl:lwjgl::natives-windows")
++    runtimeOnly("org.lwjgl:lwjgl::natives-linux")
++    runtimeOnly("org.lwjgl:lwjgl::natives-linux-arm64")
++    runtimeOnly("org.lwjgl:lwjgl::natives-macos")
++    runtimeOnly("org.lwjgl:lwjgl::natives-macos-arm64")
++    runtimeOnly("org.lwjgl:lwjgl-shaderc::natives-windows")
++    runtimeOnly("org.lwjgl:lwjgl-shaderc::natives-linux")
++    runtimeOnly("org.lwjgl:lwjgl-shaderc::natives-linux-arm64")
++    runtimeOnly("org.lwjgl:lwjgl-shaderc::natives-macos")
++    runtimeOnly("org.lwjgl:lwjgl-shaderc::natives-macos-arm64")
+     implementation("com.googlecode.json-simple:json-simple:1.1.1") { // change to runtimeOnly once Timings is removed
+         isTransitive = false // includes junit
+     }
+@@ -186,26 +232,41 @@
+     implementation("me.lucko:spark-paper:1.10.152")
+ }
+ 
++val missingVanillaResourceGlobs = listOf(
++    "data/minecraft/tags/**",
++    "data/minecraft/test_environment/**",
++    "data/minecraft/test_instance/**",
++    "data/minecraft/timeline/**",
++    "data/minecraft/trial_spawner/**",
++    "data/minecraft/trim_material/**",
++    "data/minecraft/trim_pattern/**",
++    "data/minecraft/wolf_sound_variant/**",
++    "data/minecraft/wolf_variant/**",
++    "data/minecraft/worldgen/**",
++    "data/minecraft/zombie_nautilus_variant/**",
++)
++
+ tasks.jar {
++    archiveClassifier.set("dev")
+     manifest {
          val git = Git(rootProject.layout.projectDirectory.path)
          val mcVersion = rootProject.providers.gradleProperty("mcVersion").get()
          val build = System.getenv("BUILD_NUMBER") ?: null
 -        val buildTime = providers.environmentVariable("BUILD_STARTED_AT").map(Instant::parse).orElse(Instant.EPOCH).get()
-+        val buildTime = if (build != null) Instant.now() else Instant.EPOCH // Purpur
++        val buildTime = if (build != null) Instant.now() else Instant.EPOCH
          val gitHash = git.exec(providers, "rev-parse", "--short=7", "HEAD").get().trim()
          val implementationVersion = "$mcVersion-${build ?: "DEV"}-$gitHash"
          val date = git.exec(providers, "show", "-s", "--format=%ci", gitHash).get().trim()
@@ -83,82 +124,27 @@
          attributes(
              "Main-Class" to "org.bukkit.craftbukkit.Main",
 -            "Implementation-Title" to "Paper",
-+            "Implementation-Title" to "Purpur", // Purpur
++            "Implementation-Title" to "GPur",
              "Implementation-Version" to implementationVersion,
              "Implementation-Vendor" to date,
 -            "Specification-Title" to "Paper",
-+            "Specification-Title" to "Purpur", // Purpur
++            "Specification-Title" to "GPur",
              "Specification-Version" to project.version,
 -            "Specification-Vendor" to "Paper Team",
 -            "Brand-Id" to "papermc:paper",
 -            "Brand-Name" to "Paper",
-+            "Specification-Vendor" to "Purpur Team", // Purpur
-+            "Brand-Id" to "purpurmc:purpur", // Purpur
-+            "Brand-Name" to "Purpur", // Purpur
++            "Specification-Vendor" to "GPur Team",
++            "Brand-Id" to "gpur:gpur",
++            "Brand-Name" to "GPur",
              "Build-Number" to (build ?: ""),
              "Build-Time" to buildTime.toString(),
              "Git-Branch" to gitBranch,
-@@ -264,7 +_,7 @@
+@@ -264,7 +325,7 @@
      jvmArgumentProviders.add(provider)
  }
  
 -val generatedDir: java.nio.file.Path = layout.projectDirectory.dir("src/generated/java").asFile.toPath()
-+val generatedDir: java.nio.file.Path = layout.projectDirectory.dir("../paper-server/src/generated/java").asFile.toPath() // Purpur
++val generatedDir: java.nio.file.Path = layout.projectDirectory.dir("../paper-server/src/generated/java").asFile.toPath()
  idea {
      module {
          generatedSourceDirs.add(generatedDir.toFile())
-@@ -356,7 +_,7 @@
-     mainClass.set(null as String?)
- }
- 
--fill {
-+/* fill { // Purpur - we don't use fill
-     project("paper")
-     versionFamily(paperweight.minecraftVersion.map { it.split(".", "-").takeWhile { part -> part.toIntOrNull() != null }.take(2).joinToString(".") })
-     version(paperweight.minecraftVersion)
-@@ -371,4 +_,44 @@
-             }
-         }
-     }
--}
-+} */ // Purpur - we don't use fill
-+
-+// tasks.register("rebuildMinecraftSourcesWithGit") {
-+//     group = "temp"
-+//
-+//     val patchDir = project.rootDir.resolve("purpur-server/minecraft-patches/sources").convertToPath().cleanDir()
-+//     val inputDir = this.project.rootDir.resolve("purpur-server/src/minecraft/java").convertToPath()
-+//
-+//     val git = Git(inputDir)
-+//     git("stash", "push").executeSilently(silenceErr = true)
-+//     git("checkout", "file").executeSilently(silenceErr = true)
-+//
-+//     rebuildWithGit(git, patchDir)
-+// }
-+//
-+// private fun rebuildWithGit(
-+//     git: Git,
-+//     patchDir: java.nio.file.Path
-+// ): Int {
-+//     val files = git("diff-tree", "--name-only", "--no-commit-id", "-r", "HEAD").getText().split("\n")
-+//     files.parallelStream().forEach { filename ->
-+//         if (filename.isBlank()) return@forEach
-+//         val patch = git(
-+//             "format-patch",
-+//             "--diff-algorithm=myers",
-+//             "--full-index",
-+//             "--no-signature",
-+//             "--no-stat",
-+//             "--no-numbered",
-+//             "-1",
-+//             "HEAD",
-+//             "--stdout",
-+//             filename
-+//         ).getText()
-+//         val patchFile = patchDir.resolve("$filename.patch")
-+//         patchFile.createParentDirectories()
-+//         patchFile.writeText(patch)
-+//     }
-+//
-+//     return files.size
-+// }

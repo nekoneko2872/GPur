@@ -1,6 +1,6 @@
 --- a/src/main/java/org/bukkit/craftbukkit/Main.java
 +++ b/src/main/java/org/bukkit/craftbukkit/Main.java
-@@ -139,6 +_,14 @@
+@@ -139,6 +_,19 @@
                          .defaultsTo(new File[] {})
                          .describedAs("Plugin directory");
  
@@ -9,6 +9,11 @@
 +                    .withRequiredArg()
 +                    .ofType(File.class)
 +                    .defaultsTo(new File("purpur.yml"))
++                    .describedAs("Yml file");
++                this.acceptsAll(asList("gpur-settings", "gpurpur-settings", "gpur"), "File for GPur settings")
++                    .withRequiredArg()
++                    .ofType(File.class)
++                    .defaultsTo(new File("gpur.yml"))
 +                    .describedAs("Yml file");
 +                // Purpur end - Purpur config files
 +

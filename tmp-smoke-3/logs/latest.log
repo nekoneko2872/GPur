@@ -1,0 +1,58 @@
+[13:31:29] [ServerMain/INFO]: [bootstrap] Running Java 21 (Java HotSpot(TM) 64-Bit Server VM 21.0.5+9-LTS-239; Oracle Corporation null) on Windows 11 10.0 (amd64)
+[13:31:29] [ServerMain/INFO]: [bootstrap] Loading GPur 1.21.11-DEV-codex/beta/1.21.11@0fbf8d2 (1970-01-01T00:00:00Z) for Minecraft 1.21.11
+[13:31:30] [ServerMain/INFO]: [PluginInitializerManager] Initializing plugins...
+[13:31:30] [ServerMain/INFO]: [PluginInitializerManager] Initialized 0 plugins
+[13:31:31] [Paper Plugin Remapper Thread - 0/INFO]: [ReobfServer] Remapping server...
+[13:31:36] [Paper Plugin Remapper Thread - 0/INFO]: [ReobfServer] Done remapping server in 5262ms.
+[13:31:38] [ServerMain/INFO]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, profilesHost=https://api.mojang.com, name=PROD]
+[13:31:39] [ServerMain/INFO]: Found new data pack file/bukkit, loading it automatically
+[13:31:39] [ServerMain/INFO]: Found new data pack paper, loading it automatically
+[13:31:39] [ServerMain/INFO]: No existing world data, creating new world
+[13:31:40] [ServerMain/INFO]: Loaded 1470 recipes
+[13:31:40] [ServerMain/INFO]: Loaded 1584 advancements
+[13:31:41] [ServerMain/INFO]: [ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry] Initialising converters for DataConverter...
+[13:31:41] [ServerMain/INFO]: [ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry] Finished initialising converters for DataConverter in 404.3ms
+[13:31:41] [Server thread/INFO]: Starting minecraft server version 1.21.11
+[13:31:41] [Server thread/INFO]: Loading properties
+[13:31:41] [Server thread/INFO]: This server is running GPur version 1.21.11-DEV-codex/beta/1.21.11@0fbf8d2 (1970-01-01T00:00:00Z) (Implementing API version 1.21.11-R0.1-SNAPSHOT)
+[13:31:41] [Server thread/INFO]: [spark] This server bundles the spark profiler. For more information please visit https://docs.papermc.io/paper/profiling
+[13:31:41] [Server thread/INFO]: Server Ping Player Sample Count: 12
+[13:31:41] [Server thread/INFO]: Using 4 threads for Netty based IO
+[13:31:42] [Server thread/INFO]: [MoonriseCommon] Paper is using 4 worker threads, 1 I/O threads
+[13:31:43] [Server thread/INFO]: [GPur] GPur Vulkan backend initialized on NVIDIA GeForce RTX 3070.
+[13:31:43] [Server thread/INFO]: Default game type: SURVIVAL
+[13:31:43] [Server thread/INFO]: Generating keypair
+[13:31:43] [Server thread/INFO]: Starting Minecraft server on *:25565
+[13:31:43] [Server thread/INFO]: Paper: Using Java compression from Velocity.
+[13:31:43] [Server thread/INFO]: Paper: Using Java cipher from Velocity.
+[13:31:43] [Server thread/INFO]: Preparing level "world"
+[13:31:44] [Server thread/INFO]: Selecting spawn point for world 'minecraft:overworld'...
+[13:31:45] [Paper Common Worker #0/INFO]: [GPur] GPur GPU terrain assist completed: 8 interpolator(s) across 48 cell(s) (total columns=1, values=49152)
+[13:31:46] [Paper Common Worker #3/INFO]: [GPur] GPur GPU terrain assist completed: 8 interpolator(s) across 48 cell(s) (total columns=128, values=6291456)
+[13:31:47] [Paper Common Worker #1/INFO]: [GPur] GPur GPU terrain assist completed: 8 interpolator(s) across 48 cell(s) (total columns=256, values=12582912)
+[13:31:47] [Server thread/INFO]: Selecting spawn point for world 'minecraft:the_nether'...
+[13:31:47] [Paper Common Worker #2/INFO]: [GPur] GPur GPU terrain assist completed: 1 interpolator(s) across 16 cell(s) (total columns=384, values=15953920)
+[13:31:47] [Paper Common Worker #0/INFO]: [GPur] GPur GPU terrain assist completed: 1 interpolator(s) across 16 cell(s) (total columns=512, values=16216064)
+[13:31:48] [Paper Common Worker #0/INFO]: [GPur] GPur GPU terrain assist completed: 1 interpolator(s) across 16 cell(s) (total columns=640, values=16478208)
+[13:31:48] [Paper Common Worker #1/INFO]: [GPur] GPur GPU terrain assist completed: 1 interpolator(s) across 16 cell(s) (total columns=768, values=16740352)
+[13:31:48] [Server thread/INFO]: Selecting spawn point for world 'minecraft:the_end'...
+[13:31:48] [Paper Common Worker #1/INFO]: [GPur] GPur GPU terrain assist completed: 1 interpolator(s) across 32 cell(s) (total columns=896, values=17297408)
+[13:31:48] [Server thread/INFO]: Loading 0 persistent chunks for world 'minecraft:overworld'...
+[13:31:48] [Server thread/INFO]: Preparing spawn area: 100%
+[13:31:48] [Server thread/INFO]: Prepared spawn area in 4047 ms
+[13:31:48] [Server thread/INFO]: Loading 0 persistent chunks for world 'minecraft:the_nether'...
+[13:31:48] [Server thread/INFO]: Preparing spawn area: 100%
+[13:31:48] [Server thread/INFO]: Prepared spawn area in 1102 ms
+[13:31:48] [Server thread/INFO]: Loading 0 persistent chunks for world 'minecraft:the_end'...
+[13:31:48] [Server thread/INFO]: Preparing spawn area: 100%
+[13:31:48] [Server thread/INFO]: Prepared spawn area in 404 ms
+[13:31:48] [Server thread/INFO]: Done preparing level "world" (4.830s)
+[13:31:49] [Server thread/INFO]: [spark] Starting background profiler...
+[13:31:49] [Server thread/INFO]: [spark] The async-profiler engine is not supported for your os/arch (windows11/amd64), so the built-in Java engine will be used instead.
+[13:31:49] [Server thread/INFO]: Running delayed init tasks
+[13:31:49] [Server thread/INFO]: Done (20.170s)! For help, type "help"
+[13:31:49] [Server thread/INFO]: *************************************************************************************
+[13:31:49] [Server thread/INFO]: This is the first time you're starting this server.
+[13:31:49] [Server thread/INFO]: It's recommended you read our 'Getting Started' documentation for guidance.
+[13:31:49] [Server thread/INFO]: View this and more helpful information here: https://docs.papermc.io/paper/next-steps
+[13:31:49] [Server thread/INFO]: *************************************************************************************
