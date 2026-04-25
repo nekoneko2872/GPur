@@ -184,41 +184,46 @@ public final class GPurChunkGenerationManager {
     }
 
     private boolean canUseGpuBatch() {
-        if (this.backend.mode() != GPurComputeMode.VULKAN || !this.backend.isAvailable()) {
-            this.maybeRecoverGpuBackend();
-        }
-
-        if (this.backend.mode() != GPurComputeMode.VULKAN || !this.backend.isAvailable()) {
-            return false;
-        }
-
-        return this.backend.currentUtilizationPercent().isEmpty()
-            || this.backend.currentUtilizationPercent().getAsInt() < GPurConfig.gpuUsageFallback;
+        final GPurComputeBackend backend = this.currentGpuBackend();
+        return GPurBackendGate.canUseGpuBatch(
+            backend.mode(),
+            backend.isAvailable(),
+            backend.currentUtilizationPercent().orElse(-1),
+            GPurConfig.gpuUsageFallback
+        );
     }
 
     private boolean canUseLowLatencyGpuOffload() {
-        if (!this.canUseGpuBatch()) {
-            return false;
-        }
-
-        if (this.terrainBatchesInFlight.get() > 0 || this.activeNoiseTasks.get() > 0) {
-            return false;
-        }
-
-        return this.backend.currentUtilizationPercent().isEmpty() || this.backend.currentUtilizationPercent().getAsInt() == 0;
+        final GPurComputeBackend backend = this.currentGpuBackend();
+        return GPurBackendGate.canUseLowLatencyGpuOffload(
+            backend.mode(),
+            backend.isAvailable(),
+            backend.currentUtilizationPercent().orElse(-1),
+            GPurConfig.gpuUsageFallback,
+            this.terrainBatchesInFlight.get(),
+            this.activeNoiseTasks.get()
+        );
     }
 
     private boolean canUsePacketGpuOffload() {
-        if (!this.canUseGpuBatch()) {
-            return false;
-        }
+        final GPurComputeBackend backend = this.currentGpuBackend();
+        return GPurBackendGate.canUsePacketGpuOffload(
+            backend.mode(),
+            backend.isAvailable(),
+            backend.currentUtilizationPercent().orElse(-1),
+            GPurConfig.gpuUsageFallback,
+            this.terrainBatchesInFlight.get(),
+            backend.busyExecutionContexts(),
+            backend.totalExecutionContexts()
+        );
+    }
 
-        if (this.terrainBatchesInFlight.get() > 0) {
-            return false;
+    private GPurComputeBackend currentGpuBackend() {
+        final GPurComputeBackend backend = this.backend;
+        if (backend.mode() != GPurComputeMode.VULKAN || !backend.isAvailable()) {
+            this.maybeRecoverGpuBackend();
         }
-
-        final int totalContexts = this.backend.totalExecutionContexts();
-        return totalContexts <= 0 || this.backend.busyExecutionContexts() < totalContexts;
+        return this.backend;
     }
 
     public GPurAntiXrayBatchResult submitAntiXrayBatch(final GPurAntiXrayBatchRequest request) {

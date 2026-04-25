@@ -1,11 +1,10 @@
 package org.gpur.preload;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -15,6 +14,7 @@ import org.gpur.preload.GPurElytraPreloadMath.PreloadProfile;
 public final class GPurSharedPreloadService {
     private final ConcurrentHashMap<String, ConcurrentHashMap<UUID, SharedPreloadAnchor>> anchorsByWorld = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, AtomicLong> worldVersions = new ConcurrentHashMap<>();
+    private final AtomicLong activeAnchors = new AtomicLong();
     private final AtomicLong sharedSelections = new AtomicLong();
     private final AtomicLong sharedPriorityHits = new AtomicLong();
     private final AtomicLong retainedPriorityHits = new AtomicLong();
@@ -24,6 +24,7 @@ public final class GPurSharedPreloadService {
     public void reset() {
         this.anchorsByWorld.clear();
         this.worldVersions.clear();
+        this.activeAnchors.set(0L);
         this.sharedSelections.set(0L);
         this.sharedPriorityHits.set(0L);
         this.retainedPriorityHits.set(0L);
@@ -44,20 +45,28 @@ public final class GPurSharedPreloadService {
             return;
         }
 
-        final String worldKey = world.dimension().identifier().toString();
-        this.anchorsByWorld.computeIfAbsent(worldKey, ignored -> new ConcurrentHashMap<>())
-            .put(player.getUUID(), new SharedPreloadAnchor(player.getUUID(), centerChunkX, centerChunkZ, profile, nowNanos));
-        this.worldVersions.computeIfAbsent(worldKey, ignored -> new AtomicLong()).incrementAndGet();
+        final String worldKey = this.worldKey(world);
+        final Map<UUID, SharedPreloadAnchor> anchors = this.anchorsByWorld.computeIfAbsent(worldKey, ignored -> new ConcurrentHashMap<>());
+        final AtomicLong versionCounter = this.worldVersions.computeIfAbsent(worldKey, ignored -> new AtomicLong());
+        final SharedPreloadAnchor nextAnchor = new SharedPreloadAnchor(player.getUUID(), centerChunkX, centerChunkZ, profile, nowNanos);
+        final SharedPreloadAnchor previousAnchor = anchors.put(player.getUUID(), nextAnchor);
+        if (previousAnchor == null) {
+            this.activeAnchors.incrementAndGet();
+        }
+        if (requiresVersionBump(previousAnchor, nextAnchor)) {
+            versionCounter.incrementAndGet();
+        }
     }
 
     public void removeAnchor(final ServerPlayer player, final ServerLevel world) {
-        final String worldKey = world.dimension().identifier().toString();
+        final String worldKey = this.worldKey(world);
         final Map<UUID, SharedPreloadAnchor> anchors = this.anchorsByWorld.get(worldKey);
         if (anchors == null) {
             return;
         }
 
         if (anchors.remove(player.getUUID()) != null) {
+            this.activeAnchors.decrementAndGet();
             this.worldVersions.computeIfAbsent(worldKey, ignored -> new AtomicLong()).incrementAndGet();
         }
         if (anchors.isEmpty()) {
@@ -73,8 +82,9 @@ public final class GPurSharedPreloadService {
         final PreloadProfile profile,
         final long nowNanos
     ) {
-        final String worldKey = world.dimension().identifier().toString();
-        final long version = this.worldVersions.computeIfAbsent(worldKey, ignored -> new AtomicLong()).get();
+        final String worldKey = this.worldKey(world);
+        final AtomicLong versionCounter = this.worldVersions.computeIfAbsent(worldKey, ignored -> new AtomicLong());
+        final long version = versionCounter.get();
         if (!GPurConfig.sharedPreloadingEnabled || !profile.active()) {
             return new SharedPreloadSelection(List.of(), version);
         }
@@ -84,54 +94,36 @@ public final class GPurSharedPreloadService {
             return new SharedPreloadSelection(List.of(), version);
         }
 
-        final long expiryNanos = nowNanos - (GPurConfig.sharedPreloadingAnchorExpiryMillis * 1_000_000L);
-        final ArrayList<SharedPreloadAnchor> selectedAnchors = new ArrayList<>();
+        final GPurSharedPreloadSelector.SelectionResult selection = GPurSharedPreloadSelector.selectAnchors(
+            anchors.values(),
+            player.getUUID(),
+            centerChunkX,
+            centerChunkZ,
+            profile,
+            nowNanos,
+            TimeUnit.MILLISECONDS.toNanos(GPurConfig.sharedPreloadingAnchorExpiryMillis),
+            GPurConfig.sharedPreloadingMaxDistance,
+            GPurConfig.sharedPreloadingDirectionDotThreshold,
+            GPurConfig.sharedPreloadingMaxAnchors
+        );
+
         boolean removedExpiredAnchors = false;
-
-        for (final SharedPreloadAnchor anchor : anchors.values()) {
-            if (anchor.playerId().equals(player.getUUID())) {
-                continue;
+        for (final UUID expiredAnchorId : selection.expiredAnchorIds()) {
+            if (anchors.remove(expiredAnchorId) != null) {
+                this.activeAnchors.decrementAndGet();
+                removedExpiredAnchors = true;
             }
-            if (anchor.updatedAtNanos() < expiryNanos) {
-                if (anchors.remove(anchor.playerId(), anchor)) {
-                    removedExpiredAnchors = true;
-                }
-                continue;
-            }
-
-            final int squareDistance = Math.max(Math.abs(anchor.centerChunkX() - centerChunkX), Math.abs(anchor.centerChunkZ() - centerChunkZ));
-            if (squareDistance > GPurConfig.sharedPreloadingMaxDistance) {
-                continue;
-            }
-
-            final double directionDot = (anchor.profile().directionX() * profile.directionX()) + (anchor.profile().directionZ() * profile.directionZ());
-            if (directionDot < GPurConfig.sharedPreloadingDirectionDotThreshold) {
-                continue;
-            }
-
-            selectedAnchors.add(anchor);
         }
 
         if (removedExpiredAnchors) {
-            this.worldVersions.computeIfAbsent(worldKey, ignored -> new AtomicLong()).incrementAndGet();
+            versionCounter.incrementAndGet();
         }
 
-        selectedAnchors.sort(
-            Comparator.<SharedPreloadAnchor>comparingInt(anchor ->
-                Math.max(Math.abs(anchor.centerChunkX() - centerChunkX), Math.abs(anchor.centerChunkZ() - centerChunkZ))
-            ).thenComparing(SharedPreloadAnchor::updatedAtNanos, Comparator.reverseOrder())
-        );
-
-        final int maxAnchors = Math.max(1, GPurConfig.sharedPreloadingMaxAnchors);
-        final List<SharedPreloadAnchor> anchorsView = selectedAnchors.size() > maxAnchors
-            ? List.copyOf(selectedAnchors.subList(0, maxAnchors))
-            : List.copyOf(selectedAnchors);
-
-        if (!anchorsView.isEmpty()) {
+        if (!selection.anchors().isEmpty()) {
             this.sharedSelections.incrementAndGet();
         }
 
-        return new SharedPreloadSelection(anchorsView, this.worldVersions.computeIfAbsent(worldKey, ignored -> new AtomicLong()).get());
+        return new SharedPreloadSelection(selection.anchors(), versionCounter.get());
     }
 
     public void recordSharedPriorityHit() {
@@ -150,13 +142,8 @@ public final class GPurSharedPreloadService {
     }
 
     public GPurPreloadStatusSnapshot statusSnapshot() {
-        int activeAnchors = 0;
-        for (final Map<UUID, SharedPreloadAnchor> anchors : this.anchorsByWorld.values()) {
-            activeAnchors += anchors.size();
-        }
-
         return new GPurPreloadStatusSnapshot(
-            activeAnchors,
+            (int)this.activeAnchors.get(),
             this.anchorsByWorld.size(),
             this.sharedSelections.get(),
             this.sharedPriorityHits.get(),
@@ -176,5 +163,16 @@ public final class GPurSharedPreloadService {
         PreloadProfile profile,
         long updatedAtNanos
     ) {
+    }
+
+    static boolean requiresVersionBump(final SharedPreloadAnchor previousAnchor, final SharedPreloadAnchor nextAnchor) {
+        return previousAnchor == null
+            || previousAnchor.centerChunkX() != nextAnchor.centerChunkX()
+            || previousAnchor.centerChunkZ() != nextAnchor.centerChunkZ()
+            || !previousAnchor.profile().equals(nextAnchor.profile());
+    }
+
+    private String worldKey(final ServerLevel world) {
+        return world.dimension().identifier().toString();
     }
 }

@@ -5,8 +5,7 @@ description: Purpur Test Plugin
 author: PurpurMC
 api-version: ${apiversion}
 load: STARTUP
-#bootstrapper: org.purpurmc.testplugin.TestPluginBootstrap
-#loader: org.purpurmc.testplugin.TestPluginLoader
+# Local-only smoke harness; no custom bootstrapper or loader is registered by default.
 defaultPerm: FALSE
 permissions:
 dependencies:

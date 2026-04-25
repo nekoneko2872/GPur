@@ -65,6 +65,14 @@ Under `purpur-server`:
   - `sources`: Per-file patches to Paper Server classes;
   - `features`: Larger feature patches that modify multiple Paper Server classes.
 
+Patch sets are lifecycle-managed, not just stored:
+
+- `patches/<version>/` tracks the active branch line.
+- `patches/unapplied-*` holds patches that are intentionally parked.
+- `patches/*/dropped-server` keeps dropped patches for reference when upstream updates make them obsolete or conflicting.
+
+If you move a patch between those areas, make that intent explicit in the patch message or PR description so later rebases stay readable.
+
 Because this entire structure is based on patches and git, a basic understanding
 of how to use git is required. A basic tutorial can be found here:
 <https://git-scm.com/docs/gittutorial>.
@@ -82,6 +90,8 @@ Its initial commits are the decompiled and deobfuscated Minecraft source and res
 patches are applied on top of these files as a single, large commit, which is then followed
 by the individual feature-patch commits. `paper-api/` and `paper-server/`
 follow the same concept; each paper "project" has its own git repository that also includes it's own feature and per-file patches.
+
+`test-plugin/` is a local smoke harness. Keep it out of the default build unless you explicitly need it for manual integration checks.
 
 ## Understanding the Gradle Tasks
 

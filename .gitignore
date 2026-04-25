@@ -53,6 +53,18 @@ manifest.mf
 # other stuff
 /run
 
+# Local smoke and scratch outputs
+/.codex_tmp_main/
+/tmp-patch-backup/
+/tmp-registry-smoke/
+/tmp-smoke/
+/tmp-smoke-3/
+/tmp-smoke-4b/
+/tmp-smoke-4c/
+/tmp-smoke-4d/
+/smoke.err
+/smoke.out
+
 /purpur-server/build.gradle.kts
 /purpur-server/src/minecraft
 /paper-server

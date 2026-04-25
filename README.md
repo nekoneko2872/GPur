@@ -188,6 +188,18 @@ Both are written under:
 - `purpur-server/src/main/java/org/gpur`: GPur-specific Java sources
 - `purpur-server/src/main/resources/shaders/gpur`: Vulkan compute shaders
 
+## Patch Workflow
+
+The patch tree is split by version and lifecycle:
+
+- `patches/1-20-6`, `patches/1-21-1`, `patches/1-21-3`: versioned patch sets kept for the target branch line.
+- `patches/unapplied-api`, `patches/unapplied-server`: patches that are staged or intentionally not applied yet.
+- `patches/1-21-3/dropped-server`: patches that were dropped from the active line but are still retained for reference.
+
+When you change per-file patches, use `./gradlew fixup[project]FilePatches` first, then `./gradlew rebuild[project]FilePatches`.
+
+The `test-plugin/` project is a local smoke harness. It is not part of the default build unless you explicitly enable it in `test-plugin.settings.gradle.kts`.
+
 ## Compatibility
 
 GPur is built on top of Purpur, so the API and general plugin compatibility

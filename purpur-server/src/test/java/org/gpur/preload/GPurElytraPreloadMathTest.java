@@ -45,6 +45,21 @@ class GPurElytraPreloadMathTest {
         assertTrue(turningProfile.coneCosThreshold() < straightProfile.coneCosThreshold());
     }
 
+    @Test
+    void inactiveProfileRejectsAllChunks() {
+        final PreloadProfile profile = GPurElytraPreloadMath.inactive(3, 60.0D);
+
+        assertFalse(profile.active());
+        assertFalse(GPurElytraPreloadMath.isWithinPreloadCone(profile, 0, 0, 1, 0));
+    }
+
+    @Test
+    void forwardPriorityScorePrefersForwardChunks() {
+        final PreloadProfile profile = createProfile(1.5D, 0.0D, 1.0D, 0.0D);
+
+        assertTrue(GPurElytraPreloadMath.forwardPriorityScore(profile, 0, 0, 5, 0) > GPurElytraPreloadMath.forwardPriorityScore(profile, 0, 0, 0, 5));
+    }
+
     private static PreloadProfile createProfile(final double motionX, final double motionZ, final double lookX, final double lookZ) {
         return GPurElytraPreloadMath.fromMotion(true, true, motionX, motionZ, lookX, lookZ, 3, 0.6D, 60.0D, 0.35D, 6, 18.0D);
     }

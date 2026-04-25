@@ -54,13 +54,13 @@ public final class GPurChunkReloadOptimizer {
             return false;
         }
 
-        final RetainedChunkKey key = RetainedChunkKey.of(level, new ChunkPos(chunkX, chunkZ));
+        final RetainedChunkKey key = RetainedChunkKey.of(level, chunkX, chunkZ);
         final Long expiresAtNanos = this.retainedChunks.get(key);
         if (expiresAtNanos == null) {
             return false;
         }
 
-        if (expiresAtNanos.longValue() < System.nanoTime()) {
+        if (GPurReloadRetentionPolicy.isExpired(expiresAtNanos.longValue(), System.nanoTime())) {
             this.retainedChunks.remove(key, expiresAtNanos);
             return false;
         }
@@ -84,22 +84,20 @@ public final class GPurChunkReloadOptimizer {
 
     private void pruneExpired() {
         final long now = System.nanoTime();
-        final Iterator<Map.Entry<RetainedChunkKey, Long>> iterator = this.retainedChunks.entrySet().iterator();
-        while (iterator.hasNext()) {
-            final Map.Entry<RetainedChunkKey, Long> entry = iterator.next();
-            if (entry.getValue().longValue() < now) {
-                iterator.remove();
-            }
-        }
+        this.retainedChunks.entrySet().removeIf(entry -> GPurReloadRetentionPolicy.isExpired(entry.getValue().longValue(), now));
     }
 
     private long computeExpiryNanos() {
-        return System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(1L, GPurConfig.reloadHotCacheTicks) * 50L);
+        return GPurReloadRetentionPolicy.computeExpiryNanos(System.nanoTime(), GPurConfig.reloadHotCacheTicks);
     }
 
     private record RetainedChunkKey(String dimensionId, long chunkKey) {
         private static RetainedChunkKey of(final ServerLevel level, final ChunkPos chunkPos) {
             return new RetainedChunkKey(level.dimension().identifier().toString(), chunkPos.toLong());
+        }
+
+        private static RetainedChunkKey of(final ServerLevel level, final int chunkX, final int chunkZ) {
+            return new RetainedChunkKey(level.dimension().identifier().toString(), ChunkPos.asLong(chunkX, chunkZ));
         }
     }
 }

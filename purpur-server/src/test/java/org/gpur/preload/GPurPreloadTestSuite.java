@@ -6,6 +6,6 @@ import org.junit.platform.suite.api.SuiteDisplayName;
 
 @Suite(failIfNoTests = false)
 @SuiteDisplayName("GPur preload math tests")
-@SelectClasses(GPurElytraPreloadMathTest.class)
+@SelectClasses({GPurElytraPreloadMathTest.class, GPurSharedPreloadSelectorTest.class, GPurSharedPreloadServiceTest.class})
 public class GPurPreloadTestSuite {
 }
