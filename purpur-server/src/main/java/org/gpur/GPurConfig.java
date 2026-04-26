@@ -26,6 +26,7 @@ public final class GPurConfig {
     public static boolean gpuAccelerationEnabled = true;
     public static boolean terrainGpuEnabled = true;
     public static boolean legacyTerrainBatchEnabled = false;
+    public static int gpuExecutionContexts = 5;
     public static int gpuQueueThreshold = 10;
     public static int gpuUsageFallback = 90;
     public static int gpuBatchSize = 16;
@@ -133,6 +134,12 @@ public final class GPurConfig {
         legacyTerrainBatchEnabled = getBoolean(
             "chunk-generation.gpu-acceleration.legacy-terrain-batch-enabled",
             legacyTerrainBatchEnabled
+        );
+        gpuExecutionContexts = clamp(
+            getInt("chunk-generation.gpu-acceleration.execution-contexts", gpuExecutionContexts),
+            2,
+            16,
+            "chunk-generation.gpu-acceleration.execution-contexts"
         );
         gpuQueueThreshold = Math.max(1, getInt("chunk-generation.gpu-acceleration.queue-threshold", gpuQueueThreshold));
         gpuUsageFallback = clamp(

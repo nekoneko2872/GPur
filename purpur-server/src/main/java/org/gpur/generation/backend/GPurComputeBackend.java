@@ -77,6 +77,17 @@ public interface GPurComputeBackend extends AutoCloseable {
             : null;
     }
 
+    default CompletableFuture<float[]> interpolateNoiseSliceAsync(
+        final int cellWidth,
+        final int cellHeight,
+        final int cellCountY,
+        final int cellCountZ,
+        final int interpolatorCount,
+        final float[] packedCorners
+    ) {
+        return null;
+    }
+
     @Override
     void close();
 }

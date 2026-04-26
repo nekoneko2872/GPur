@@ -57,6 +57,8 @@ public final class GPurChunkGenerationManager {
     private final AtomicLong completedTerrainAssistColumns = new AtomicLong();
     private final AtomicLong completedTerrainAssistValues = new AtomicLong();
     private final AtomicLong completedTerrainAssistNanos = new AtomicLong();
+    private final AtomicInteger terrainAssistInFlight = new AtomicInteger();
+    private final AtomicInteger terrainAssistPreloadPressure = new AtomicInteger();
     private final AtomicInteger completedAntiXraySections = new AtomicInteger();
     private final AtomicInteger completedStructureScans = new AtomicInteger();
     private final AtomicInteger completedMobScanCandidates = new AtomicInteger();
@@ -68,6 +70,7 @@ public final class GPurChunkGenerationManager {
     private volatile long terrainGpuCooldownUntilNanos;
     private volatile long terrainGpuOverloadSinceNanos = Long.MIN_VALUE;
     private volatile long terrainAssistOverloadSinceNanos = Long.MIN_VALUE;
+    private volatile long terrainAssistPreloadPressureExpiresAtNanos;
     private volatile long lastGpuReinitAttemptMillis;
     private volatile String backendDetail = "GPur backend not initialized yet.";
 
@@ -84,6 +87,9 @@ public final class GPurChunkGenerationManager {
         this.completedTerrainAssistColumns.set(0);
         this.completedTerrainAssistValues.set(0L);
         this.completedTerrainAssistNanos.set(0L);
+        this.terrainAssistInFlight.set(0);
+        this.terrainAssistPreloadPressure.set(0);
+        this.terrainAssistPreloadPressureExpiresAtNanos = 0L;
         this.completedAntiXraySections.set(0);
         this.completedStructureScans.set(0);
         this.completedMobScanCandidates.set(0);
@@ -346,6 +352,63 @@ public final class GPurChunkGenerationManager {
         return this.interpolateNoiseSlice(cellWidth, cellHeight, cellCountY, 1, interpolatorCount, packedCorners);
     }
 
+    public CompletableFuture<float[]> submitTerrainAssistInterpolationAsync(
+        final int cellWidth,
+        final int cellHeight,
+        final int cellCountY,
+        final int cellCountZ,
+        final int interpolatorCount,
+        final float[] packedCorners
+    ) {
+        if (!this.canSubmitTerrainAssistInterpolation()) {
+            return null;
+        }
+
+        final long startedAt = System.nanoTime();
+        final CompletableFuture<float[]> future;
+        try {
+            future = this.currentGpuBackend().interpolateNoiseSliceAsync(
+                cellWidth,
+                cellHeight,
+                cellCountY,
+                cellCountZ,
+                interpolatorCount,
+                packedCorners
+            );
+        } catch (final Throwable throwable) {
+            LOGGER.log(Level.WARNING, "GPur GPU terrain assist could not be scheduled, using CPU interpolation.", throwable);
+            return null;
+        }
+
+        if (future == null) {
+            return null;
+        }
+
+        this.terrainAssistInFlight.incrementAndGet();
+        return future.whenComplete((values, throwable) -> {
+            this.terrainAssistInFlight.updateAndGet(current -> Math.max(0, current - 1));
+            if (throwable != null || values == null) {
+                if (throwable != null) {
+                    LOGGER.log(Level.WARNING, "GPur GPU terrain assist async task failed, using CPU interpolation.", throwable);
+                }
+                return;
+            }
+
+            final long expectedValueCount = (long)interpolatorCount * (long)cellCountZ * (long)cellCountY * (long)cellHeight * (long)cellWidth * (long)cellWidth;
+            this.recordTerrainAssistCompletion(cellCountZ, interpolatorCount, expectedValueCount, values.length, startedAt);
+        });
+    }
+
+    public void reportTerrainAssistPreloadPressure(final int pressure) {
+        final int clampedPressure = Math.max(0, pressure);
+        if (clampedPressure <= 0) {
+            return;
+        }
+
+        this.terrainAssistPreloadPressure.accumulateAndGet(clampedPressure, Math::max);
+        this.terrainAssistPreloadPressureExpiresAtNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(250L);
+    }
+
     public float[] interpolateNoiseSlice(
         final int cellWidth,
         final int cellHeight,
@@ -372,32 +435,64 @@ public final class GPurChunkGenerationManager {
                 return null;
             }
 
-            final long totalDispatches = this.completedTerrainAssistDispatches.incrementAndGet();
-            final long totalColumns = this.completedTerrainAssistColumns.addAndGet(cellCountZ);
-            final long totalValues = this.completedTerrainAssistValues.addAndGet(values.length);
-            this.completedTerrainAssistNanos.addAndGet(System.nanoTime() - startedAt);
-            if (this.shouldLog(GPurConfig.terrainAssistLogVerbosity, totalDispatches, totalColumns, 128L, 4096L)) {
-                LOGGER.info(
-                    "GPur GPU terrain assist completed: "
-                        + interpolatorCount
-                        + " interpolator(s) across "
-                        + cellCountZ
-                        + " column(s) and "
-                        + cellCountY
-                        + " cell(s) (total dispatches="
-                        + totalDispatches
-                        + ", columns="
-                        + totalColumns
-                        + ", samples="
-                        + totalValues
-                        + ")"
-                );
-            }
+            final long expectedValueCount = (long)interpolatorCount * (long)cellCountZ * (long)cellCountY * (long)cellHeight * (long)cellWidth * (long)cellWidth;
+            this.recordTerrainAssistCompletion(cellCountZ, interpolatorCount, expectedValueCount, values.length, startedAt);
             return values;
         } catch (final Throwable throwable) {
             LOGGER.log(Level.WARNING, "GPur GPU terrain assist failed for this interpolation slice, using CPU interpolation.", throwable);
             return null;
         }
+    }
+
+    public boolean canSubmitTerrainAssistInterpolation() {
+        return this.shouldUseTerrainAssist() && this.terrainAssistInFlight.get() < this.terrainAssistExecutionLimit();
+    }
+
+    public int terrainAssistInFlightLimit() {
+        return this.terrainAssistExecutionLimit();
+    }
+
+    private void recordTerrainAssistCompletion(
+        final int cellCountZ,
+        final int interpolatorCount,
+        final long expectedValueCount,
+        final int valueCount,
+        final long startedAt
+    ) {
+        if (expectedValueCount != valueCount) {
+            LOGGER.warning(
+                "GPur GPU terrain assist returned "
+                    + valueCount
+                    + " sample(s) but expected "
+                    + expectedValueCount
+                    + "; ignoring this result."
+            );
+            return;
+        }
+
+        final long totalDispatches = this.completedTerrainAssistDispatches.incrementAndGet();
+        final long totalColumns = this.completedTerrainAssistColumns.addAndGet(cellCountZ);
+        final long totalValues = this.completedTerrainAssistValues.addAndGet(valueCount);
+        this.completedTerrainAssistNanos.addAndGet(System.nanoTime() - startedAt);
+        if (this.shouldLog(GPurConfig.terrainAssistLogVerbosity, totalDispatches, totalColumns, 128L, 4096L)) {
+            LOGGER.info(
+                "GPur GPU terrain assist completed: "
+                    + interpolatorCount
+                    + " interpolator(s) across "
+                    + cellCountZ
+                    + " column(s) (total dispatches="
+                    + totalDispatches
+                    + ", columns="
+                    + totalColumns
+                    + ", samples="
+                    + totalValues
+                    + ")"
+            );
+        }
+    }
+
+    private int terrainAssistExecutionLimit() {
+        return Math.max(1, this.backend.totalExecutionContexts() - 1);
     }
 
     private boolean shouldUseTerrainAssist() {
@@ -409,7 +504,7 @@ public final class GPurChunkGenerationManager {
             return true;
         }
 
-        return this.isTerrainAssistHeavyLoad();
+        return this.isTerrainAssistHeavyLoad() || this.hasTerrainAssistPreloadPressure();
     }
 
     private boolean isTerrainAssistHeavyLoad() {
@@ -440,6 +535,10 @@ public final class GPurChunkGenerationManager {
         }
 
         if (!GPurConfig.terrainGpuHeavyLoadOnly) {
+            return true;
+        }
+
+        if (this.hasTerrainAssistPreloadPressure()) {
             return true;
         }
 
@@ -770,6 +869,9 @@ public final class GPurChunkGenerationManager {
         this.backend = new GPurCpuComputeBackend();
         previous.close();
         this.terrainBatchesInFlight.set(0);
+        this.terrainAssistInFlight.set(0);
+        this.terrainAssistPreloadPressure.set(0);
+        this.terrainAssistPreloadPressureExpiresAtNanos = 0L;
         this.terrainGpuCooldownUntilNanos = 0L;
         this.terrainGpuOverloadSinceNanos = Long.MIN_VALUE;
         this.terrainAssistOverloadSinceNanos = Long.MIN_VALUE;
@@ -809,6 +911,9 @@ public final class GPurChunkGenerationManager {
     private void suspendTerrainGpu() {
         this.terrainGpuCooldownUntilNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(TERRAIN_GPU_TIMEOUT_COOLDOWN_MILLIS);
         this.terrainBatchesInFlight.set(0);
+        this.terrainAssistInFlight.set(0);
+        this.terrainAssistPreloadPressure.set(0);
+        this.terrainAssistPreloadPressureExpiresAtNanos = 0L;
         this.terrainGpuOverloadSinceNanos = Long.MIN_VALUE;
         this.terrainAssistOverloadSinceNanos = Long.MIN_VALUE;
         this.failPendingRequests("GPur terrain GPU is temporarily suspended after a timeout.");
@@ -861,6 +966,9 @@ public final class GPurChunkGenerationManager {
             this.effectiveTerrainAssistActiveNoiseThreshold(),
             this.backend.busyExecutionContexts(),
             this.backend.totalExecutionContexts(),
+            this.terrainAssistInFlight.get(),
+            this.terrainAssistExecutionLimit(),
+            this.terrainAssistPreloadPressureSnapshot(),
             this.completedTerrainAssistDispatches.get(),
             this.completedTerrainAssistColumns.get(),
             this.terrainAssistAverageMicrosPerColumn(),
@@ -877,6 +985,10 @@ public final class GPurChunkGenerationManager {
         }
 
         return TimeUnit.NANOSECONDS.toMicros(this.completedTerrainAssistNanos.get()) / totalColumns;
+    }
+
+    private int terrainAssistPreloadPressureSnapshot() {
+        return this.hasTerrainAssistPreloadPressure() ? this.terrainAssistPreloadPressure.get() : 0;
     }
 
     private String structureOriginLogSuffix(final BlockPos origin) {
@@ -914,6 +1026,10 @@ public final class GPurChunkGenerationManager {
             PlatformHooks.get().getBrand() + ".WorkerThreadCount",
             Integer.valueOf(defaultWorkerThreads)
         );
+    }
+
+    private boolean hasTerrainAssistPreloadPressure() {
+        return this.terrainAssistPreloadPressure.get() > 0 && System.nanoTime() <= this.terrainAssistPreloadPressureExpiresAtNanos;
     }
 
     private boolean isTerrainGpuHeavyLoad(final int pendingCount, final long oldestPendingAgeMillis) {

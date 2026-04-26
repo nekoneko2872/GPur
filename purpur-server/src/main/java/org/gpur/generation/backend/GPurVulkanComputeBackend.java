@@ -111,6 +111,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
+import org.gpur.GPurConfig;
 import org.gpur.generation.GPurBatchRequest;
 import org.gpur.generation.GPurBatchResult;
 import org.gpur.generation.GPurChunkTerrainData;
@@ -173,7 +174,8 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
     private static final int MOB_SPAWN_VEC3_STRIDE_INTS = 3;
     private static final int TERRAIN_SURFACE_WORDS_PER_CHUNK = 128;
     private static final int INTERPOLATION_CORNERS_PER_CELL = 8;
-    private static final int DEFAULT_EXECUTION_CONTEXTS = 3;
+    private static final int MIN_EXECUTION_CONTEXTS = 2;
+    private static final int MAX_EXECUTION_CONTEXTS = 16;
     private static final int BUFFER_ALIGNMENT = 4096;
     private static final long COMPUTE_WAIT_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(2L);
 
@@ -225,6 +227,7 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
     }
 
     public static GPurVulkanComputeBackend create() {
+        final int executionContextCount = Math.max(MIN_EXECUTION_CONTEXTS, Math.min(MAX_EXECUTION_CONTEXTS, GPurConfig.gpuExecutionContexts));
         VkInstance instance = null;
         VkPhysicalDevice physicalDevice = null;
         VkDevice device = null;
@@ -302,7 +305,13 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
             checkVk(vkCreateComputePipelines(device, VK_NULL_HANDLE, pipelineCreateInfos, null, pipelineHandle), "create Vulkan compute pipeline");
             pipeline = pipelineHandle.get(0);
 
-            executionContexts = createExecutionContexts(device, physicalDevice, descriptorSetLayout, selectedDevice.queueFamilyIndex());
+            executionContexts = createExecutionContexts(
+                device,
+                physicalDevice,
+                descriptorSetLayout,
+                selectedDevice.queueFamilyIndex(),
+                executionContextCount
+            );
 
             vkDestroyShaderModule(device, shaderModule, null);
             shaderModule = VK_NULL_HANDLE;
@@ -420,6 +429,23 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
     ) {
         return this.tryWithExecutionContext(
             context -> this.executeNoiseInterpolation(cellWidth, cellHeight, cellCountY, cellCountZ, interpolatorCount, packedCorners, context)
+        );
+    }
+
+    @Override
+    public CompletableFuture<float[]> interpolateNoiseSliceAsync(
+        final int cellWidth,
+        final int cellHeight,
+        final int cellCountY,
+        final int cellCountZ,
+        final int interpolatorCount,
+        final float[] packedCorners
+    ) {
+        return CompletableFuture.supplyAsync(
+            () -> this.withExecutionContext(
+                context -> this.executeNoiseInterpolation(cellWidth, cellHeight, cellCountY, cellCountZ, interpolatorCount, packedCorners, context)
+            ),
+            this.dispatchExecutor
         );
     }
 
@@ -1004,11 +1030,12 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         final VkDevice device,
         final VkPhysicalDevice physicalDevice,
         final long descriptorSetLayout,
-        final int queueFamilyIndex
+        final int queueFamilyIndex,
+        final int executionContextCount
     ) {
-        final List<ExecutionContext> contexts = new ArrayList<>(DEFAULT_EXECUTION_CONTEXTS);
+        final List<ExecutionContext> contexts = new ArrayList<>(executionContextCount);
         try {
-            for (int index = 0; index < DEFAULT_EXECUTION_CONTEXTS; index++) {
+            for (int index = 0; index < executionContextCount; index++) {
                 contexts.add(createExecutionContext(device, physicalDevice, descriptorSetLayout, queueFamilyIndex));
             }
             return contexts;

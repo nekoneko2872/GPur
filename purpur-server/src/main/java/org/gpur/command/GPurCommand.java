@@ -96,7 +96,9 @@ public final class GPurCommand extends Command {
                 + " | Assist Gate: " + (generation.terrainAssistGateOpen() ? "open" : "closed")
                 + " | Active Noise: " + generation.activeNoiseTasks() + "/" + generation.terrainAssistActiveNoiseThreshold()
                 + " (cfg " + GPurConfig.terrainGpuHeavyLoadMinActiveNoiseTasks + ")"
-                + " | Assist Contexts: " + generation.busyExecutionContexts() + "/" + generation.totalExecutionContexts(),
+                + " | Assist Contexts: " + generation.busyExecutionContexts() + "/" + generation.totalExecutionContexts()
+                + " | Assist In-Flight: " + generation.terrainAssistInFlight() + "/" + generation.terrainAssistInFlightLimit()
+                + " | Assist Pressure: " + generation.terrainAssistPreloadPressure(),
             NamedTextColor.YELLOW
         ));
         sender.sendMessage(Component.text(
