@@ -34,12 +34,21 @@ public final class GPurBackendGate {
         final boolean available,
         final int utilizationPercent,
         final int usageFallback,
+        final int busyPacketExecutionContexts,
+        final int reservedPacketExecutionContexts,
         final int terrainBatchesInFlight,
         final int busyExecutionContexts,
         final int totalExecutionContexts
     ) {
-        return canUseGpuBatch(mode, available, utilizationPercent, usageFallback)
-            && terrainBatchesInFlight <= 0
+        if (!canUseGpuBatch(mode, available, utilizationPercent, usageFallback)) {
+            return false;
+        }
+
+        if (reservedPacketExecutionContexts > 0) {
+            return busyPacketExecutionContexts < reservedPacketExecutionContexts;
+        }
+
+        return terrainBatchesInFlight <= 0
             && (totalExecutionContexts <= 0 || busyExecutionContexts < totalExecutionContexts);
     }
 }

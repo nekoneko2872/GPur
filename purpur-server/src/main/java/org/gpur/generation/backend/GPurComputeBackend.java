@@ -29,6 +29,14 @@ public interface GPurComputeBackend extends AutoCloseable {
         return maxTerrainBatchesInFlight();
     }
 
+    default int busyPacketExecutionContexts() {
+        return 0;
+    }
+
+    default int reservedPacketExecutionContexts() {
+        return 0;
+    }
+
     default int maxTerrainBatchesInFlight() {
         return 1;
     }

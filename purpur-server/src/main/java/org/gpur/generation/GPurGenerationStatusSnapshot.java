@@ -12,6 +12,8 @@ public record GPurGenerationStatusSnapshot(
     int terrainAssistActiveNoiseThreshold,
     int busyExecutionContexts,
     int totalExecutionContexts,
+    int busyPacketExecutionContexts,
+    int reservedPacketExecutionContexts,
     int terrainAssistInFlight,
     int terrainAssistInFlightLimit,
     int terrainAssistPreloadPressure,

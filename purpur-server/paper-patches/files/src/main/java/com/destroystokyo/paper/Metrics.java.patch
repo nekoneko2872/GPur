@@ -1,17 +1,17 @@
 --- a/src/main/java/com/destroystokyo/paper/Metrics.java
 +++ b/src/main/java/com/destroystokyo/paper/Metrics.java
-@@ -593,7 +_,7 @@
+@@ -593,7 +593,8 @@
              boolean logFailedRequests = config.getBoolean("logFailedRequests", false);
              // Only start Metrics, if it's enabled in the config
              if (config.getBoolean("enabled", true)) {
 -                Metrics metrics = new Metrics("Paper", serverUUID, logFailedRequests, Bukkit.getLogger());
-+                Metrics metrics = new Metrics("Purpur", serverUUID, logFailedRequests, Bukkit.getLogger()); // Purpur - Purpur config files
- 
++                Metrics metrics = new Metrics("GPur", serverUUID, logFailedRequests, Bukkit.getLogger()); // GPur - GPur config files
+
                  metrics.addCustomChart(new Metrics.SimplePie("minecraft_version", () -> {
                      String minecraftVersion = Bukkit.getVersion();
-@@ -602,16 +_,8 @@
+@@ -602,16 +603,9 @@
                  }));
- 
+
                  metrics.addCustomChart(new Metrics.SingleLineChart("players", () -> Bukkit.getOnlinePlayers().size()));
 -                metrics.addCustomChart(new Metrics.SimplePie("online_mode", () -> Bukkit.getOnlineMode() ? "online" : "offline"));
 -                final String paperVersion;
@@ -23,8 +23,32 @@
 -                    paperVersion = "unknown";
 -                }
 -                metrics.addCustomChart(new Metrics.SimplePie("paper_version", () -> paperVersion));
-+                metrics.addCustomChart(new Metrics.SimplePie("online_mode", () -> Bukkit.getOnlineMode() ? "online" : (io.papermc.paper.configuration.GlobalConfiguration.get().proxies.isProxyOnlineMode() ? "bungee" : "offline"))); // Purpur - Purpur config files
-+                metrics.addCustomChart(new Metrics.SimplePie("purpur_version", () -> (org.bukkit.craftbukkit.Main.class.getPackage().getImplementationVersion() != null) ? org.bukkit.craftbukkit.Main.class.getPackage().getImplementationVersion() : "unknown")); // Purpur - Purpur config files
- 
++                metrics.addCustomChart(new Metrics.SimplePie("online_mode", () -> Bukkit.getOnlineMode() ? "online" : (io.papermc.paper.configuration.GlobalConfiguration.get().proxies.isProxyOnlineMode() ? "bungee" : "offline"))); // GPur - GPur config files
++                metrics.addCustomChart(new Metrics.SimplePie("gpur_version", () -> (org.bukkit.craftbukkit.Main.class.getPackage().getImplementationVersion() != null) ? org.bukkit.craftbukkit.Main.class.getPackage().getImplementationVersion() : "unknown")); // GPur - GPur config files
++                metrics.addCustomChart(new Metrics.SimplePie("gpu_device", PaperMetrics::currentGpuDeviceName)); // GPur - GPur config files
+
                  metrics.addCustomChart(new Metrics.DrilldownPie("java_version", () -> {
                      Map<String, Map<String, Integer>> map = new HashMap<>();
+@@ -672,6 +666,17 @@
+             }
+
+         }
+
+        private static String currentGpuDeviceName() {
+            try {
+                final org.gpur.generation.GPurGenerationStatusSnapshot snapshot = org.gpur.GPurServices.generation().statusSnapshot();
+                if (snapshot == null || snapshot.mode() == org.gpur.generation.GPurComputeMode.CPU || !snapshot.available()) {
+                    return "None";
+                }
+
+                final String deviceName = snapshot.deviceName();
+                if (deviceName == null || deviceName.isBlank()) {
+                    return "None";
+                }
+                return deviceName;
+            } catch (final Throwable throwable) {
+                return "None";
+            }
+        }
+    }
+}

@@ -218,6 +218,8 @@ public final class GPurChunkGenerationManager {
             backend.isAvailable(),
             backend.currentUtilizationPercent().orElse(-1),
             GPurConfig.gpuUsageFallback,
+            backend.busyPacketExecutionContexts(),
+            backend.reservedPacketExecutionContexts(),
             this.terrainBatchesInFlight.get(),
             backend.busyExecutionContexts(),
             backend.totalExecutionContexts()
@@ -364,6 +366,10 @@ public final class GPurChunkGenerationManager {
             return null;
         }
 
+        if (!this.tryReserveTerrainAssistSlot()) {
+            return null;
+        }
+
         final long startedAt = System.nanoTime();
         final CompletableFuture<float[]> future;
         try {
@@ -376,17 +382,18 @@ public final class GPurChunkGenerationManager {
                 packedCorners
             );
         } catch (final Throwable throwable) {
+            this.releaseTerrainAssistSlot();
             LOGGER.log(Level.WARNING, "GPur GPU terrain assist could not be scheduled, using CPU interpolation.", throwable);
             return null;
         }
 
         if (future == null) {
+            this.releaseTerrainAssistSlot();
             return null;
         }
 
-        this.terrainAssistInFlight.incrementAndGet();
         return future.whenComplete((values, throwable) -> {
-            this.terrainAssistInFlight.updateAndGet(current -> Math.max(0, current - 1));
+            this.releaseTerrainAssistSlot();
             if (throwable != null || values == null) {
                 if (throwable != null) {
                     LOGGER.log(Level.WARNING, "GPur GPU terrain assist async task failed, using CPU interpolation.", throwable);
@@ -452,6 +459,27 @@ public final class GPurChunkGenerationManager {
         return this.terrainAssistExecutionLimit();
     }
 
+    public double terrainAssistTurboDampeningScale() {
+        if (!GPurConfig.turboModeEnabled) {
+            return 1.0D;
+        }
+
+        final int inFlightLimit = this.terrainAssistExecutionLimit();
+        final double inFlightRatio = inFlightLimit <= 0
+            ? 1.0D
+            : Math.min(1.0D, (double)this.terrainAssistInFlight.get() / (double)inFlightLimit);
+        final int activeThreshold = this.effectiveTerrainAssistActiveNoiseThreshold();
+        final double noiseRatio = activeThreshold <= 0
+            ? 1.0D
+            : Math.min(1.0D, (double)this.activeNoiseTasks.get() / (double)activeThreshold);
+        final double pressureRatio = Math.max(inFlightRatio, noiseRatio);
+        double scale = 1.0D - (pressureRatio * 0.20D);
+        if (this.hasTerrainAssistPreloadPressure()) {
+            scale -= 0.05D;
+        }
+        return Math.max(0.70D, Math.min(1.0D, scale));
+    }
+
     private void recordTerrainAssistCompletion(
         final int cellCountZ,
         final int interpolatorCount,
@@ -492,7 +520,24 @@ public final class GPurChunkGenerationManager {
     }
 
     private int terrainAssistExecutionLimit() {
-        return Math.max(1, this.backend.totalExecutionContexts() - 1);
+        return Math.max(1, this.backend.maxTerrainBatchesInFlight());
+    }
+
+    private boolean tryReserveTerrainAssistSlot() {
+        final int limit = this.terrainAssistExecutionLimit();
+        while (true) {
+            final int current = this.terrainAssistInFlight.get();
+            if (current >= limit) {
+                return false;
+            }
+            if (this.terrainAssistInFlight.compareAndSet(current, current + 1)) {
+                return true;
+            }
+        }
+    }
+
+    private void releaseTerrainAssistSlot() {
+        this.terrainAssistInFlight.updateAndGet(current -> Math.max(0, current - 1));
     }
 
     private boolean shouldUseTerrainAssist() {
@@ -966,6 +1011,8 @@ public final class GPurChunkGenerationManager {
             this.effectiveTerrainAssistActiveNoiseThreshold(),
             this.backend.busyExecutionContexts(),
             this.backend.totalExecutionContexts(),
+            this.backend.busyPacketExecutionContexts(),
+            this.backend.reservedPacketExecutionContexts(),
             this.terrainAssistInFlight.get(),
             this.terrainAssistExecutionLimit(),
             this.terrainAssistPreloadPressureSnapshot(),

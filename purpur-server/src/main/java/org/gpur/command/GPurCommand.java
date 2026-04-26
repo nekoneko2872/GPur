@@ -97,6 +97,7 @@ public final class GPurCommand extends Command {
                 + " | Active Noise: " + generation.activeNoiseTasks() + "/" + generation.terrainAssistActiveNoiseThreshold()
                 + " (cfg " + GPurConfig.terrainGpuHeavyLoadMinActiveNoiseTasks + ")"
                 + " | Assist Contexts: " + generation.busyExecutionContexts() + "/" + generation.totalExecutionContexts()
+                + " | Packet Reserve: " + generation.busyPacketExecutionContexts() + "/" + generation.reservedPacketExecutionContexts()
                 + " | Assist In-Flight: " + generation.terrainAssistInFlight() + "/" + generation.terrainAssistInFlightLimit()
                 + " | Assist Pressure: " + generation.terrainAssistPreloadPressure(),
             NamedTextColor.YELLOW

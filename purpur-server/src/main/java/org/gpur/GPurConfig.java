@@ -86,6 +86,7 @@ public final class GPurConfig {
     public static boolean antiXrayGpuEnabled = true;
     public static boolean antiXrayGpuAllowInexactResults = false;
     public static int antiXrayGpuMinSections = 12;
+    public static int antiXrayGpuReservedContexts = 1;
     public static boolean structureScanGpuEnabled = true;
     public static int structureScanGpuMinCandidates = 16;
     public static boolean mobSpawnGpuEnabled = true;
@@ -440,6 +441,12 @@ public final class GPurConfig {
             1,
             24,
             "gpu-offload.anti-xray.min-sections"
+        );
+        antiXrayGpuReservedContexts = clamp(
+            getInt("gpu-offload.anti-xray.reserved-contexts", antiXrayGpuReservedContexts),
+            0,
+            Math.max(0, gpuExecutionContexts - 1),
+            "gpu-offload.anti-xray.reserved-contexts"
         );
         structureScanGpuEnabled = getBoolean("gpu-offload.structure-scan.enabled", structureScanGpuEnabled);
         structureScanGpuMinCandidates = clamp(

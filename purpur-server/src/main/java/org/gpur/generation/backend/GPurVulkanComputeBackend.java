@@ -188,9 +188,13 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
     private final long pipelineLayout;
     private final long pipeline;
     private final List<ExecutionContext> executionContexts;
-    private final BlockingQueue<ExecutionContext> availableExecutionContexts;
+    private final int terrainExecutionContextLimit;
+    private final BlockingQueue<ExecutionContext> terrainExecutionContexts;
+    private final BlockingQueue<ExecutionContext> packetExecutionContexts;
     private final ExecutorService dispatchExecutor;
     private final AtomicInteger inFlightBatches = new AtomicInteger();
+    private final AtomicInteger busyPacketExecutionContexts = new AtomicInteger();
+    private final int reservedPacketExecutionContexts;
     private final Object queueSubmitLock = new Object();
 
     private GPurVulkanComputeBackend(
@@ -202,7 +206,8 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         final long descriptorSetLayout,
         final long pipelineLayout,
         final long pipeline,
-        final List<ExecutionContext> executionContexts
+        final List<ExecutionContext> executionContexts,
+        final int reservedPacketExecutionContexts
     ) {
         this.deviceName = deviceName;
         this.instance = instance;
@@ -213,7 +218,18 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         this.pipelineLayout = pipelineLayout;
         this.pipeline = pipeline;
         this.executionContexts = executionContexts;
-        this.availableExecutionContexts = new ArrayBlockingQueue<>(executionContexts.size(), true, executionContexts);
+        this.reservedPacketExecutionContexts = reservedPacketExecutionContexts;
+        this.terrainExecutionContextLimit = Math.max(1, executionContexts.size() - reservedPacketExecutionContexts);
+        this.terrainExecutionContexts = new ArrayBlockingQueue<>(
+            this.terrainExecutionContextLimit,
+            true,
+            executionContexts.subList(0, this.terrainExecutionContextLimit)
+        );
+        this.packetExecutionContexts = new ArrayBlockingQueue<>(
+            Math.max(1, reservedPacketExecutionContexts),
+            true,
+            executionContexts.subList(this.terrainExecutionContextLimit, executionContexts.size())
+        );
         this.dispatchExecutor = Executors.newFixedThreadPool(executionContexts.size(), new ThreadFactory() {
             private final AtomicInteger threadIds = new AtomicInteger();
 
@@ -228,6 +244,10 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
 
     public static GPurVulkanComputeBackend create() {
         final int executionContextCount = Math.max(MIN_EXECUTION_CONTEXTS, Math.min(MAX_EXECUTION_CONTEXTS, GPurConfig.gpuExecutionContexts));
+        final int reservedPacketExecutionContexts = Math.max(
+            0,
+            Math.min(GPurConfig.antiXrayGpuReservedContexts, executionContextCount - 1)
+        );
         VkInstance instance = null;
         VkPhysicalDevice physicalDevice = null;
         VkDevice device = null;
@@ -325,7 +345,8 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
                 descriptorSetLayout,
                 pipelineLayout,
                 pipeline,
-                executionContexts
+                executionContexts,
+                reservedPacketExecutionContexts
             );
         } catch (final RuntimeException ex) {
             destroyExecutionContexts(executionContexts);
@@ -379,18 +400,33 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
     }
 
     @Override
+    public int busyPacketExecutionContexts() {
+        return this.busyPacketExecutionContexts.get();
+    }
+
+    @Override
+    public int reservedPacketExecutionContexts() {
+        return this.reservedPacketExecutionContexts;
+    }
+
+    @Override
     public int maxTerrainBatchesInFlight() {
+        return this.terrainExecutionContextLimit;
+    }
+
+    @Override
+    public int totalExecutionContexts() {
         return this.executionContexts.size();
     }
 
     @Override
     public CompletableFuture<GPurBatchResult> submitBatch(final GPurBatchRequest request) {
-        return CompletableFuture.supplyAsync(() -> this.withExecutionContext(context -> this.executeTerrainBatch(request, context)), this.dispatchExecutor);
+        return CompletableFuture.supplyAsync(() -> this.withTerrainExecutionContext(context -> this.executeTerrainBatch(request, context)), this.dispatchExecutor);
     }
 
     @Override
     public GPurAntiXrayBatchResult submitAntiXrayBatch(final GPurAntiXrayBatchRequest request) {
-        return this.tryWithExecutionContext(context -> this.executeAntiXrayBatch(request, context));
+        return this.tryWithPacketExecutionContext(context -> this.executeAntiXrayBatch(request, context));
     }
 
     @Override
@@ -399,12 +435,12 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         final int originBlockZ,
         final List<BlockPos> candidatePositions
     ) {
-        return this.tryWithExecutionContext(context -> this.executeStructureScan(originBlockX, originBlockZ, candidatePositions, context));
+        return this.tryWithTerrainExecutionContext(context -> this.executeStructureScan(originBlockX, originBlockZ, candidatePositions, context));
     }
 
     @Override
     public GPurMobSpawnBatchResult scanMobSpawnCandidates(final List<Vec3> candidatePositions, final List<Vec3> playerPositions) {
-        return this.tryWithExecutionContext(context -> this.executeMobSpawnScan(candidatePositions, playerPositions, context));
+        return this.tryWithTerrainExecutionContext(context -> this.executeMobSpawnScan(candidatePositions, playerPositions, context));
     }
 
     @Override
@@ -427,7 +463,7 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         final int interpolatorCount,
         final float[] packedCorners
     ) {
-        return this.tryWithExecutionContext(
+        return this.tryWithTerrainExecutionContext(
             context -> this.executeNoiseInterpolation(cellWidth, cellHeight, cellCountY, cellCountZ, interpolatorCount, packedCorners, context)
         );
     }
@@ -442,7 +478,7 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         final float[] packedCorners
     ) {
         return CompletableFuture.supplyAsync(
-            () -> this.withExecutionContext(
+            () -> this.withTerrainExecutionContext(
                 context -> this.executeNoiseInterpolation(cellWidth, cellHeight, cellCountY, cellCountZ, interpolatorCount, packedCorners, context)
             ),
             this.dispatchExecutor
@@ -596,10 +632,37 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         }
     }
 
-    private <T> T withExecutionContext(final ContextOperation<T> operation) {
+    private <T> T withTerrainExecutionContext(final ContextOperation<T> operation) {
+        return this.withExecutionContext(this.terrainExecutionContexts, operation);
+    }
+
+    private <T> T tryWithTerrainExecutionContext(final ContextOperation<T> operation) {
+        return this.tryWithExecutionContext(this.terrainExecutionContexts, operation);
+    }
+
+    private <T> T tryWithPacketExecutionContext(final ContextOperation<T> operation) {
+        if (this.reservedPacketExecutionContexts <= 0) {
+            return this.tryWithExecutionContext(this.terrainExecutionContexts, operation);
+        }
+
+        final ExecutionContext context = this.packetExecutionContexts.poll();
+        if (context == null) {
+            return null;
+        }
+
+        this.busyPacketExecutionContexts.incrementAndGet();
+        try {
+            return operation.run(context);
+        } finally {
+            this.busyPacketExecutionContexts.decrementAndGet();
+            this.packetExecutionContexts.offer(context);
+        }
+    }
+
+    private <T> T withExecutionContext(final BlockingQueue<ExecutionContext> queue, final ContextOperation<T> operation) {
         final ExecutionContext context;
         try {
-            context = this.availableExecutionContexts.take();
+            context = queue.take();
         } catch (final InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while waiting for an available GPur Vulkan execution context", interruptedException);
@@ -608,12 +671,12 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         try {
             return operation.run(context);
         } finally {
-            this.availableExecutionContexts.offer(context);
+            queue.offer(context);
         }
     }
 
-    private <T> T tryWithExecutionContext(final ContextOperation<T> operation) {
-        final ExecutionContext context = this.availableExecutionContexts.poll();
+    private <T> T tryWithExecutionContext(final BlockingQueue<ExecutionContext> queue, final ContextOperation<T> operation) {
+        final ExecutionContext context = queue.poll();
         if (context == null) {
             return null;
         }
@@ -621,7 +684,7 @@ public final class GPurVulkanComputeBackend implements GPurComputeBackend {
         try {
             return operation.run(context);
         } finally {
-            this.availableExecutionContexts.offer(context);
+            queue.offer(context);
         }
     }
 
