@@ -1,0 +1,32 @@
+name: Build
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - "gpur/ver/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.commits[0].message, '[ci-skip]')"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: 'gradle'
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Configure Git
+        run: git config --global user.email "no-reply@github.com" && git config --global user.name "Github Actions"
+      - name: Apply Patches
+        run: ./gradlew applyAllPatches --stacktrace
+      - name: Build
+        run: ./gradlew build --stacktrace
+      - name: Paperclip
+        run: ./gradlew :purpur-server:createPaperclipJar --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gpur-server
+          path: purpur-server/build/libs/gpur-*.jar

@@ -1,0 +1,69 @@
+# JVM crash related
+core.*
+hs_err_pid*
+
+# Intellij
+/.idea/*
+*.iml
+*.ipr
+*.iws
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# netbeans
+nbproject/
+nbactions.xml
+
+# Gradle
+.gradle/
+build/
+*/build/
+
+# we use maven!
+build.xml
+
+# Maven
+log/
+target/
+dependency-reduced-pom.xml
+
+# various other potential build files
+build/
+bin/
+dist/
+manifest.mf
+
+# Mac
+.DS_Store/
+.DS_Store
+
+# vim
+.*.sw[a-p]
+
+# Linux temp files
+*~
+
+# other stuff
+/run
+
+/purpur-server/build.gradle.kts
+/purpur-server/src/minecraft
+/paper-server
+/purpur-api/build.gradle.kts
+/paper-api
+/paper-checkstyle
+/.checkstyle
+/purpur-checkstyle/build.gradle.kts
+*.jar
+
+# Local runtime and GPU validation artifacts
+/tmp-*/
+/validation/
+*.log
+
+# Wrapper is required in a clean Git checkout
+!gradle/wrapper/gradle-wrapper.jar
