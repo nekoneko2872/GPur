@@ -29,5 +29,5 @@ jobs:
         run: ./gradlew :purpur-server:createPaperclipJar --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: gpur-server
-          path: gpur-server/build/libs/gpur-server-26.2.local-SNAPSHOT.jar
+          name: gpur-server-1.0.0-SNAPSHOT
+          path: gpur-server/build/libs/gpur-server-1.0.0-SNAPSHOT.jar

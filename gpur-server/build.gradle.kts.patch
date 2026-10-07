@@ -136,17 +136,19 @@
      project("paper")
      versionFamily(paperweight.minecraftVersion.map { it.split(".", "-").takeWhile { part -> part.toIntOrNull() != null }.take(2).joinToString(".") })
      version(paperweight.minecraftVersion)
-@@ -341,4 +_,13 @@
+@@ -341,4 +_,15 @@
              }
          }
      }
 +} */ // Purpur - we don't use fill
 +
 +
++val gpurArtifactVersion = providers.gradleProperty("gpurVersion").get()
 +base { archivesName.set("gpur-server") }
++tasks.jar { archiveVersion.set(gpurArtifactVersion) }
 +tasks.named<io.papermc.paperweight.tasks.CreatePaperclipJar>("createPaperclipJar") {
-+    outputZip.set(layout.buildDirectory.file("libs/gpur-server-${project.version}.jar"))
++    outputZip.set(layout.buildDirectory.file("libs/gpur-server-${gpurArtifactVersion}.jar"))
 +}
 +tasks.named<io.papermc.paperweight.tasks.CreateBundlerJar>("createBundlerJar") {
-+    outputZip.set(layout.buildDirectory.file("libs/gpur-bundler-${project.version}.jar"))
++    outputZip.set(layout.buildDirectory.file("libs/gpur-bundler-${gpurArtifactVersion}.jar"))
  }

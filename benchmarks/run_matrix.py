@@ -375,7 +375,7 @@ def main():
     parser.add_argument('--seed', type=int, default=1196459378)
     parser.add_argument('--port', type=int, default=25620)
     parser.add_argument('--output', type=Path, default=Path('C:/GPur-validation-20261007'))
-    parser.add_argument('--jar', type=Path, default=ROOT / 'gpur-server/build/libs/gpur-server-26.2.local-SNAPSHOT.jar')
+    parser.add_argument('--jar', type=Path, default=ROOT / 'gpur-server/build/libs/gpur-server-1.0.0-SNAPSHOT.jar')
     parser.add_argument('--plugin', type=Path, default=ROOT / 'validation/benchmark-plugin/GPurBench.jar')
     parser.add_argument('--viaversion', type=Path, default=ROOT / 'validation/bots/ViaVersion-5.12.1-SNAPSHOT-build1469.jar')
     parser.add_argument('--viabackwards', type=Path, default=Path.home() / 'Downloads/ViaBackwards-5.12.1-SNAPSHOT.jar')
