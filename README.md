@@ -13,7 +13,7 @@ Use a Git checkout and JDK 25:
 ./gradlew :purpur-server:test :purpur-server:createPaperclipJar
 ```
 
-Artifact: `gpur-server/build/libs/gpur-server-1.0.0-SNAPSHOT.jar`. The artifact version is set by `gpurVersion` in `gradle.properties`; Minecraft/API versions are separate. Source folders are `gpur-server`, `gpur-api`, and `gpur-checkstyle`; Gradle project names and `org.purpurmc` API packages are retained. Generated sources are not committed; their changes must be rebuilt into patches.
+Artifact: `gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.0.0.jar`. The filename combines `mcVersion` and `gpurVersion` from `gradle.properties`. Source folders are `gpur-server`, `gpur-api`, and `gpur-checkstyle`; Gradle project names and `org.purpurmc` API packages are retained. Generated sources are not committed; their changes must be rebuilt into patches.
 
 Run with JDK 25 and `--enable-native-access=ALL-UNNAMED`. The `-dev.jar` and `gpur-bundler-*.jar` files are build artifacts, not the Paperclip launch jar. See [the migration and validation record](docs/26.2-migration.md) for the implemented scope and checks.
 

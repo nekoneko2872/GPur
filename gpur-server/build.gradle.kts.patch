@@ -143,7 +143,7 @@
 +} */ // Purpur - we don't use fill
 +
 +
-+val gpurArtifactVersion = providers.gradleProperty("gpurVersion").get()
++val gpurArtifactVersion = "${providers.gradleProperty("mcVersion").get()}-${providers.gradleProperty("gpurVersion").get()}"
 +base { archivesName.set("gpur-server") }
 +tasks.jar { archiveVersion.set(gpurArtifactVersion) }
 +tasks.named<io.papermc.paperweight.tasks.CreatePaperclipJar>("createPaperclipJar") {
