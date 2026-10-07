@@ -1,0 +1,105 @@
+{
+  "scope": "Single-client synthetic gliding smoke comparison; code and settings changed together, not a full SMP/GPU speedup benchmark.",
+  "comparisons": [
+    {
+      "case": "old-6d6905c",
+      "jar_sha256": "ee75c1dd450a5797d626c669b072bc76c0156901e0d17f2bd9d89c19501c1eec",
+      "plugin_sha256": "271dcc377eec2a063b97d27bba65eb7fe4f8802b9624d684db307560d79fe27f",
+      "fresh_world": true,
+      "seed": 4729262,
+      "heap_gib": 16,
+      "view_distance": 10,
+      "simulation_distance": 10,
+      "speed_blocks_per_tick": 1.6,
+      "ticks": 600,
+      "synthetic_server_position_updates": true,
+      "extra_radius": 3,
+      "flight_rate_boost": true,
+      "result": {
+        "ticks": 600,
+        "wall_seconds": 30.008806,
+        "tps_wall": 19.994131,
+        "mean_mspt": 8.671708,
+        "p95_mspt": 21.4971,
+        "p99_mspt": 37.7364,
+        "max_mspt": 85.0234,
+        "over_50ms": 1,
+        "active_profiles": 600,
+        "gliding_samples": 600,
+        "last_load_radius": 14,
+        "extra_radius": 3,
+        "flight_rate_boost": true,
+        "synthetic_server_position_updates": true
+      },
+      "exit": 0,
+      "client_errors": 0,
+      "runtime_verification": false,
+      "directory": "C:\\GPur-validation-20261007\\runs\\flight-20261007-234033-old-6d6905c",
+      "measured_jar_archive": "C:\\GPur-validation-20261007\\artifacts\\flight-old-6d6905c-ee75c1dd450a5797d626c669b072bc76c0156901e0d17f2bd9d89c19501c1eec.jar"
+    },
+    {
+      "case": "fixed",
+      "jar_sha256": "6ea26942c1faf251d96e5f91843ea6db3d0855947f2b9db38dcf72d0f7c29aea",
+      "plugin_sha256": "271dcc377eec2a063b97d27bba65eb7fe4f8802b9624d684db307560d79fe27f",
+      "fresh_world": true,
+      "seed": 4729262,
+      "heap_gib": 16,
+      "view_distance": 10,
+      "simulation_distance": 10,
+      "speed_blocks_per_tick": 1.6,
+      "ticks": 600,
+      "synthetic_server_position_updates": true,
+      "extra_radius": 0,
+      "flight_rate_boost": false,
+      "result": {
+        "ticks": 600,
+        "wall_seconds": 30.001661,
+        "tps_wall": 19.998893,
+        "mean_mspt": 9.186013,
+        "p95_mspt": 25.3064,
+        "p99_mspt": 32.9291,
+        "max_mspt": 46.0825,
+        "over_50ms": 0,
+        "active_profiles": 600,
+        "gliding_samples": 600,
+        "last_load_radius": 11,
+        "extra_radius": 0,
+        "flight_rate_boost": false,
+        "synthetic_server_position_updates": true
+      },
+      "exit": 0,
+      "client_errors": 0,
+      "runtime_verification": true,
+      "directory": "C:\\GPur-validation-20261007\\runs\\flight-20261007-234139-fixed",
+      "measured_jar_archive": "C:\\GPur-validation-20261007\\artifacts\\flight-fixed-6ea26942c1faf251d96e5f91843ea6db3d0855947f2b9db38dcf72d0f7c29aea.jar"
+    }
+  ],
+  "server_tests": {
+    "tests": 9311,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 27
+  },
+  "runtime_checks": {
+    "priority_positions": 8978,
+    "inactive_paper_ordering": true,
+    "compact_example_lines": 16,
+    "compact_example_max_characters": 46,
+    "client_hover_metadata": true,
+    "client_errors": 0,
+    "both_gpus_reload": true,
+    "updated_run_accepted_anti_xray_gpu_batches": 262,
+    "updated_run_player_distance_gpu_results": 0
+  },
+  "excluded_attempt": {
+    "directory": "C:\\GPur-validation-20261007\\runs\\flight-20261007-233722-old-6d6905c",
+    "reason": "601 samples; fixture count mismatch; excluded from final comparison"
+  },
+  "fixture_archive": "C:\\GPur-validation-20261007\\tools\\flight-271dcc377eec",
+  "fixture_hashes": {
+    "GPurFlightProbe.java": "056e60756d62d2fd51882018828df1c167828bc4c2608c29f2a0ac7822094fc1",
+    "flight_client.cjs": "bfe63d4d623513ab26a4a67065644bbbd889fafda5ab364341be2e767db622f4",
+    "run_flight_probe.py": "8091ff67ddff4d776ec032ce21d24138a2438dad0250f4d8b36a7b7d6be269ac",
+    "GPurFlightProbe.jar": "271dcc377eec2a063b97d27bba65eb7fe4f8802b9624d684db307560d79fe27f"
+  }
+}

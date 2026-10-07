@@ -9,6 +9,27 @@ import org.junit.jupiter.api.io.TempDir;
 class GPurConfigTest {
     @TempDir Path directory;
 
+    @Test void preloadingDefaultsPrioritizeExistingChunksWithoutIncreasingGenerationDemand() throws Exception {
+        Path config = directory.resolve("gpur.yml");
+        Files.writeString(config, "config-version: 2\n");
+        GPurConfig.init(config.toFile());
+        assertTrue(GPurConfig.preloadingEnabled);
+        assertEquals(0, GPurConfig.preloadMaxExtraDistance);
+        assertFalse(GPurConfig.elytraThroughputBoostEnabled);
+
+        Files.writeString(config, """
+            config-version: 2
+            chunk-generation:
+              preloading:
+                max-extra-distance: 3
+                elytra-throughput-boost:
+                  enabled: true
+            """);
+        GPurConfig.init(config.toFile());
+        assertEquals(3, GPurConfig.preloadMaxExtraDistance);
+        assertTrue(GPurConfig.elytraThroughputBoostEnabled);
+    }
+
     @Test void migratesUnreachableLegacyDefaultsAndRetainsCustomSettings() throws Exception {
         Path config = directory.resolve("gpur.yml");
         Files.writeString(config, """

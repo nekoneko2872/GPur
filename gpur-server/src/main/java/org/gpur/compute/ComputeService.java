@@ -154,6 +154,20 @@ public final class ComputeService implements AutoCloseable {
         return (int)this.devices.stream().filter(state -> state.device.available()).count();
     }
 
+    /** Read-only counters since service initialization/reload. Taking a snapshot never submits work. */
+    public record StatusSnapshot(boolean stopped, boolean antiXrayRejected, long gpuResults, long cpuFallbacks,
+                                 long distanceSkips, long antiXraySkips, List<DeviceWorkloadStatus> workloads) {
+        public StatusSnapshot {
+            workloads = List.copyOf(workloads);
+        }
+    }
+
+    public StatusSnapshot statusSnapshot() {
+        return new StatusSnapshot(this.resultGate.isClosed(), this.resultGate.isAntiXrayRejected(),
+            this.gpuResults.get(), this.cpuFallbacks.get(), this.eligibilitySkips.get(1),
+            this.eligibilitySkips.get(2), this.deviceWorkloads());
+    }
+
     /** Read-only diagnostics. Dispatch timings include upload, fence wait, and readback,
      * but exclude caller snapshot preparation, result application, and sampled parity work. */
     public record DeviceWorkloadStatus(String uuid, String name, int workload, boolean available, int busy,

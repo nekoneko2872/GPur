@@ -13,16 +13,21 @@
  import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
  import ca.spottedleaf.concurrentutil.util.Priority;
  import ca.spottedleaf.moonrise.common.PlatformHooks;
-@@ -383,6 +_,16 @@
+@@ -383,6 +_,21 @@
          private final StaggeredRateLimiter chunkGenerateTicketLimiter = createChunkLimiter();
  
          // queues
 +        private PreloadProfile gpurProfile = GPurElytraPreloadMath.inactive(3, 60);
++        private final Long2ByteOpenHashMap gpurPriorityBands = new Long2ByteOpenHashMap();
++        private double gpurFlightSpeed;
 +        private PreloadProfile gpurRetained;
 +        private int gpurRetainedX, gpurRetainedZ;
 +        private long gpurRetainedUntil, gpurRefreshAfter;
 +        private List<SharedPreloadAnchor> gpurAnchors = List.of();
 +        private final LongComparator gpurComparator = (a, b) -> {
++            if (!this.gpurProfile.active() && this.gpurRetained == null && this.gpurAnchors.isEmpty()) {
++                return this.queueComparator.compare(a, b);
++            }
 +            int priority = Integer.compare(this.gpurBand(a), this.gpurBand(b));
 +            return priority != 0 ? priority : this.queueComparator.compare(a, b);
 +        };
@@ -45,11 +50,19 @@
  
          private volatile boolean removed;
  
-@@ -580,22 +_,82 @@
+@@ -580,22 +_,91 @@
              return !this.player.isSpectator() || this.world.getGameRules().get(GameRules.SPECTATORS_GENERATE_CHUNKS);
          }
  
 +        private int gpurBand(long chunk) {
++            byte cached = this.gpurPriorityBands.getOrDefault(chunk, (byte)-1);
++            if (cached >= 0) return cached;
++            int band = this.gpurCalculateBand(chunk);
++            this.gpurPriorityBands.put(chunk, (byte)band);
++            return band;
++        }
++
++        private int gpurCalculateBand(long chunk) {
 +            int x = CoordinateUtils.getChunkX(chunk), z = CoordinateUtils.getChunkZ(chunk);
 +            if (Math.max(Math.abs(x - this.lastChunkX), Math.abs(z - this.lastChunkZ)) <= 2) return 0;
 +            if (GPurElytraPreloadMath.isWithinPreloadCone(this.gpurProfile, this.lastChunkX, this.lastChunkZ, x, z)) return 1;
@@ -69,7 +82,8 @@
 +                motion.x, motion.z, look.x, look.z, GPurConfig.baseLookahead, GPurConfig.elytraLookaheadFactor,
 +                GPurConfig.elytraAngleDegrees, GPurConfig.elytraLookDirectionBlend,
 +                GPurConfig.elytraTurnLookaheadBoost, GPurConfig.elytraTurnAngleBoostDegrees);
-+            boolean changed = GPurElytraPreloadMath.priorityChanged(this.gpurProfile, next);
++            this.gpurFlightSpeed = next.horizontalSpeedBlocksPerSecond();
++            boolean changed = GPurElytraPreloadMath.priorityChanged(this.gpurProfile, next, Math.max(1, this.lastLoadDistance + 1));
 +            if (changed) {
 +                double dot = this.gpurProfile.directionX() * next.directionX() + this.gpurProfile.directionZ() * next.directionZ();
 +                if (GPurConfig.preloadRetentionEnabled && this.gpurProfile.active()
@@ -101,7 +115,7 @@
 +        private double gpurRate(double base, double flightMultiplier, double turboMultiplier) {
 +            double factor = 0;
 +            if (GPurConfig.elytraThroughputBoostEnabled && this.gpurProfile.active()) {
-+                factor = Math.max(0, Math.min(1, (this.gpurProfile.horizontalSpeedBlocksPerSecond() - GPurConfig.elytraBoostStartSpeed)
++                factor = Math.max(0, Math.min(1, (this.gpurFlightSpeed - GPurConfig.elytraBoostStartSpeed)
 +                    / Math.max(0.001, GPurConfig.elytraBoostFullSpeed - GPurConfig.elytraBoostStartSpeed)));
 +            }
 +            double multiplier = 1 + factor * (flightMultiplier - 1);
@@ -162,6 +176,17 @@
              ) {
                  // nothing we care about changed, so we're not re-calculating
                  return;
+@@ -983,7 +_,10 @@
+             this.generatingQueue.clear();
+             this.genQueue.clear();
+             this.loadingQueue.clear();
+             this.loadQueue.clear();
++
++            // Geometry and queue center change only while all comparator-backed queues are empty.
++            this.gpurPriorityBands.clear();
+ 
+             this.lastChunkX = currentChunkX;
+             this.lastChunkZ = currentChunkZ;
 @@ -1078,6 +_,7 @@
              this.removed = true;
              // sends the chunk unload packets

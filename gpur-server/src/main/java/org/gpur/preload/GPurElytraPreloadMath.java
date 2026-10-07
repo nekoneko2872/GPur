@@ -101,10 +101,16 @@ public final class GPurElytraPreloadMath {
     }
 
     public static boolean priorityChanged(PreloadProfile previous, PreloadProfile next) {
+        return priorityChanged(previous, next, Integer.MAX_VALUE);
+    }
+
+    /** Lookahead changes beyond every queued chunk cannot change that queue's priority bands. */
+    public static boolean priorityChanged(PreloadProfile previous, PreloadProfile next, int queueRadius) {
         if (previous.active() != next.active()) return true;
         if (!previous.active()) return false;
         double dot = previous.directionX() * next.directionX() + previous.directionZ() * next.directionZ();
-        return dot < Math.cos(Math.toRadians(5)) || previous.lookaheadChunks() != next.lookaheadChunks()
+        return dot < Math.cos(Math.toRadians(5))
+            || Math.min(previous.lookaheadChunks(), queueRadius) != Math.min(next.lookaheadChunks(), queueRadius)
             || Math.abs(previous.coneCosThreshold() - next.coneCosThreshold()) > 0.02;
     }
 

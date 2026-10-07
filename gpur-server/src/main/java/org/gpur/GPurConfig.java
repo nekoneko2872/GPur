@@ -55,7 +55,7 @@ public final class GPurConfig {
     public static double preloadRetentionDirectionDotThreshold = 0.82D;
     public static boolean elytraSendBurstEnabled = true;
     public static int elytraSendBurstExtraChunks = 8;
-    public static boolean elytraThroughputBoostEnabled = true;
+    public static boolean elytraThroughputBoostEnabled = false;
     public static double elytraBoostStartSpeed = 18.0D;
     public static double elytraBoostFullSpeed = 32.0D;
     public static double elytraLoadRateMultiplier = 2.0D;
@@ -105,7 +105,7 @@ public final class GPurConfig {
     public static java.util.List<String> gpuDevices = java.util.List.of("auto");
     public static boolean gpuForce = false;
     public static int gpuTimeoutMillis = 100;
-    public static int preloadMaxExtraDistance = 3;
+    public static int preloadMaxExtraDistance = 0;
     public static boolean playersGpuEnabled = true;
     public static int playersGpuMinPlayers = 128;
 
@@ -144,7 +144,7 @@ public final class GPurConfig {
         playersGpuMinPlayers = clamp(getInt("gpu-offload.players.min-players", 128), 1, 16384, "gpu-offload.players.min-players");
         readGpuAcceleration();
         readPreloading();
-        preloadMaxExtraDistance = clamp(getInt("chunk-generation.preloading.max-extra-distance", 3), 0, 16, "chunk-generation.preloading.max-extra-distance");
+        preloadMaxExtraDistance = clamp(getInt("chunk-generation.preloading.max-extra-distance", 0), 0, 16, "chunk-generation.preloading.max-extra-distance");
         readGpuOffload();
         readLogging();
         if (antiXrayGpuAllowInexactResults) {
@@ -304,7 +304,7 @@ public final class GPurConfig {
             64,
             "chunk-generation.preloading.send-burst.extra-chunks"
         );
-        elytraThroughputBoostEnabled = getBoolean("chunk-generation.preloading.elytra-throughput-boost.enabled", true);
+        elytraThroughputBoostEnabled = getBoolean("chunk-generation.preloading.elytra-throughput-boost.enabled", false);
         elytraBoostStartSpeed = clamp(
             getDouble("chunk-generation.preloading.elytra-throughput-boost.start-speed", 18.0D),
             0.0D,

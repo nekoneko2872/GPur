@@ -2,11 +2,12 @@
 allprojects {
     afterEvaluate {
         if (name == 'purpur-server') {
+            def validationClasspath = configurations.runtimeClasspath.asPath
+            def destination = rootProject.file('validation/classpath.txt')
             tasks.register('writeValidationClasspath') {
                 doLast {
-                    def destination = rootProject.file('validation/classpath.txt')
                     destination.parentFile.mkdirs()
-                    destination.text = configurations.runtimeClasspath.asPath
+                    destination.text = validationClasspath
                 }
             }
         }

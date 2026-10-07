@@ -73,6 +73,17 @@ class GPurElytraPreloadMathTest {
     }
 
     @Test
+    void lookaheadOutsideTheQueueDoesNotCauseAnotherFullQueueRebuild() {
+        PreloadProfile previous = new PreloadProfile(true, 1, 0, 30, 18, 0.5);
+        PreloadProfile faster = new PreloadProfile(true, 1, 0, 32, 20, 0.5);
+        assertFalse(GPurElytraPreloadMath.priorityChanged(previous, faster, 12));
+        assertTrue(GPurElytraPreloadMath.priorityChanged(previous, faster, 19));
+        assertTrue(GPurElytraPreloadMath.priorityChanged(previous,
+            new PreloadProfile(true, 1, 0, 12, 8, 0.5), 12));
+        assertTrue(GPurElytraPreloadMath.priorityChanged(previous, GPurElytraPreloadMath.inactive(3, 60), 12));
+    }
+
+    @Test
     void nonFiniteMotionAndLookCannotEnterQueueComparators() {
         assertFalse(createProfile(Double.NaN, 0, 1, 0).active());
         assertFalse(createProfile(1.5, Double.POSITIVE_INFINITY, 1, 0).active());
