@@ -1,8 +1,17 @@
 # GPur
 
+[English](README.md) | [日本語](README.ja.md)
+
 GPur is a Purpur 26.2 fork with optional Vulkan compute: https://github.com/nekoneko2872/GPur.
 
 Paper/Purpur plugins execute on ordinary server threads. GPU kernels receive copied numeric inputs. Events, random generators, world changes, and dependent update ordering remain on the CPU.
+
+## Documentation
+
+| Document | English | 日本語 |
+| --- | --- | --- |
+| Migration and implementation | [English](docs/26.2-migration.en.md) | [日本語](docs/26.2-migration.md) |
+| Hardware and load validation | [English](docs/26.2-validation.en.md) | [日本語](docs/26.2-validation.md) |
 
 ## Build
 
@@ -15,7 +24,7 @@ Use a Git checkout and JDK 25:
 
 Artifact: `gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.0.0.jar`. The filename combines `mcVersion` and `gpurVersion` from `gradle.properties`. Source folders are `gpur-server`, `gpur-api`, and `gpur-checkstyle`; Gradle project names and `org.purpurmc` API packages are retained. Generated sources are not committed; their changes must be rebuilt into patches.
 
-Run with JDK 25 and `--enable-native-access=ALL-UNNAMED`. The `-dev.jar` and `gpur-bundler-*.jar` files are build artifacts, not the Paperclip launch jar. See [the migration and validation record](docs/26.2-migration.md) for the implemented scope and checks.
+Run with JDK 25 and `--enable-native-access=ALL-UNNAMED`. The `-dev.jar` and `gpur-bundler-*.jar` files are build artifacts, not the Paperclip launch jar. See [the migration and validation record](docs/26.2-migration.en.md) for the implemented scope and checks.
 
 ## Configuration
 
@@ -45,9 +54,9 @@ This implementation requires Vulkan 1.1, a compute queue, FP64 shader support, a
 
 ## Validation target
 
-A dispersed SMP with 300 players is a benchmark target, not a capacity guarantee. Compare p50/p95/p99 MSPT, chunk load/generation latency, GC, plugins, and full CPU-to-GPU-to-CPU cost on identical worlds and hardware. Hardware kernel parity does not establish whole-server performance or universal plugin compatibility.
+A dispersed SMP with 300 players is a benchmark target, not a capacity guarantee. Compare p50/p95/p99 MSPT, chunk load/generation latency, GC, plugins, and full CPU-to-GPU-to-CPU cost using fresh worlds with matching seeds/settings and the same hardware. Hardware kernel parity does not establish whole-server performance or universal plugin compatibility.
 
-The [hardware and load validation record](docs/26.2-validation.md) includes the CPU, RTX 3070, GTX 1080 and mixed-device experiments. The stability target was **not met**: the final build ran at about 4 TPS with 300 connected clients, 60 moving and 3,000 AI mobs. Earlier tests before the backoff and result-acceptance fixes triggered watchdog termination when all 300 clients moved continuously. No whole-server speedup over ordinary Paper/Purpur is established.
+The [hardware and load validation record](docs/26.2-validation.en.md) includes the CPU, RTX 3070, GTX 1080 and mixed-device experiments. The stability target was **not met**: the final build ran at about 4 TPS with 300 connected clients, 60 moving and 3,000 AI mobs. Earlier tests before the backoff and result-acceptance fixes triggered watchdog termination when all 300 clients moved continuously. No whole-server speedup over ordinary Paper/Purpur is established.
 
 The interim completion criterion is CPU-equivalent or better performance. The single-run measurements are mixed: RTX 3070 improves some metrics, GTX 1080 is slower in the fixed-AI phase, and the mixed configuration has higher p95/p99 MSPT. CPU-equivalent or better performance across all configurations is not established.
 
