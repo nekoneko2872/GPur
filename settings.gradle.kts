@@ -12,48 +12,15 @@ plugins {
 }
 
 if (!file(".git").exists()) {
-    val errorText = """
-        
-        =====================[ ERROR ]=====================
-         The Purpur project directory is not a properly cloned Git repository.
-         
-         In order to build Purpur from source you must clone
-         the Purpur repository using Git, not download a code
-         zip from GitHub.
-         
-         Built Purpur jars are available for download at
-         https://purpurmc.org/downloads
-         
-         See https://github.com/PurpurMC/Purpur/blob/HEAD/CONTRIBUTING.md
-         for further information on building and modifying Purpur.
-        ===================================================
-    """.trimIndent()
+    val errorText = "Build GPur from a Git checkout: https://github.com/nekoneko2872/GPur"
     error(errorText)
 }
 
-rootProject.name = "purpur"
+rootProject.name = "gpur"
 for (name in listOf("purpur-api", "purpur-server", "purpur-checkstyle")) {
     val projName = name.lowercase(Locale.ENGLISH)
     include(projName)
-    findProject(":$projName")!!.projectDir = file(name)
-}
-
-optionalInclude("test-plugin")
-
-fun optionalInclude(name: String, op: (ProjectDescriptor.() -> Unit)? = null) {
-    val settingsFile = file("$name.settings.gradle.kts")
-    if (settingsFile.exists()) {
-        apply(from = settingsFile)
-        findProject(":$name")?.let { op?.invoke(it) }
-    } else {
-        settingsFile.writeText(
-            """
-            // Uncomment to enable the '$name' project
-            // include(":$name")
-
-            """.trimIndent()
-        )
-    }
+    findProject(":$projName")!!.projectDir = file(name.replaceFirst("purpur-", "gpur-"))
 }
 
 gradle.lifecycle.beforeProject {

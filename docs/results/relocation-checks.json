@@ -1,0 +1,32 @@
+{
+  "measured_inputs": 453,
+  "identical_blobs_after_path_mapping": 449,
+  "path_mapping": {
+    "purpur-server/": "gpur-server/",
+    "purpur-api/": "gpur-api/",
+    "purpur-checkstyle/": "gpur-checkstyle/"
+  },
+  "build_path_only_changes": [
+    {
+      "path": "build.gradle.kts",
+      "measured": "100644 a060d188088519ae0eafa51b5623af06553e7c38 0",
+      "current": "100644 d000f4116107199263be01d438f9b319e7172922 0"
+    },
+    {
+      "path": "gpur-api/paper-patches/files/.checkstyle/ignored_directories.txt.patch",
+      "measured": "100644 321812ebd9e64d166bcb61eac029d91e59ba274f 0",
+      "current": "100644 0350573b9c23995a18c13b58443f98f7c5a19a51 0"
+    },
+    {
+      "path": "gpur-server/build.gradle.kts.patch",
+      "measured": "100644 5e7d4b65359f03eb1203345db1f7eff5b0359ee8 0",
+      "current": "100644 fb9a5dc796ff9593dcbdb04dab57b0da2d9c2f51 0"
+    },
+    {
+      "path": "settings.gradle.kts",
+      "measured": "100644 76a0a06ad8ceb0e0d3fd46cb3d0397211243ce15 0",
+      "current": "100644 2d9bb2da50e377494a4d9f3dede2a0ce0a743567 0"
+    }
+  ],
+  "note": "Product Java, shaders, API and Minecraft/Paper Java source patches retain their measured Git blobs."
+}

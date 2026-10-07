@@ -1,0 +1,14 @@
+// Run after the server build to expose the API dependencies to standalone javac.
+allprojects {
+    afterEvaluate {
+        if (name == 'purpur-server') {
+            tasks.register('writeValidationClasspath') {
+                doLast {
+                    def destination = rootProject.file('validation/classpath.txt')
+                    destination.parentFile.mkdirs()
+                    destination.text = configurations.runtimeClasspath.asPath
+                }
+            }
+        }
+    }
+}

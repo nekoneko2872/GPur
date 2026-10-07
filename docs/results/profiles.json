@@ -1,0 +1,1277 @@
+{
+  "note": "Whole-run samples include setup and waits; inclusive stack percentages overlap.",
+  "runs": [
+    {
+      "profile": "profile-2026-10-07_12.57.57.sparkprofile",
+      "start_epoch_ms": 1791345038166,
+      "end_epoch_ms": 1791345476821,
+      "sampler_interval": 10000,
+      "note": "Sampled stack time includes waits/sleep. Inclusive methods overlap; percentages must not be added. Whole-run profile includes setup.",
+      "threads": [
+        {
+          "thread": "Server thread",
+          "sampled_ms": 434670.0,
+          "inclusive_methods": [
+            {
+              "method": "net.minecraft.server.MinecraftServer.runServer",
+              "sampled_ms": 434670.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.lambda$spin$0",
+              "sampled_ms": 434670.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer$$Lambda/0x000000003e13bca8.run",
+              "sampled_ms": 434670.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "java.lang.Thread.runWith",
+              "sampled_ms": 434670.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "java.lang.Thread.run",
+              "sampled_ms": 434670.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.processPacketsAndTick",
+              "sampled_ms": 375520.0,
+              "percent_of_thread_samples": 86.392
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.tickServer",
+              "sampled_ms": 287240.0,
+              "percent_of_thread_samples": 66.082
+            },
+            {
+              "method": "net.minecraft.server.dedicated.DedicatedServer.tickServer",
+              "sampled_ms": 287240.0,
+              "percent_of_thread_samples": 66.082
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.tickChildren",
+              "sampled_ms": 286530.0,
+              "percent_of_thread_samples": 65.919
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.tick",
+              "sampled_ms": 175550.0,
+              "percent_of_thread_samples": 40.387
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.setPos",
+              "sampled_ms": 142350.0,
+              "percent_of_thread_samples": 32.749
+            },
+            {
+              "method": "jdk.internal.misc.Unsafe.park",
+              "sampled_ms": 114700.0,
+              "percent_of_thread_samples": 26.388
+            },
+            {
+              "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+              "sampled_ms": 114510.0,
+              "percent_of_thread_samples": 26.344
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.absSnapTo",
+              "sampled_ms": 113590.0,
+              "percent_of_thread_samples": 26.132
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.setPosRaw",
+              "sampled_ms": 108750.0,
+              "percent_of_thread_samples": 25.019
+            },
+            {
+              "method": "net.minecraft.network.PacketProcessor.executeSinglePacket",
+              "sampled_ms": 92050.0,
+              "percent_of_thread_samples": 21.177
+            },
+            {
+              "method": "net.minecraft.network.PacketProcessor$ListenerAndPacket.handle",
+              "sampled_ms": 92010.0,
+              "percent_of_thread_samples": 21.168
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.runAllTasksAtTickStart",
+              "sampled_ms": 88260.0,
+              "percent_of_thread_samples": 20.305
+            },
+            {
+              "method": "net.minecraft.server.network.ServerGamePacketListenerImpl.handleMovePlayer",
+              "sampled_ms": 87760.0,
+              "percent_of_thread_samples": 20.19
+            },
+            {
+              "method": "net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.handle",
+              "sampled_ms": 87760.0,
+              "percent_of_thread_samples": 20.19
+            },
+            {
+              "method": "net.minecraft.world.entity.LivingEntity.tick",
+              "sampled_ms": 85860.0,
+              "percent_of_thread_samples": 19.753
+            },
+            {
+              "method": "net.minecraft.network.protocol.game.ServerboundMovePlayerPacket$PosRot.handle",
+              "sampled_ms": 83130.0,
+              "percent_of_thread_samples": 19.125
+            },
+            {
+              "method": "net.minecraft.world.level.entity.EntityTickList.forEach",
+              "sampled_ms": 79520.0,
+              "percent_of_thread_samples": 18.294
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.lambda$tick$0",
+              "sampled_ms": 79320.0,
+              "percent_of_thread_samples": 18.248
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel$$Lambda/0x000000003e82b0c0.accept",
+              "sampled_ms": 79320.0,
+              "percent_of_thread_samples": 18.248
+            },
+            {
+              "method": "net.minecraft.world.level.Level.guardEntityTick",
+              "sampled_ms": 76250.0,
+              "percent_of_thread_samples": 17.542
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.tickChunks",
+              "sampled_ms": 76170.0,
+              "percent_of_thread_samples": 17.524
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.tickNonPassenger",
+              "sampled_ms": 74460.0,
+              "percent_of_thread_samples": 17.13
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel$$Lambda/0x000000003ef1da70.accept",
+              "sampled_ms": 74460.0,
+              "percent_of_thread_samples": 17.13
+            },
+            {
+              "method": "net.minecraft.server.waypoints.ServerWaypointManager.updateConnection",
+              "sampled_ms": 74060.0,
+              "percent_of_thread_samples": 17.038
+            }
+          ],
+          "self_methods": [
+            {
+              "method": "jdk.internal.misc.Unsafe.park",
+              "sampled_ms": 114700.0,
+              "percent_of_thread_samples": 26.388
+            },
+            {
+              "method": "net.minecraft.world.waypoints.WaypointTransmitter$EntityAzimuthConnection.isBroken",
+              "sampled_ms": 39500.0,
+              "percent_of_thread_samples": 9.087
+            },
+            {
+              "method": "net.minecraft.server.waypoints.ServerWaypointManager.updateConnection",
+              "sampled_ms": 21030.0,
+              "percent_of_thread_samples": 4.838
+            },
+            {
+              "method": "java.util.HashMap.hash",
+              "sampled_ms": 17750.0,
+              "percent_of_thread_samples": 4.084
+            },
+            {
+              "method": "net.minecraft.world.entity.ai.goal.TemptGoal.shouldFollow",
+              "sampled_ms": 13910.0,
+              "percent_of_thread_samples": 3.2
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.iterateTickingChunksFaster",
+              "sampled_ms": 8750.0,
+              "percent_of_thread_samples": 2.013
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap.isChunkNearPlayer",
+              "sampled_ms": 7930.0,
+              "percent_of_thread_samples": 1.824
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap$TrackedEntity.updatePlayer",
+              "sampled_ms": 6670.0,
+              "percent_of_thread_samples": 1.534
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices$EntityCollectionBySection.getEntities",
+              "sampled_ms": 6080.0,
+              "percent_of_thread_samples": 1.399
+            },
+            {
+              "method": "com.google.common.collect.StandardTable$Column$EntrySet.size",
+              "sampled_ms": 5730.0,
+              "percent_of_thread_samples": 1.318
+            },
+            {
+              "method": "sun.nio.ch.IOUtil.write1",
+              "sampled_ms": 5340.0,
+              "percent_of_thread_samples": 1.229
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.longs.LongOpenHashSet.contains",
+              "sampled_ms": 5250.0,
+              "percent_of_thread_samples": 1.208
+            },
+            {
+              "method": "java.util.AbstractCollection.toArray",
+              "sampled_ms": 5190.0,
+              "percent_of_thread_samples": 1.194
+            },
+            {
+              "method": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.randomTick",
+              "sampled_ms": 4950.0,
+              "percent_of_thread_samples": 1.139
+            },
+            {
+              "method": "com.google.common.collect.StandardTable$Column$KeySet.contains",
+              "sampled_ms": 4190.0,
+              "percent_of_thread_samples": 0.964
+            },
+            {
+              "method": "ca.spottedleaf.concurrentutil.map.concurrent.longs.ConcurrentChainedLong2ReferenceHashTable.getNode",
+              "sampled_ms": 4170.0,
+              "percent_of_thread_samples": 0.959
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet.contains",
+              "sampled_ms": 4030.0,
+              "percent_of_thread_samples": 0.927
+            },
+            {
+              "method": "io.netty.buffer.AbstractByteBuf.ensureWritable0",
+              "sampled_ms": 3810.0,
+              "percent_of_thread_samples": 0.877
+            },
+            {
+              "method": "net.minecraft.world.waypoints.WaypointTransmitter$EntityChunkConnection.isBroken",
+              "sampled_ms": 3630.0,
+              "percent_of_thread_samples": 0.835
+            },
+            {
+              "method": "net.minecraft.world.entity.EntityFluidInteraction.hasFluidAndLoaded",
+              "sampled_ms": 3420.0,
+              "percent_of_thread_samples": 0.787
+            },
+            {
+              "method": "net.minecraft.world.entity.ai.targeting.TargetingConditions.test",
+              "sampled_ms": 3190.0,
+              "percent_of_thread_samples": 0.734
+            },
+            {
+              "method": "net.minecraft.world.level.EntityGetter.gpurNearestPlayerCpu",
+              "sampled_ms": 3090.0,
+              "percent_of_thread_samples": 0.711
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap$TrackedEntity.moonrise$tick",
+              "sampled_ms": 2960.0,
+              "percent_of_thread_samples": 0.681
+            },
+            {
+              "method": "net.minecraft.world.level.EntityGetter.hasNearbyAlivePlayerThatAffectsSpawning",
+              "sampled_ms": 2410.0,
+              "percent_of_thread_samples": 0.554
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices.getEntities",
+              "sampled_ms": 2400.0,
+              "percent_of_thread_samples": 0.552
+            },
+            {
+              "method": "net.minecraft.world.level.biome.BiomeManager.getBiome",
+              "sampled_ms": 2380.0,
+              "percent_of_thread_samples": 0.548
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.tickSpawningChunk",
+              "sampled_ms": 2300.0,
+              "percent_of_thread_samples": 0.529
+            },
+            {
+              "method": "net.minecraft.network.Connection.send",
+              "sampled_ms": 2140.0,
+              "percent_of_thread_samples": 0.492
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.util.stream.TicketSet.expireAndRemoveInto",
+              "sampled_ms": 2040.0,
+              "percent_of_thread_samples": 0.469
+            },
+            {
+              "method": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.getShape",
+              "sampled_ms": 2010.0,
+              "percent_of_thread_samples": 0.462
+            }
+          ]
+        }
+      ],
+      "case": "cpu"
+    },
+    {
+      "profile": "profile-2026-10-07_13.05.38.sparkprofile",
+      "start_epoch_ms": 1791345503040,
+      "end_epoch_ms": 1791345937819,
+      "sampler_interval": 10000,
+      "note": "Sampled stack time includes waits/sleep. Inclusive methods overlap; percentages must not be added. Whole-run profile includes setup.",
+      "threads": [
+        {
+          "thread": "Server thread",
+          "sampled_ms": 430930.0,
+          "inclusive_methods": [
+            {
+              "method": "net.minecraft.server.MinecraftServer.runServer",
+              "sampled_ms": 430930.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.lambda$spin$0",
+              "sampled_ms": 430930.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer$$Lambda/0x000000008b13e358.run",
+              "sampled_ms": 430930.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "java.lang.Thread.runWith",
+              "sampled_ms": 430930.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "java.lang.Thread.run",
+              "sampled_ms": 430930.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.processPacketsAndTick",
+              "sampled_ms": 378010.0,
+              "percent_of_thread_samples": 87.72
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.tickServer",
+              "sampled_ms": 289260.0,
+              "percent_of_thread_samples": 67.125
+            },
+            {
+              "method": "net.minecraft.server.dedicated.DedicatedServer.tickServer",
+              "sampled_ms": 289260.0,
+              "percent_of_thread_samples": 67.125
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.tickChildren",
+              "sampled_ms": 288160.0,
+              "percent_of_thread_samples": 66.869
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.tick",
+              "sampled_ms": 175990.0,
+              "percent_of_thread_samples": 40.84
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.setPos",
+              "sampled_ms": 145480.0,
+              "percent_of_thread_samples": 33.76
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.absSnapTo",
+              "sampled_ms": 111460.0,
+              "percent_of_thread_samples": 25.865
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.setPosRaw",
+              "sampled_ms": 109810.0,
+              "percent_of_thread_samples": 25.482
+            },
+            {
+              "method": "jdk.internal.misc.Unsafe.park",
+              "sampled_ms": 109150.0,
+              "percent_of_thread_samples": 25.329
+            },
+            {
+              "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+              "sampled_ms": 108940.0,
+              "percent_of_thread_samples": 25.28
+            },
+            {
+              "method": "net.minecraft.network.PacketProcessor.executeSinglePacket",
+              "sampled_ms": 91880.0,
+              "percent_of_thread_samples": 21.321
+            },
+            {
+              "method": "net.minecraft.network.PacketProcessor$ListenerAndPacket.handle",
+              "sampled_ms": 91840.0,
+              "percent_of_thread_samples": 21.312
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.runAllTasksAtTickStart",
+              "sampled_ms": 88700.0,
+              "percent_of_thread_samples": 20.583
+            },
+            {
+              "method": "net.minecraft.server.network.ServerGamePacketListenerImpl.handleMovePlayer",
+              "sampled_ms": 87110.0,
+              "percent_of_thread_samples": 20.214
+            },
+            {
+              "method": "net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.handle",
+              "sampled_ms": 87110.0,
+              "percent_of_thread_samples": 20.214
+            },
+            {
+              "method": "net.minecraft.world.entity.LivingEntity.tick",
+              "sampled_ms": 85960.0,
+              "percent_of_thread_samples": 19.948
+            },
+            {
+              "method": "net.minecraft.network.protocol.game.ServerboundMovePlayerPacket$PosRot.handle",
+              "sampled_ms": 83120.0,
+              "percent_of_thread_samples": 19.289
+            },
+            {
+              "method": "com.google.common.collect.RegularImmutableMap.get",
+              "sampled_ms": 81540.0,
+              "percent_of_thread_samples": 18.922
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.tickChunks",
+              "sampled_ms": 80940.0,
+              "percent_of_thread_samples": 18.783
+            },
+            {
+              "method": "net.minecraft.world.level.entity.EntityTickList.forEach",
+              "sampled_ms": 78650.0,
+              "percent_of_thread_samples": 18.251
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.lambda$tick$0",
+              "sampled_ms": 78640.0,
+              "percent_of_thread_samples": 18.249
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel$$Lambda/0x000000008b8a8cf0.accept",
+              "sampled_ms": 78640.0,
+              "percent_of_thread_samples": 18.249
+            },
+            {
+              "method": "net.minecraft.world.level.Level.guardEntityTick",
+              "sampled_ms": 75570.0,
+              "percent_of_thread_samples": 17.536
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel$$Lambda/0x000000008bf9f9d8.accept",
+              "sampled_ms": 74180.0,
+              "percent_of_thread_samples": 17.214
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.tickNonPassenger",
+              "sampled_ms": 74170.0,
+              "percent_of_thread_samples": 17.212
+            }
+          ],
+          "self_methods": [
+            {
+              "method": "jdk.internal.misc.Unsafe.park",
+              "sampled_ms": 109150.0,
+              "percent_of_thread_samples": 25.329
+            },
+            {
+              "method": "com.google.common.collect.RegularImmutableMap.get",
+              "sampled_ms": 40810.0,
+              "percent_of_thread_samples": 9.47
+            },
+            {
+              "method": "net.minecraft.server.waypoints.ServerWaypointManager.updateConnection",
+              "sampled_ms": 22070.0,
+              "percent_of_thread_samples": 5.121
+            },
+            {
+              "method": "java.util.HashMap.hash",
+              "sampled_ms": 17790.0,
+              "percent_of_thread_samples": 4.128
+            },
+            {
+              "method": "net.minecraft.world.entity.player.Inventory.getSelectedItem",
+              "sampled_ms": 12480.0,
+              "percent_of_thread_samples": 2.896
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.iterateTickingChunksFaster",
+              "sampled_ms": 8540.0,
+              "percent_of_thread_samples": 1.982
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap.isChunkNearPlayer",
+              "sampled_ms": 8300.0,
+              "percent_of_thread_samples": 1.926
+            },
+            {
+              "method": "java.util.AbstractCollection.toArray",
+              "sampled_ms": 5710.0,
+              "percent_of_thread_samples": 1.325
+            },
+            {
+              "method": "com.google.common.collect.StandardTable$Column$EntrySet.size",
+              "sampled_ms": 5610.0,
+              "percent_of_thread_samples": 1.302
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices$EntityCollectionBySection.getEntities",
+              "sampled_ms": 5530.0,
+              "percent_of_thread_samples": 1.283
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.longs.LongOpenHashSet.contains",
+              "sampled_ms": 5230.0,
+              "percent_of_thread_samples": 1.214
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap$TrackedEntity.updatePlayer",
+              "sampled_ms": 5110.0,
+              "percent_of_thread_samples": 1.186
+            },
+            {
+              "method": "sun.nio.ch.IOUtil.write1",
+              "sampled_ms": 5010.0,
+              "percent_of_thread_samples": 1.163
+            },
+            {
+              "method": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.randomTick",
+              "sampled_ms": 4750.0,
+              "percent_of_thread_samples": 1.102
+            },
+            {
+              "method": "ca.spottedleaf.concurrentutil.map.concurrent.longs.ConcurrentChainedLong2ReferenceHashTable.getNode",
+              "sampled_ms": 4150.0,
+              "percent_of_thread_samples": 0.963
+            },
+            {
+              "method": "com.google.common.collect.AbstractTable.contains",
+              "sampled_ms": 3910.0,
+              "percent_of_thread_samples": 0.907
+            },
+            {
+              "method": "net.minecraft.world.level.EntityGetter.gpurNearestPlayerCpu",
+              "sampled_ms": 3590.0,
+              "percent_of_thread_samples": 0.833
+            },
+            {
+              "method": "net.minecraft.world.entity.EntityFluidInteraction.hasFluidAndLoaded",
+              "sampled_ms": 3400.0,
+              "percent_of_thread_samples": 0.789
+            },
+            {
+              "method": "net.minecraft.world.entity.ai.targeting.TargetingConditions.test",
+              "sampled_ms": 3310.0,
+              "percent_of_thread_samples": 0.768
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap$TrackedEntity.moonrise$tick",
+              "sampled_ms": 3060.0,
+              "percent_of_thread_samples": 0.71
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet.contains",
+              "sampled_ms": 3050.0,
+              "percent_of_thread_samples": 0.708
+            },
+            {
+              "method": "net.minecraft.world.waypoints.WaypointTransmitter$EntityAzimuthConnection.isBroken",
+              "sampled_ms": 2880.0,
+              "percent_of_thread_samples": 0.668
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.tickSpawningChunk",
+              "sampled_ms": 2460.0,
+              "percent_of_thread_samples": 0.571
+            },
+            {
+              "method": "net.minecraft.world.level.EntityGetter.hasNearbyAlivePlayerThatAffectsSpawning",
+              "sampled_ms": 2260.0,
+              "percent_of_thread_samples": 0.524
+            },
+            {
+              "method": "net.minecraft.world.level.chunk.LevelChunkSection.write",
+              "sampled_ms": 2200.0,
+              "percent_of_thread_samples": 0.511
+            },
+            {
+              "method": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.getShape",
+              "sampled_ms": 2190.0,
+              "percent_of_thread_samples": 0.508
+            },
+            {
+              "method": "net.minecraft.world.level.biome.BiomeManager.getBiome",
+              "sampled_ms": 2160.0,
+              "percent_of_thread_samples": 0.501
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices.getEntities",
+              "sampled_ms": 2130.0,
+              "percent_of_thread_samples": 0.494
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices.getHardCollidingEntities",
+              "sampled_ms": 1930.0,
+              "percent_of_thread_samples": 0.448
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.util.stream.TicketSet.expireAndRemoveInto",
+              "sampled_ms": 1930.0,
+              "percent_of_thread_samples": 0.448
+            }
+          ]
+        }
+      ],
+      "case": "rtx3070"
+    },
+    {
+      "profile": "profile-2026-10-07_13.13.28.sparkprofile",
+      "start_epoch_ms": 1791345963746,
+      "end_epoch_ms": 1791346407458,
+      "sampler_interval": 10000,
+      "note": "Sampled stack time includes waits/sleep. Inclusive methods overlap; percentages must not be added. Whole-run profile includes setup.",
+      "threads": [
+        {
+          "thread": "Server thread",
+          "sampled_ms": 439810.0,
+          "inclusive_methods": [
+            {
+              "method": "net.minecraft.server.MinecraftServer.runServer",
+              "sampled_ms": 439810.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.lambda$spin$0",
+              "sampled_ms": 439810.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer$$Lambda/0x000000001c13e358.run",
+              "sampled_ms": 439810.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "java.lang.Thread.runWith",
+              "sampled_ms": 439810.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "java.lang.Thread.run",
+              "sampled_ms": 439810.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.processPacketsAndTick",
+              "sampled_ms": 386030.0,
+              "percent_of_thread_samples": 87.772
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.tickServer",
+              "sampled_ms": 291830.0,
+              "percent_of_thread_samples": 66.354
+            },
+            {
+              "method": "net.minecraft.server.dedicated.DedicatedServer.tickServer",
+              "sampled_ms": 291830.0,
+              "percent_of_thread_samples": 66.354
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.tickChildren",
+              "sampled_ms": 290560.0,
+              "percent_of_thread_samples": 66.065
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.tick",
+              "sampled_ms": 179080.0,
+              "percent_of_thread_samples": 40.718
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.setPos",
+              "sampled_ms": 148870.0,
+              "percent_of_thread_samples": 33.849
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.absSnapTo",
+              "sampled_ms": 118020.0,
+              "percent_of_thread_samples": 26.834
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.setPosRaw",
+              "sampled_ms": 113440.0,
+              "percent_of_thread_samples": 25.793
+            },
+            {
+              "method": "jdk.internal.misc.Unsafe.park",
+              "sampled_ms": 106200.0,
+              "percent_of_thread_samples": 24.147
+            },
+            {
+              "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+              "sampled_ms": 105970.0,
+              "percent_of_thread_samples": 24.094
+            },
+            {
+              "method": "net.minecraft.network.PacketProcessor.executeSinglePacket",
+              "sampled_ms": 96680.0,
+              "percent_of_thread_samples": 21.982
+            },
+            {
+              "method": "net.minecraft.network.PacketProcessor$ListenerAndPacket.handle",
+              "sampled_ms": 96590.0,
+              "percent_of_thread_samples": 21.962
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.runAllTasksAtTickStart",
+              "sampled_ms": 94020.0,
+              "percent_of_thread_samples": 21.377
+            },
+            {
+              "method": "net.minecraft.server.network.ServerGamePacketListenerImpl.handleMovePlayer",
+              "sampled_ms": 91950.0,
+              "percent_of_thread_samples": 20.907
+            },
+            {
+              "method": "net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.handle",
+              "sampled_ms": 91950.0,
+              "percent_of_thread_samples": 20.907
+            },
+            {
+              "method": "net.minecraft.network.protocol.game.ServerboundMovePlayerPacket$PosRot.handle",
+              "sampled_ms": 87390.0,
+              "percent_of_thread_samples": 19.87
+            },
+            {
+              "method": "net.minecraft.world.entity.LivingEntity.tick",
+              "sampled_ms": 86230.0,
+              "percent_of_thread_samples": 19.606
+            },
+            {
+              "method": "net.minecraft.world.level.entity.EntityTickList.forEach",
+              "sampled_ms": 80130.0,
+              "percent_of_thread_samples": 18.219
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.lambda$tick$0",
+              "sampled_ms": 79960.0,
+              "percent_of_thread_samples": 18.181
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel$$Lambda/0x000000001c8ae200.accept",
+              "sampled_ms": 79960.0,
+              "percent_of_thread_samples": 18.181
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.tickChunks",
+              "sampled_ms": 77580.0,
+              "percent_of_thread_samples": 17.639
+            },
+            {
+              "method": "net.minecraft.server.waypoints.ServerWaypointManager.updateConnection",
+              "sampled_ms": 77070.0,
+              "percent_of_thread_samples": 17.523
+            },
+            {
+              "method": "net.minecraft.world.level.Level.guardEntityTick",
+              "sampled_ms": 76810.0,
+              "percent_of_thread_samples": 17.464
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.tick",
+              "sampled_ms": 75730.0,
+              "percent_of_thread_samples": 17.219
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel$$Lambda/0x000000001cfa2228.accept",
+              "sampled_ms": 75200.0,
+              "percent_of_thread_samples": 17.098
+            }
+          ],
+          "self_methods": [
+            {
+              "method": "jdk.internal.misc.Unsafe.park",
+              "sampled_ms": 106200.0,
+              "percent_of_thread_samples": 24.147
+            },
+            {
+              "method": "net.minecraft.world.waypoints.WaypointTransmitter$EntityAzimuthConnection.isBroken",
+              "sampled_ms": 41900.0,
+              "percent_of_thread_samples": 9.527
+            },
+            {
+              "method": "net.minecraft.server.waypoints.ServerWaypointManager.updateConnection",
+              "sampled_ms": 21190.0,
+              "percent_of_thread_samples": 4.818
+            },
+            {
+              "method": "java.util.HashMap.hash",
+              "sampled_ms": 17670.0,
+              "percent_of_thread_samples": 4.018
+            },
+            {
+              "method": "net.minecraft.world.entity.ai.goal.TemptGoal.shouldFollow",
+              "sampled_ms": 14060.0,
+              "percent_of_thread_samples": 3.197
+            },
+            {
+              "method": "java.lang.ThreadLocal$ThreadLocalMap.getEntryAfterMiss",
+              "sampled_ms": 11470.0,
+              "percent_of_thread_samples": 2.608
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap.collectSpawningChunks",
+              "sampled_ms": 8780.0,
+              "percent_of_thread_samples": 1.996
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap$TrackedEntity.updatePlayer",
+              "sampled_ms": 6980.0,
+              "percent_of_thread_samples": 1.587
+            },
+            {
+              "method": "com.google.common.collect.StandardTable$Column$EntrySet.size",
+              "sampled_ms": 6210.0,
+              "percent_of_thread_samples": 1.412
+            },
+            {
+              "method": "java.util.AbstractCollection.toArray",
+              "sampled_ms": 5660.0,
+              "percent_of_thread_samples": 1.287
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.longs.LongOpenHashSet.contains",
+              "sampled_ms": 5520.0,
+              "percent_of_thread_samples": 1.255
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices$EntityCollectionBySection.getEntities",
+              "sampled_ms": 5490.0,
+              "percent_of_thread_samples": 1.248
+            },
+            {
+              "method": "sun.nio.ch.IOUtil.write1",
+              "sampled_ms": 5280.0,
+              "percent_of_thread_samples": 1.201
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.iterateTickingChunksFaster",
+              "sampled_ms": 4950.0,
+              "percent_of_thread_samples": 1.125
+            },
+            {
+              "method": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.randomTick",
+              "sampled_ms": 4780.0,
+              "percent_of_thread_samples": 1.087
+            },
+            {
+              "method": "io.netty.buffer.AbstractByteBuf.ensureWritable0",
+              "sampled_ms": 4740.0,
+              "percent_of_thread_samples": 1.078
+            },
+            {
+              "method": "ca.spottedleaf.concurrentutil.map.concurrent.longs.ConcurrentChainedLong2ReferenceHashTable.getNode",
+              "sampled_ms": 4530.0,
+              "percent_of_thread_samples": 1.03
+            },
+            {
+              "method": "com.google.common.collect.StandardTable$Column$KeySet.contains",
+              "sampled_ms": 4230.0,
+              "percent_of_thread_samples": 0.962
+            },
+            {
+              "method": "net.minecraft.world.waypoints.WaypointTransmitter$EntityChunkConnection.isBroken",
+              "sampled_ms": 3660.0,
+              "percent_of_thread_samples": 0.832
+            },
+            {
+              "method": "net.minecraft.world.entity.EntityFluidInteraction.hasFluidAndLoaded",
+              "sampled_ms": 3250.0,
+              "percent_of_thread_samples": 0.739
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet.contains",
+              "sampled_ms": 3190.0,
+              "percent_of_thread_samples": 0.725
+            },
+            {
+              "method": "net.minecraft.world.level.EntityGetter.gpurNearestPlayerCpu",
+              "sampled_ms": 3160.0,
+              "percent_of_thread_samples": 0.718
+            },
+            {
+              "method": "net.minecraft.world.level.biome.BiomeManager.getBiome",
+              "sampled_ms": 2230.0,
+              "percent_of_thread_samples": 0.507
+            },
+            {
+              "method": "net.minecraft.network.Connection.send",
+              "sampled_ms": 2110.0,
+              "percent_of_thread_samples": 0.48
+            },
+            {
+              "method": "net.minecraft.world.waypoints.WaypointTransmitter$EntityBlockConnection.isBroken",
+              "sampled_ms": 2110.0,
+              "percent_of_thread_samples": 0.48
+            },
+            {
+              "method": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.getShape",
+              "sampled_ms": 2050.0,
+              "percent_of_thread_samples": 0.466
+            },
+            {
+              "method": "net.minecraft.world.level.EntityGetter.hasNearbyAlivePlayerThatAffectsSpawning",
+              "sampled_ms": 2050.0,
+              "percent_of_thread_samples": 0.466
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.sendBlockUpdated",
+              "sampled_ms": 1950.0,
+              "percent_of_thread_samples": 0.443
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.getWorldBorder",
+              "sampled_ms": 1920.0,
+              "percent_of_thread_samples": 0.437
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.util.stream.TicketSet.expireAndRemoveInto",
+              "sampled_ms": 1820.0,
+              "percent_of_thread_samples": 0.414
+            }
+          ]
+        }
+      ],
+      "case": "gtx1080"
+    },
+    {
+      "profile": "profile-2026-10-07_13.21.13.sparkprofile",
+      "start_epoch_ms": 1791346434487,
+      "end_epoch_ms": 1791346872859,
+      "sampler_interval": 10000,
+      "note": "Sampled stack time includes waits/sleep. Inclusive methods overlap; percentages must not be added. Whole-run profile includes setup.",
+      "threads": [
+        {
+          "thread": "Server thread",
+          "sampled_ms": 434550.0,
+          "inclusive_methods": [
+            {
+              "method": "net.minecraft.server.MinecraftServer.runServer",
+              "sampled_ms": 434550.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.lambda$spin$0",
+              "sampled_ms": 434550.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer$$Lambda/0x0000000008146e88.run",
+              "sampled_ms": 434550.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "java.lang.Thread.runWith",
+              "sampled_ms": 434550.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "java.lang.Thread.run",
+              "sampled_ms": 434550.0,
+              "percent_of_thread_samples": 100.0
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.processPacketsAndTick",
+              "sampled_ms": 377860.0,
+              "percent_of_thread_samples": 86.954
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.tickServer",
+              "sampled_ms": 287970.0,
+              "percent_of_thread_samples": 66.269
+            },
+            {
+              "method": "net.minecraft.server.dedicated.DedicatedServer.tickServer",
+              "sampled_ms": 287970.0,
+              "percent_of_thread_samples": 66.269
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.tickChildren",
+              "sampled_ms": 287250.0,
+              "percent_of_thread_samples": 66.103
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.tick",
+              "sampled_ms": 175130.0,
+              "percent_of_thread_samples": 40.301
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.setPos",
+              "sampled_ms": 146170.0,
+              "percent_of_thread_samples": 33.637
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.absSnapTo",
+              "sampled_ms": 116060.0,
+              "percent_of_thread_samples": 26.708
+            },
+            {
+              "method": "jdk.internal.misc.Unsafe.park",
+              "sampled_ms": 114160.0,
+              "percent_of_thread_samples": 26.271
+            },
+            {
+              "method": "java.util.concurrent.locks.LockSupport.parkNanos",
+              "sampled_ms": 113830.0,
+              "percent_of_thread_samples": 26.195
+            },
+            {
+              "method": "net.minecraft.world.entity.Entity.setPosRaw",
+              "sampled_ms": 111250.0,
+              "percent_of_thread_samples": 25.601
+            },
+            {
+              "method": "net.minecraft.network.PacketProcessor.executeSinglePacket",
+              "sampled_ms": 93300.0,
+              "percent_of_thread_samples": 21.47
+            },
+            {
+              "method": "net.minecraft.network.PacketProcessor$ListenerAndPacket.handle",
+              "sampled_ms": 93220.0,
+              "percent_of_thread_samples": 21.452
+            },
+            {
+              "method": "net.minecraft.server.MinecraftServer.runAllTasksAtTickStart",
+              "sampled_ms": 89860.0,
+              "percent_of_thread_samples": 20.679
+            },
+            {
+              "method": "net.minecraft.server.network.ServerGamePacketListenerImpl.handleMovePlayer",
+              "sampled_ms": 88900.0,
+              "percent_of_thread_samples": 20.458
+            },
+            {
+              "method": "net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.handle",
+              "sampled_ms": 88900.0,
+              "percent_of_thread_samples": 20.458
+            },
+            {
+              "method": "net.minecraft.world.entity.LivingEntity.tick",
+              "sampled_ms": 87440.0,
+              "percent_of_thread_samples": 20.122
+            },
+            {
+              "method": "com.google.common.collect.RegularImmutableMap.get",
+              "sampled_ms": 86010.0,
+              "percent_of_thread_samples": 19.793
+            },
+            {
+              "method": "net.minecraft.network.protocol.game.ServerboundMovePlayerPacket$PosRot.handle",
+              "sampled_ms": 84280.0,
+              "percent_of_thread_samples": 19.395
+            },
+            {
+              "method": "net.minecraft.world.level.entity.EntityTickList.forEach",
+              "sampled_ms": 81830.0,
+              "percent_of_thread_samples": 18.831
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel$$Lambda/0x00000000088b40d8.accept",
+              "sampled_ms": 81780.0,
+              "percent_of_thread_samples": 18.819
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.lambda$tick$0",
+              "sampled_ms": 81740.0,
+              "percent_of_thread_samples": 18.81
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.tickChunks",
+              "sampled_ms": 78520.0,
+              "percent_of_thread_samples": 18.069
+            },
+            {
+              "method": "net.minecraft.world.level.Level.guardEntityTick",
+              "sampled_ms": 78330.0,
+              "percent_of_thread_samples": 18.026
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel$$Lambda/0x0000000008faaf88.accept",
+              "sampled_ms": 76560.0,
+              "percent_of_thread_samples": 17.618
+            },
+            {
+              "method": "net.minecraft.server.level.ServerLevel.tickNonPassenger",
+              "sampled_ms": 76510.0,
+              "percent_of_thread_samples": 17.607
+            }
+          ],
+          "self_methods": [
+            {
+              "method": "jdk.internal.misc.Unsafe.park",
+              "sampled_ms": 114160.0,
+              "percent_of_thread_samples": 26.271
+            },
+            {
+              "method": "com.google.common.collect.RegularImmutableMap.get",
+              "sampled_ms": 43030.0,
+              "percent_of_thread_samples": 9.902
+            },
+            {
+              "method": "net.minecraft.server.waypoints.ServerWaypointManager.updateConnection",
+              "sampled_ms": 22440.0,
+              "percent_of_thread_samples": 5.164
+            },
+            {
+              "method": "java.util.HashMap.hash",
+              "sampled_ms": 18180.0,
+              "percent_of_thread_samples": 4.184
+            },
+            {
+              "method": "net.minecraft.world.entity.ai.goal.TemptGoal.shouldFollow",
+              "sampled_ms": 13590.0,
+              "percent_of_thread_samples": 3.127
+            },
+            {
+              "method": "java.lang.ThreadLocal$ThreadLocalMap.getEntryAfterMiss",
+              "sampled_ms": 11450.0,
+              "percent_of_thread_samples": 2.635
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices$EntityCollectionBySection.getEntities",
+              "sampled_ms": 7130.0,
+              "percent_of_thread_samples": 1.641
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap.isChunkNearPlayer",
+              "sampled_ms": 7100.0,
+              "percent_of_thread_samples": 1.634
+            },
+            {
+              "method": "java.util.AbstractCollection.toArray",
+              "sampled_ms": 5370.0,
+              "percent_of_thread_samples": 1.236
+            },
+            {
+              "method": "com.google.common.collect.StandardTable$Column$EntrySet.size",
+              "sampled_ms": 5320.0,
+              "percent_of_thread_samples": 1.224
+            },
+            {
+              "method": "net.minecraft.server.level.ServerChunkCache.iterateTickingChunksFaster",
+              "sampled_ms": 5260.0,
+              "percent_of_thread_samples": 1.21
+            },
+            {
+              "method": "sun.nio.ch.IOUtil.write1",
+              "sampled_ms": 4890.0,
+              "percent_of_thread_samples": 1.125
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap$TrackedEntity.moonrise$tick",
+              "sampled_ms": 4820.0,
+              "percent_of_thread_samples": 1.109
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.longs.LongOpenHashSet.contains",
+              "sampled_ms": 4690.0,
+              "percent_of_thread_samples": 1.079
+            },
+            {
+              "method": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.randomTick",
+              "sampled_ms": 3970.0,
+              "percent_of_thread_samples": 0.914
+            },
+            {
+              "method": "net.minecraft.server.level.ChunkMap$TrackedEntity.updatePlayer",
+              "sampled_ms": 3960.0,
+              "percent_of_thread_samples": 0.911
+            },
+            {
+              "method": "com.google.common.collect.Sets$3$1.computeNext",
+              "sampled_ms": 3960.0,
+              "percent_of_thread_samples": 0.911
+            },
+            {
+              "method": "ca.spottedleaf.concurrentutil.map.concurrent.longs.ConcurrentChainedLong2ReferenceHashTable.getNode",
+              "sampled_ms": 3880.0,
+              "percent_of_thread_samples": 0.893
+            },
+            {
+              "method": "net.minecraft.world.entity.EntityFluidInteraction.hasFluidAndLoaded",
+              "sampled_ms": 3350.0,
+              "percent_of_thread_samples": 0.771
+            },
+            {
+              "method": "net.minecraft.world.level.EntityGetter.gpurNearestPlayerCpu",
+              "sampled_ms": 3250.0,
+              "percent_of_thread_samples": 0.748
+            },
+            {
+              "method": "net.minecraft.world.waypoints.WaypointTransmitter$EntityAzimuthConnection.isBroken",
+              "sampled_ms": 3240.0,
+              "percent_of_thread_samples": 0.746
+            },
+            {
+              "method": "net.minecraft.world.entity.ai.targeting.TargetingConditions.test",
+              "sampled_ms": 3210.0,
+              "percent_of_thread_samples": 0.739
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet.contains",
+              "sampled_ms": 2750.0,
+              "percent_of_thread_samples": 0.633
+            },
+            {
+              "method": "net.minecraft.network.Connection.send",
+              "sampled_ms": 2260.0,
+              "percent_of_thread_samples": 0.52
+            },
+            {
+              "method": "ca.spottedleaf.moonrise.patches.chunk_system.util.stream.TicketSet.expireAndRemoveInto",
+              "sampled_ms": 2260.0,
+              "percent_of_thread_samples": 0.52
+            },
+            {
+              "method": "net.minecraft.world.level.EntityGetter.hasNearbyAlivePlayerThatAffectsSpawning",
+              "sampled_ms": 2140.0,
+              "percent_of_thread_samples": 0.492
+            },
+            {
+              "method": "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.getShape",
+              "sampled_ms": 2090.0,
+              "percent_of_thread_samples": 0.481
+            },
+            {
+              "method": "net.minecraft.world.level.biome.BiomeManager.getBiome",
+              "sampled_ms": 2080.0,
+              "percent_of_thread_samples": 0.479
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.objects.ObjectOpenHashSet$SetIterator.next",
+              "sampled_ms": 1930.0,
+              "percent_of_thread_samples": 0.444
+            },
+            {
+              "method": "it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap.containsKey",
+              "sampled_ms": 1760.0,
+              "percent_of_thread_samples": 0.405
+            }
+          ]
+        }
+      ],
+      "case": "mixed"
+    }
+  ]
+}

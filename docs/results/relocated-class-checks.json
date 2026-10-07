@@ -1,0 +1,6 @@
+{
+  "class_files": 10456,
+  "class_differences": [],
+  "different_resource_entries": [],
+  "note": "Measured CPU-run runtime jar versus relocated pre-commit dev jar; ZIP packaging hashes can differ."
+}

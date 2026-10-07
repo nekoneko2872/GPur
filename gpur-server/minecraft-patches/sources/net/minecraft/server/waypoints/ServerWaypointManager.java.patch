@@ -1,0 +1,37 @@
+--- a/net/minecraft/server/waypoints/ServerWaypointManager.java
++++ b/net/minecraft/server/waypoints/ServerWaypointManager.java
+@@ -1,15 +_,15 @@
+ package net.minecraft.server.waypoints;
+ 
+ import com.google.common.collect.HashBasedTable;
+-import com.google.common.collect.ImmutableSet;
+ import com.google.common.collect.Sets;
+ import com.google.common.collect.Table;
+ import com.google.common.collect.Tables;
+ import com.google.common.collect.Sets.SetView;
+ import java.util.HashSet;
++import java.util.List;
+ import java.util.Map;
+-import java.util.Set;
+ import java.util.Map.Entry;
++import java.util.Set;
+ import net.minecraft.server.level.ServerPlayer;
+ import net.minecraft.world.level.gamerules.GameRules;
+ import net.minecraft.world.waypoints.WaypointManager;
+@@ -44,7 +_,7 @@
+             Map<ServerPlayer, WaypointTransmitter.Connection> playerConnection = Tables.transpose(this.connections).row(waypoint);
+             SetView<ServerPlayer> potentialPlayers = Sets.difference(this.players, playerConnection.keySet());
+ 
+-            for (Entry<ServerPlayer, WaypointTransmitter.Connection> waypointConnection : ImmutableSet.copyOf(playerConnection.entrySet())) {
++            for (Entry<ServerPlayer, WaypointTransmitter.Connection> waypointConnection : List.copyOf(playerConnection.entrySet())) {
+                 this.updateConnection(waypointConnection.getKey(), waypoint, waypointConnection.getValue());
+             }
+ 
+@@ -80,6 +_,6 @@
+         Map<WaypointTransmitter, WaypointTransmitter.Connection> waypointConnections = this.connections.row(player);
+         SetView<WaypointTransmitter> potentialWaypoints = Sets.difference(this.waypoints, waypointConnections.keySet());
+ 
+-        for (Entry<WaypointTransmitter, WaypointTransmitter.Connection> waypointConnection : ImmutableSet.copyOf(waypointConnections.entrySet())) {
++        for (Entry<WaypointTransmitter, WaypointTransmitter.Connection> waypointConnection : List.copyOf(waypointConnections.entrySet())) {
+             this.updateConnection(player, waypointConnection.getKey(), waypointConnection.getValue());
+         }

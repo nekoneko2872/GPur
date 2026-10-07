@@ -1,0 +1,23 @@
+--- a/net/minecraft/world/level/EntityGetter.java
++++ b/net/minecraft/world/level/EntityGetter.java
+@@ -119,6 +_,11 @@
+     // Paper end - Affects Spawning API
+ 
+     default @Nullable Player getNearestPlayer(final double x, final double y, final double z, final double range, final @Nullable Predicate<Entity> predicate) {
++        org.gpur.compute.PlayerQueries.Result gpu = org.gpur.compute.PlayerQueries.tryNearest(this, x, y, z, range, predicate, false);
++        return gpu.applied() ? gpu.player() : this.gpurNearestPlayerCpu(x, y, z, range, predicate);
++    }
++
++    default @Nullable Player gpurNearestPlayerCpu(final double x, final double y, final double z, final double range, final @Nullable Predicate<Entity> predicate) {
+         double best = -1.0;
+         Player result = null;
+ 
+@@ -183,7 +_,7 @@
+ 
+     default boolean hasNearbyAlivePlayer(final double x, final double y, final double z, final double range) {
+         for (Player player : this.players()) {
+-            if (EntitySelector.NO_SPECTATORS.test(player) && EntitySelector.LIVING_ENTITY_STILL_ALIVE.test(player)) {
++            if (EntitySelector.NO_SPECTATORS.test(player) && EntitySelector.LIVING_ENTITY_STILL_ALIVE.test(player) && EntitySelector.notAfk.test(player)) { // Purpur - AFK API
+                 double playerDist = player.distanceToSqr(x, y, z);
+                 if (range < 0.0 || playerDist < range * range) {
+                     return true;

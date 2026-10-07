@@ -1,0 +1,12 @@
+name: GPurBench
+version: 1.0.0
+main: org.gpur.bench.GPurBench
+api-version: '1.21'
+description: Isolated deterministic benchmark workload and uncensored tick measurements
+commands:
+  gpurbench:
+    description: Benchmark measurement and isolated synthetic workloads
+    permission: gpurbench.admin
+permissions:
+  gpurbench.admin:
+    default: op

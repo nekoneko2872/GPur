@@ -50,20 +50,24 @@ manifest.mf
 # other stuff
 /run
 
-/purpur-server/build.gradle.kts
-/purpur-server/src/minecraft
+/gpur-server/build.gradle.kts
+/gpur-server/src/minecraft
 /paper-server
-/purpur-api/build.gradle.kts
+/gpur-api/build.gradle.kts
 /paper-api
 /paper-checkstyle
 /.checkstyle
-/purpur-checkstyle/build.gradle.kts
+/gpur-checkstyle/build.gradle.kts
 *.jar
 
 # Local runtime and GPU validation artifacts
 /tmp-*/
 /validation/
 *.log
+/benchmarks/**/node_modules/
+/benchmarks/**/validation/
+__pycache__/
+*.pyc
 
 # Wrapper is required in a clean Git checkout
 !gradle/wrapper/gradle-wrapper.jar

@@ -1,0 +1,9 @@
+{
+  "name": "gpur-network-load-clients",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Loopback-only genuine Minecraft network player benchmark fleet",
+  "scripts": { "test": "node --test fleet.test.cjs", "start": "node fleet.cjs" },
+  "engines": { "node": ">=22" },
+  "dependencies": { "minecraft-data": "3.117.0", "minecraft-protocol": "1.68.0", "mineflayer": "4.39.0" }
+}

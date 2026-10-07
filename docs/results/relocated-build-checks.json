@@ -1,0 +1,19 @@
+{
+  "full": {
+    "tests": 9831,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 28
+  },
+  "layout": [
+    "gpur-server",
+    "gpur-api",
+    "gpur-checkstyle"
+  ],
+  "gpu": {
+    "tests": 38,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+}

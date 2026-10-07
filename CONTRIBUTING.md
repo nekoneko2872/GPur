@@ -2,7 +2,7 @@
 
 Clone https://github.com/nekoneko2872/GPur, select the version branch, install JDK 25, and run `./gradlew applyAllPatches`.
 
-GPur-owned classes/resources belong in `purpur-server/src/main`. Edit generated Minecraft/Paper sources after applying patches, then run fixup and rebuild in separate invocations:
+GPur-owned classes/resources belong in `gpur-server/src/main`. Edit generated Minecraft/Paper sources after applying patches, then run fixup and rebuild in separate invocations:
 
 ```sh
 ./gradlew :purpur-server:fixupMinecraftSourcePatches :purpur-server:fixupPaperServerFilePatches

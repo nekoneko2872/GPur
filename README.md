@@ -13,7 +13,9 @@ Use a Git checkout and JDK 25:
 ./gradlew :purpur-server:test :purpur-server:createPaperclipJar
 ```
 
-Artifact: `purpur-server/build/libs/gpur-server-26.2.local-SNAPSHOT.jar`. Internal module names and `org.purpurmc` API packages are retained for plugin compatibility. Generated sources are not committed; their changes must be rebuilt into patches.
+Artifact: `gpur-server/build/libs/gpur-server-26.2.local-SNAPSHOT.jar`. Source folders are `gpur-server`, `gpur-api`, and `gpur-checkstyle`; Gradle project names and `org.purpurmc` API packages are retained. Generated sources are not committed; their changes must be rebuilt into patches.
+
+Run with JDK 25 and `--enable-native-access=ALL-UNNAMED`. The `-dev.jar` and `gpur-bundler-*.jar` files are build artifacts, not the Paperclip launch jar. See [the migration and validation record](docs/26.2-migration.md) for the implemented scope and checks.
 
 ## Configuration
 
@@ -45,6 +47,10 @@ This implementation requires Vulkan 1.1, a compute queue, FP64 shader support, a
 
 A dispersed SMP with 300 players is a benchmark target, not a capacity guarantee. Compare p50/p95/p99 MSPT, chunk load/generation latency, GC, plugins, and full CPU-to-GPU-to-CPU cost on identical worlds and hardware. Hardware kernel parity does not establish whole-server performance or universal plugin compatibility.
 
+The [hardware and load validation record](docs/26.2-validation.md) includes the CPU, RTX 3070, GTX 1080 and mixed-device experiments. The stability target was **not met**: the final build ran at about 4 TPS with 300 connected clients, 60 moving and 3,000 AI mobs. Earlier tests before the backoff and result-acceptance fixes triggered watchdog termination when all 300 clients moved continuously. No whole-server speedup over ordinary Paper/Purpur is established.
+
+The interim completion criterion is CPU-equivalent or better performance. The single-run measurements are mixed: RTX 3070 improves some metrics, GTX 1080 is slower in the fixed-AI phase, and the mixed configuration has higher p95/p99 MSPT. CPU-equivalent or better performance across all configurations is not established.
+
 ## Upstream and licensing
 
-Based on Purpur 26.2 and its pinned Paper revision. Required license/copyright notices and patch attribution are retained. Upstream contributor/sponsor lists, funding links, IDE metadata, historical unapplied patches, and local server worlds/logs are excluded. See [LICENSE](LICENSE) and upstream source notices.
+Based on Purpur 26.2 and its pinned Paper revision. Required license/copyright notices and patch attribution are retained. Upstream project contributor/sponsor lists and funding links, IDE metadata, historical unapplied patches, and local server worlds/logs are excluded. Dependency lockfile metadata is retained. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).

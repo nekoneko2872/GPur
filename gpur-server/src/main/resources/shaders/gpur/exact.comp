@@ -1,0 +1,42 @@
+#version 450
+#extension GL_ARB_gpu_shader_fp64 : require
+
+layout(local_size_x = 64) in;
+layout(std430, binding = 0) readonly buffer Input { uint data[]; };
+layout(std430, binding = 1) writeonly buffer Output { uint result[]; };
+
+double readDouble(uint offset) { return packDouble2x32(uvec2(data[offset], data[offset + 1])); }
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= data[1]) return;
+    if (data[0] == 1u) {
+        uint offset = 8u + i * 6u;
+        precise double dx = readDouble(2u) - readDouble(offset);
+        precise double dy = readDouble(4u) - readDouble(offset + 2u);
+        precise double dz = readDouble(6u) - readDouble(offset + 4u);
+        // Keep Java's operation order and prohibit contraction into FMA.
+        precise double xx = dx * dx;
+        precise double yy = dy * dy;
+        precise double zz = dz * dz;
+        precise double sumXY = xx + yy;
+        precise double distance = sumXY + zz;
+        uvec2 bits = unpackDouble2x32(distance);
+        result[2u * i] = bits.x;
+        result[2u * i + 1u] = bits.y;
+    } else if (data[0] == 2u) {
+        // A section has a complete 18^3 halo; one invocation owns one result word.
+        uint section = i / 4096u;
+        uint block = i % 4096u;
+        uint offset = 2u + section * (4096u + 5832u);
+        uint x = (block & 15u) + 1u;
+        uint z = ((block >> 4u) & 15u) + 1u;
+        uint y = (block >> 8u) + 1u;
+        uint center = offset + 4096u + y * 324u + z * 18u + x;
+        bool hidden = (data[offset + block] & 3u) == 3u;
+        hidden = hidden && data[center - 1u] == 0u && data[center + 1u] == 0u;
+        hidden = hidden && data[center - 18u] == 0u && data[center + 18u] == 0u;
+        hidden = hidden && data[center - 324u] == 0u && data[center + 324u] == 0u;
+        result[i] = hidden ? 1u : 0u;
+    }
+}

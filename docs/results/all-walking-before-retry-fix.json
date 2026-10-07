@@ -1,0 +1,2849 @@
+{
+  "schema": 1,
+  "method": "Every recorded tick retained; nearest-rank percentiles; no spike removal.",
+  "runs": [
+    {
+      "case": "cpu",
+      "run_name": "20261007-025406-748100-cpu",
+      "completed": false,
+      "server_exit": 70,
+      "error": "RuntimeError('server exited 70: status')",
+      "duration_seconds": 264.25,
+      "walking_percent": 100,
+      "player_targets": [
+        300
+      ],
+      "natural_spawn_phase": true,
+      "natural_phase_seconds": 10,
+      "record_end_without_tick_ms": 62481.66162109375,
+      "tick_record_note": "A tick that never completes has no TickEnd sample. Failure and the final gap must be considered alongside reported MSPT.",
+      "jar_sha256": "3fe9e13a298fd9547d0198f9c5ced619e3a2c01af9f02ef256b52591286d8336",
+      "seed": 1196459378,
+      "plugin_sha256": "ad49eff13a5edbff5a4bb6ca63a99ec871eaf433fac1a9241ed3f650f18b1be8",
+      "viaversion_sha256": "760838f7790083ed9e22c71b29ea5a479d4997c09ad3277971d8deca4f41bed4",
+      "viabackwards_sha256": "c3cb4e2b4e04b9d9bf3d75318a44133146982295021ea9e26984606bdd709481",
+      "heap_gib": 16,
+      "view_distance": 6,
+      "simulation_distance": 4,
+      "force_gpu_diagnostic": false,
+      "admitted_devices": [],
+      "clients": {
+        "live": 0,
+        "play": 0,
+        "spawned": 0,
+        "survival": 0,
+        "everSpawned": 300,
+        "errors": 0,
+        "kicks": 300,
+        "unexpectedLosses": 300,
+        "receivedBytes": 1248845455,
+        "sentBytes": 14232966,
+        "movementPackets": 416839,
+        "teleportConfirms": 600
+      },
+      "client_fleets_at_finish": [
+        {
+          "timestamp": "2026-10-07T02:58:29.734Z",
+          "elapsedSeconds": 235.3635071,
+          "type": "fleet_stats",
+          "phase": "players-300-settle",
+          "action": "walk",
+          "requested": 300,
+          "workerCount": 2,
+          "staleWorkers": [],
+          "attempted": 300,
+          "connected": 0,
+          "loggedIn": 0,
+          "play": 0,
+          "spawned": 0,
+          "live": 0,
+          "survival": 0,
+          "everSpawned": 300,
+          "ended": 300,
+          "errors": 0,
+          "kicks": 300,
+          "unexpectedLosses": 300,
+          "movementPackets": 416839,
+          "teleportConfirms": 600,
+          "keepalives": 34334,
+          "chunkBatches": 0,
+          "receivedBytes": 1248845455,
+          "sentBytes": 14232966,
+          "rssBytes": 453365760,
+          "heapUsedBytes": 253839872,
+          "cpuCorePercent": 0,
+          "walking": 0,
+          "eventLoopP99Ms": 16.367615,
+          "eventLoopMaxMs": 16.441343,
+          "clientCpuHostPercent": 0,
+          "parentRssBytes": 49721344,
+          "workers": [
+            {
+              "workerId": 0,
+              "pid": 71220,
+              "action": "walk",
+              "attempted": 150,
+              "connected": 0,
+              "loggedIn": 0,
+              "play": 0,
+              "spawned": 0,
+              "survival": 0,
+              "live": 0,
+              "walking": 0,
+              "everSpawned": 150,
+              "ended": 150,
+              "errors": 0,
+              "kicks": 150,
+              "unexpectedLosses": 150,
+              "movementPackets": 208665,
+              "teleportConfirms": 300,
+              "keepalives": 17183,
+              "chunkBatches": 0,
+              "receivedBytes": 624429989,
+              "sentBytes": 7122713,
+              "rssBytes": 221540352,
+              "heapUsedBytes": 125503240,
+              "cpuCorePercent": 0,
+              "eventLoopP99Ms": 16.367615,
+              "eventLoopMaxMs": 16.433151
+            },
+            {
+              "workerId": 1,
+              "pid": 64168,
+              "action": "walk",
+              "attempted": 150,
+              "connected": 0,
+              "loggedIn": 0,
+              "play": 0,
+              "spawned": 0,
+              "survival": 0,
+              "live": 0,
+              "walking": 0,
+              "everSpawned": 150,
+              "ended": 150,
+              "errors": 0,
+              "kicks": 150,
+              "unexpectedLosses": 150,
+              "movementPackets": 208174,
+              "teleportConfirms": 300,
+              "keepalives": 17151,
+              "chunkBatches": 0,
+              "receivedBytes": 624415466,
+              "sentBytes": 7110253,
+              "rssBytes": 231825408,
+              "heapUsedBytes": 128336632,
+              "cpuCorePercent": 0,
+              "eventLoopP99Ms": 16.244735,
+              "eventLoopMaxMs": 16.441343
+            }
+          ]
+        }
+      ],
+      "all": {
+        "id": -1,
+        "phase": "all_including_setup_and_spikes",
+        "complete": true,
+        "start_epoch_ms": 1791341661748,
+        "wall_seconds": 235.6476616,
+        "ticks": 1755,
+        "actual_wall_tps": 7.44755958146966,
+        "start_interval_tps": 10.147852815417803,
+        "p50_ms": 14.1177,
+        "p95_ms": 335.7238,
+        "p99_ms": 518.8219,
+        "max_ms": 1705.7968,
+        "mean_ms": 68.21058005698006,
+        "ticks_over_50_ms": 314,
+        "ticks_over_100_ms": 307,
+        "players_min": 0,
+        "players_max": 300,
+        "bench_players_min": 0,
+        "bench_players_max": 300,
+        "gc_collections": 59,
+        "gc_collection_ms": 1829,
+        "gc_notification_count": 59,
+        "gc_notification_duration_ms": 1828,
+        "gc_run_max_notification_ms": 61
+      },
+      "end_metadata": {
+        "reason": "plugin_disable",
+        "time": "2026-10-07T02:58:17.395082600Z"
+      },
+      "phases": [
+        {
+          "phase": "startup",
+          "start_epoch_ms": 1791341661748,
+          "wall_seconds": 0.4065209,
+          "ticks": 4,
+          "actual_wall_tps": 9.839592503116076,
+          "start_interval_tps": 20.663149339467992,
+          "p50_ms": 8.0141,
+          "p95_ms": 1705.7968,
+          "p99_ms": 1705.7968,
+          "mean_ms": 438.23357500000003,
+          "max_ms": 1705.7968,
+          "ticks_over_50_ms": 1,
+          "ticks_over_100_ms": 1,
+          "gc_collections": 0,
+          "gc_collection_ms": 0,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 3.0
+            },
+            "survey_ms": {
+              "min": 2.2419,
+              "max": 2.2419
+            }
+          },
+          "start_interval_ms": {
+            "p99": 50.3766,
+            "max": 50.3766,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "unavailable",
+          "gpu_status_end": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-world",
+          "start_epoch_ms": 1791341662153,
+          "wall_seconds": 1.7945462,
+          "ticks": 7,
+          "actual_wall_tps": 3.900707599503429,
+          "start_interval_tps": 60.768539721862396,
+          "p50_ms": 8.8141,
+          "p95_ms": 20.6909,
+          "p99_ms": 20.6909,
+          "mean_ms": 9.31227142857143,
+          "max_ms": 20.6909,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 1,
+          "gc_collection_ms": 22,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 4.0,
+              "max": 10.0
+            },
+            "survey_ms": {
+              "min": 2.2419,
+              "max": 2.2419
+            }
+          },
+          "start_interval_ms": {
+            "p99": 1705.9253,
+            "max": 1705.9253,
+            "over_55_ms": 1,
+            "over_100_ms": 1
+          },
+          "gpu_status_start": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[]",
+          "gpu_status_end": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "idle-baseline",
+          "start_epoch_ms": 1791341663948,
+          "wall_seconds": 10.1874318,
+          "ticks": 204,
+          "actual_wall_tps": 20.024673932050273,
+          "start_interval_tps": 19.999908571846536,
+          "p50_ms": 0.4749,
+          "p95_ms": 1.4188,
+          "p99_ms": 3.4354,
+          "mean_ms": 0.6323509803921568,
+          "max_ms": 3.5828,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 0,
+          "gc_collection_ms": 0,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.0533,
+              "max": 2.2419
+            }
+          },
+          "start_interval_ms": {
+            "p99": 51.7454,
+            "max": 51.8204,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[]",
+          "gpu_status_end": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "network-ramp-300",
+          "start_epoch_ms": 1791341674135,
+          "wall_seconds": 62.0194689,
+          "ticks": 1233,
+          "actual_wall_tps": 19.8808538974767,
+          "start_interval_tps": 19.887036692113778,
+          "p50_ms": 13.0871,
+          "p95_ms": 33.2789,
+          "p99_ms": 44.3762,
+          "mean_ms": 15.481963341443633,
+          "max_ms": 183.8873,
+          "ticks_over_50_ms": 6,
+          "ticks_over_100_ms": 2,
+          "gc_collections": 12,
+          "gc_collection_ms": 242,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 106.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 97.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 324.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.1038,
+              "max": 1.6522
+            }
+          },
+          "start_interval_ms": {
+            "p99": 58.913,
+            "max": 605.2704,
+            "over_55_ms": 19,
+            "over_100_ms": 2
+          },
+          "gpu_status_start": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[]",
+          "gpu_status_end": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=1406550, Anti-Xray=62405], device workloads=[]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 267.8685618138958,
+            "eventLoopP99Ms": 640.155647,
+            "eventLoopMaxMs": 640.155647,
+            "rssBytes": 546410496,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-placement",
+          "start_epoch_ms": 1791341736154,
+          "wall_seconds": 98.1248723,
+          "ticks": 301,
+          "actual_wall_tps": 3.067519915641205,
+          "start_interval_tps": 3.062118794088176,
+          "p50_ms": 301.7314,
+          "p95_ms": 531.2763,
+          "p99_ms": 657.5646,
+          "mean_ms": 325.7284073089701,
+          "max_ms": 822.3238,
+          "ticks_over_50_ms": 301,
+          "ticks_over_100_ms": 300,
+          "gc_collections": 42,
+          "gc_collection_ms": 1419,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 1.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 97.0,
+              "max": 175.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 88.0,
+              "max": 163.0
+            },
+            "loaded_chunks": {
+              "min": 324.0,
+              "max": 12262.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.2461,
+              "max": 6.1502
+            }
+          },
+          "start_interval_ms": {
+            "p99": 664.2484,
+            "max": 820.5215,
+            "over_55_ms": 300,
+            "over_100_ms": 299
+          },
+          "gpu_status_start": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=1406550, Anti-Xray=62405], device workloads=[]",
+          "gpu_status_end": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=1763572, Anti-Xray=120428], device workloads=[]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 26,
+            "move_events": 0,
+            "chunk_load_events": 12937,
+            "damage_events": 82,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 165.91468858657532,
+            "eventLoopP99Ms": 54.132735,
+            "eventLoopMaxMs": 73.924607,
+            "rssBytes": 529903616,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-remove-natural",
+          "start_epoch_ms": 1791341834280,
+          "wall_seconds": 0.6340665,
+          "ticks": 6,
+          "actual_wall_tps": 9.462729855622399,
+          "start_interval_tps": 9.130007101319524,
+          "p50_ms": 100.1317,
+          "p95_ms": 142.8832,
+          "p99_ms": 142.8832,
+          "mean_ms": 104.82279999999999,
+          "max_ms": 142.8832,
+          "ticks_over_50_ms": 6,
+          "ticks_over_100_ms": 4,
+          "gc_collections": 0,
+          "gc_collection_ms": 0,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 109.0,
+              "max": 175.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 100.0,
+              "max": 163.0
+            },
+            "loaded_chunks": {
+              "min": 12262.0,
+              "max": 12615.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 11.0
+            },
+            "survey_ms": {
+              "min": 2.0997,
+              "max": 3.4974
+            }
+          },
+          "start_interval_ms": {
+            "p99": 137.5972,
+            "max": 137.5972,
+            "over_55_ms": 6,
+            "over_100_ms": 4
+          },
+          "gpu_status_start": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=1763572, Anti-Xray=120428], device workloads=[]",
+          "gpu_status_end": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=1763963, Anti-Xray=122320], device workloads=[]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 101,
+            "damage_events": 3,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "players-300-settle",
+          "start_epoch_ms": 1791341834913,
+          "wall_seconds": 62.480755,
+          "ticks": 0,
+          "actual_wall_tps": 0.0,
+          "start_interval_tps": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "mean_ms": null,
+          "max_ms": null,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 4,
+          "gc_collection_ms": 146,
+          "census_ranges": {
+            "online_players": null,
+            "bench_players": null,
+            "synthetic_mobs": null,
+            "mobs": null,
+            "in_ticking_chunk_mobs": null,
+            "loaded_chunks": null,
+            "survey_age_ticks": null,
+            "survey_ms": null
+          },
+          "start_interval_ms": {
+            "p99": null,
+            "max": 0,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "devices=[], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=1763963, Anti-Xray=122320], device workloads=[]",
+          "gpu_status_end": null,
+          "event_deltas": {},
+          "client_fleet_maxima": {
+            "cpuCorePercent": 127.75598007394215,
+            "eventLoopP99Ms": 27.639807,
+            "eventLoopMaxMs": 37.289983,
+            "rssBytes": 503070720,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        }
+      ],
+      "stopped_world_gc_pause_ms": {
+        "count": 79,
+        "max": 60.948,
+        "total": 2115.69
+      },
+      "safepoint_total_ms": {
+        "count": 23646,
+        "max": 540.1103
+      },
+      "resources": {
+        "server_cpu_core_percent": {
+          "max": 829.0,
+          "mean": 394.601171875
+        },
+        "server_rss_bytes": {
+          "max": 15349387264,
+          "mean": 10756272272.0
+        },
+        "host_cpu_percent": {
+          "max": 97.9,
+          "mean": 51.769140625
+        }
+      },
+      "zero_over_50_ms": false
+    },
+    {
+      "case": "rtx3070",
+      "run_name": "20261007-025921-286200-rtx3070",
+      "completed": false,
+      "server_exit": 70,
+      "error": "RuntimeError('server exited 70: status')",
+      "duration_seconds": 263.76600000006147,
+      "walking_percent": 100,
+      "player_targets": [
+        300
+      ],
+      "natural_spawn_phase": true,
+      "natural_phase_seconds": 10,
+      "record_end_without_tick_ms": 62637.11328125,
+      "tick_record_note": "A tick that never completes has no TickEnd sample. Failure and the final gap must be considered alongside reported MSPT.",
+      "jar_sha256": "3fe9e13a298fd9547d0198f9c5ced619e3a2c01af9f02ef256b52591286d8336",
+      "seed": 1196459378,
+      "plugin_sha256": "ad49eff13a5edbff5a4bb6ca63a99ec871eaf433fac1a9241ed3f650f18b1be8",
+      "viaversion_sha256": "760838f7790083ed9e22c71b29ea5a479d4997c09ad3277971d8deca4f41bed4",
+      "viabackwards_sha256": "c3cb4e2b4e04b9d9bf3d75318a44133146982295021ea9e26984606bdd709481",
+      "heap_gib": 16,
+      "view_distance": 6,
+      "simulation_distance": 4,
+      "force_gpu_diagnostic": false,
+      "admitted_devices": [
+        "[11:59:34 INFO]: [GPur] Exact compute ready: NVIDIA GeForce RTX 3070"
+      ],
+      "clients": {
+        "live": 0,
+        "play": 0,
+        "spawned": 0,
+        "survival": 0,
+        "everSpawned": 300,
+        "errors": 40,
+        "kicks": 260,
+        "unexpectedLosses": 300,
+        "receivedBytes": 1293241195,
+        "sentBytes": 14285877,
+        "movementPackets": 418285,
+        "teleportConfirms": 600
+      },
+      "client_fleets_at_finish": [
+        {
+          "timestamp": "2026-10-07T03:03:44.789Z",
+          "elapsedSeconds": 234.29272500000002,
+          "type": "fleet_stats",
+          "phase": "players-300-settle",
+          "action": "walk",
+          "requested": 300,
+          "workerCount": 2,
+          "staleWorkers": [],
+          "attempted": 300,
+          "connected": 0,
+          "loggedIn": 0,
+          "play": 0,
+          "spawned": 0,
+          "live": 0,
+          "survival": 0,
+          "everSpawned": 300,
+          "ended": 300,
+          "errors": 40,
+          "kicks": 260,
+          "unexpectedLosses": 300,
+          "movementPackets": 418285,
+          "teleportConfirms": 600,
+          "keepalives": 34403,
+          "chunkBatches": 0,
+          "receivedBytes": 1293241195,
+          "sentBytes": 14285877,
+          "rssBytes": 505393152,
+          "heapUsedBytes": 247832432,
+          "cpuCorePercent": 0,
+          "walking": 0,
+          "eventLoopP99Ms": 16.711679,
+          "eventLoopMaxMs": 16.728063,
+          "clientCpuHostPercent": 0,
+          "parentRssBytes": 49586176,
+          "workers": [
+            {
+              "workerId": 0,
+              "pid": 73836,
+              "action": "walk",
+              "attempted": 150,
+              "connected": 0,
+              "loggedIn": 0,
+              "play": 0,
+              "spawned": 0,
+              "survival": 0,
+              "live": 0,
+              "walking": 0,
+              "everSpawned": 150,
+              "ended": 150,
+              "errors": 32,
+              "kicks": 118,
+              "unexpectedLosses": 150,
+              "movementPackets": 209108,
+              "teleportConfirms": 300,
+              "keepalives": 17219,
+              "chunkBatches": 0,
+              "receivedBytes": 647415784,
+              "sentBytes": 7142065,
+              "rssBytes": 245776384,
+              "heapUsedBytes": 125064176,
+              "cpuCorePercent": 0,
+              "eventLoopP99Ms": 16.711679,
+              "eventLoopMaxMs": 16.728063
+            },
+            {
+              "workerId": 1,
+              "pid": 71772,
+              "action": "walk",
+              "attempted": 150,
+              "connected": 0,
+              "loggedIn": 0,
+              "play": 0,
+              "spawned": 0,
+              "survival": 0,
+              "live": 0,
+              "walking": 0,
+              "everSpawned": 150,
+              "ended": 150,
+              "errors": 8,
+              "kicks": 142,
+              "unexpectedLosses": 150,
+              "movementPackets": 209177,
+              "teleportConfirms": 300,
+              "keepalives": 17184,
+              "chunkBatches": 0,
+              "receivedBytes": 645825411,
+              "sentBytes": 7143812,
+              "rssBytes": 259616768,
+              "heapUsedBytes": 122768256,
+              "cpuCorePercent": 0,
+              "eventLoopP99Ms": 16.711679,
+              "eventLoopMaxMs": 16.719871
+            }
+          ]
+        }
+      ],
+      "all": {
+        "id": -1,
+        "phase": "all_including_setup_and_spikes",
+        "complete": true,
+        "start_epoch_ms": 1791341977845,
+        "wall_seconds": 235.5661134,
+        "ticks": 1772,
+        "actual_wall_tps": 7.522304351946743,
+        "start_interval_tps": 10.26538012591605,
+        "p50_ms": 14.5433,
+        "p95_ms": 333.3296,
+        "p99_ms": 497.597,
+        "max_ms": 1736.6675,
+        "mean_ms": 67.1778887697517,
+        "ticks_over_50_ms": 315,
+        "ticks_over_100_ms": 306,
+        "players_min": 0,
+        "players_max": 300,
+        "bench_players_min": 0,
+        "bench_players_max": 300,
+        "gc_collections": 59,
+        "gc_collection_ms": 1683,
+        "gc_notification_count": 59,
+        "gc_notification_duration_ms": 1680,
+        "gc_run_max_notification_ms": 44
+      },
+      "end_metadata": {
+        "time": "2026-10-07T03:03:33.410555900Z",
+        "reason": "plugin_disable"
+      },
+      "phases": [
+        {
+          "phase": "startup",
+          "start_epoch_ms": 1791341977845,
+          "wall_seconds": 0.4336145,
+          "ticks": 4,
+          "actual_wall_tps": 9.224783765303052,
+          "start_interval_tps": 20.415732363359208,
+          "p50_ms": 7.6466,
+          "p95_ms": 1736.6675,
+          "p99_ms": 1736.6675,
+          "mean_ms": 446.240325,
+          "max_ms": 1736.6675,
+          "ticks_over_50_ms": 1,
+          "ticks_over_100_ms": 1,
+          "gc_collections": 0,
+          "gc_collection_ms": 0,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 3.0
+            },
+            "survey_ms": {
+              "min": 5.1644,
+              "max": 5.1644
+            }
+          },
+          "start_interval_ms": {
+            "p99": 50.9841,
+            "max": 50.9841,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "unavailable",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-world",
+          "start_epoch_ms": 1791341978278,
+          "wall_seconds": 1.7736066,
+          "ticks": 6,
+          "actual_wall_tps": 3.382937343602578,
+          "start_interval_tps": 97.38046547862498,
+          "p50_ms": 6.2754,
+          "p95_ms": 20.7047,
+          "p99_ms": 20.7047,
+          "mean_ms": 9.407433333333334,
+          "max_ms": 20.7047,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 1,
+          "gc_collection_ms": 24,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 4.0,
+              "max": 9.0
+            },
+            "survey_ms": {
+              "min": 5.1644,
+              "max": 5.1644
+            }
+          },
+          "start_interval_ms": {
+            "p99": 1736.7415,
+            "max": 1736.7415,
+            "over_55_ms": 1,
+            "over_100_ms": 1
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "idle-baseline",
+          "start_epoch_ms": 1791341980051,
+          "wall_seconds": 10.2059062,
+          "ticks": 205,
+          "actual_wall_tps": 20.08640839752182,
+          "start_interval_tps": 20.001623661214847,
+          "p50_ms": 0.41,
+          "p95_ms": 1.4556,
+          "p99_ms": 4.0739,
+          "mean_ms": 0.5871053658536586,
+          "max_ms": 5.0264,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 3,
+          "gc_collection_ms": 17,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.0864,
+              "max": 5.1644
+            }
+          },
+          "start_interval_ms": {
+            "p99": 51.6465,
+            "max": 60.4517,
+            "over_55_ms": 1,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "network-ramp-300",
+          "start_epoch_ms": 1791341990257,
+          "wall_seconds": 63.1236601,
+          "ticks": 1253,
+          "actual_wall_tps": 19.84992628778191,
+          "start_interval_tps": 19.857289120668884,
+          "p50_ms": 13.7966,
+          "p95_ms": 31.2423,
+          "p99_ms": 45.9707,
+          "mean_ms": 15.773416360734238,
+          "max_ms": 165.1995,
+          "ticks_over_50_ms": 10,
+          "ticks_over_100_ms": 2,
+          "gc_collections": 10,
+          "gc_collection_ms": 234,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 124.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 112.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 324.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.0864,
+              "max": 1.5541
+            }
+          },
+          "start_interval_ms": {
+            "p99": 60.6316,
+            "max": 620.9978,
+            "over_55_ms": 20,
+            "over_100_ms": 3
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=515, CPU fallbacks=42, Anti-Xray rejected=false, eligibility skips=[distance=940254, Anti-Xray=62948], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=256, dispatch avg/max ns=522267/3106900, wire CPU avg ns=19350, samples=2, backoffs=2, backoff ms=23716], NVIDIA GeForce RTX 3070[workload=2, results=259, dispatch avg/max ns=2882533/28248100, wire CPU avg ns=441250, samples=2, backoffs=2, backoff ms=672]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 515,
+            "cpu_fallbacks": 42
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 264.69693853032345,
+            "eventLoopP99Ms": 510.918655,
+            "eventLoopMaxMs": 510.918655,
+            "rssBytes": 560959488,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-placement",
+          "start_epoch_ms": 1791342053381,
+          "wall_seconds": 96.9953997,
+          "ticks": 301,
+          "actual_wall_tps": 3.1032399570595306,
+          "start_interval_tps": 3.0975292296874435,
+          "p50_ms": 294.306,
+          "p95_ms": 508.9882,
+          "p99_ms": 662.1648,
+          "mean_ms": 321.99404318936877,
+          "max_ms": 674.9106,
+          "ticks_over_50_ms": 301,
+          "ticks_over_100_ms": 300,
+          "gc_collections": 40,
+          "gc_collection_ms": 1231,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 1.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 120.0,
+              "max": 187.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 108.0,
+              "max": 170.0
+            },
+            "loaded_chunks": {
+              "min": 324.0,
+              "max": 12268.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.6225,
+              "max": 3.2877
+            }
+          },
+          "start_interval_ms": {
+            "p99": 657.1075,
+            "max": 686.1616,
+            "over_55_ms": 300,
+            "over_100_ms": 299
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=515, CPU fallbacks=42, Anti-Xray rejected=false, eligibility skips=[distance=940254, Anti-Xray=62948], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=256, dispatch avg/max ns=522267/3106900, wire CPU avg ns=19350, samples=2, backoffs=2, backoff ms=23716], NVIDIA GeForce RTX 3070[workload=2, results=259, dispatch avg/max ns=2882533/28248100, wire CPU avg ns=441250, samples=2, backoffs=2, backoff ms=672]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=2820, CPU fallbacks=184, Anti-Xray rejected=false, eligibility skips=[distance=1283448, Anti-Xray=118571], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=1024, dispatch avg/max ns=507232/3106900, wire CPU avg ns=27160, samples=5, backoffs=5, backoff ms=21472], NVIDIA GeForce RTX 3070[workload=2, results=1796, dispatch avg/max ns=1186950/34181300, wire CPU avg ns=776787, samples=8, backoffs=5, backoff ms=8646]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 25,
+            "move_events": 0,
+            "chunk_load_events": 12958,
+            "damage_events": 85,
+            "gpu_completed": 2305,
+            "cpu_fallbacks": 142
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 171.25870117583543,
+            "eventLoopP99Ms": 47.382527,
+            "eventLoopMaxMs": 60.325887,
+            "rssBytes": 569159680,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-remove-natural",
+          "start_epoch_ms": 1791342150376,
+          "wall_seconds": 0.3977515,
+          "ticks": 3,
+          "actual_wall_tps": 7.542397703088486,
+          "start_interval_tps": 7.999433640098282,
+          "p50_ms": 135.9956,
+          "p95_ms": 150.5572,
+          "p99_ms": 150.5572,
+          "mean_ms": 131.0529,
+          "max_ms": 150.5572,
+          "ticks_over_50_ms": 3,
+          "ticks_over_100_ms": 3,
+          "gc_collections": 1,
+          "gc_collection_ms": 34,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 119.0,
+              "max": 187.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 105.0,
+              "max": 170.0
+            },
+            "loaded_chunks": {
+              "min": 12268.0,
+              "max": 12595.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 10.0
+            },
+            "survey_ms": {
+              "min": 2.2957,
+              "max": 3.2877
+            }
+          },
+          "start_interval_ms": {
+            "p99": 136.226,
+            "max": 136.226,
+            "over_55_ms": 3,
+            "over_100_ms": 3
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=2820, CPU fallbacks=184, Anti-Xray rejected=false, eligibility skips=[distance=1283448, Anti-Xray=118571], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=1024, dispatch avg/max ns=507232/3106900, wire CPU avg ns=27160, samples=5, backoffs=5, backoff ms=21472], NVIDIA GeForce RTX 3070[workload=2, results=1796, dispatch avg/max ns=1186950/34181300, wire CPU avg ns=776787, samples=8, backoffs=5, backoff ms=8646]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=2820, CPU fallbacks=184, Anti-Xray rejected=false, eligibility skips=[distance=1283810, Anti-Xray=120331], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=1024, dispatch avg/max ns=507232/3106900, wire CPU avg ns=27160, samples=5, backoffs=5, backoff ms=19118], NVIDIA GeForce RTX 3070[workload=2, results=1796, dispatch avg/max ns=1186950/34181300, wire CPU avg ns=776787, samples=8, backoffs=5, backoff ms=6292]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 50,
+            "damage_events": 2,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "players-300-settle",
+          "start_epoch_ms": 1791342150773,
+          "wall_seconds": 62.6361748,
+          "ticks": 0,
+          "actual_wall_tps": 0.0,
+          "start_interval_tps": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "mean_ms": null,
+          "max_ms": null,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 4,
+          "gc_collection_ms": 143,
+          "census_ranges": {
+            "online_players": null,
+            "bench_players": null,
+            "synthetic_mobs": null,
+            "mobs": null,
+            "in_ticking_chunk_mobs": null,
+            "loaded_chunks": null,
+            "survey_age_ticks": null,
+            "survey_ms": null
+          },
+          "start_interval_ms": {
+            "p99": null,
+            "max": 0,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0]], completed GPU results=2820, CPU fallbacks=184, Anti-Xray rejected=false, eligibility skips=[distance=1283810, Anti-Xray=120331], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=1024, dispatch avg/max ns=507232/3106900, wire CPU avg ns=27160, samples=5, backoffs=5, backoff ms=19118], NVIDIA GeForce RTX 3070[workload=2, results=1796, dispatch avg/max ns=1186950/34181300, wire CPU avg ns=776787, samples=8, backoffs=5, backoff ms=6292]]",
+          "gpu_status_end": null,
+          "event_deltas": {},
+          "client_fleet_maxima": {
+            "cpuCorePercent": 134.28907459602868,
+            "eventLoopP99Ms": 29.900799,
+            "eventLoopMaxMs": 33.341439,
+            "rssBytes": 513978368,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        }
+      ],
+      "stopped_world_gc_pause_ms": {
+        "count": 82,
+        "max": 59.015,
+        "total": 2184.542
+      },
+      "safepoint_total_ms": {
+        "count": 23641,
+        "max": 729.7413
+      },
+      "resources": {
+        "server_cpu_core_percent": {
+          "max": 807.8,
+          "mean": 393.72109375
+        },
+        "server_rss_bytes": {
+          "max": 11321315328,
+          "mean": 7987307616.0
+        },
+        "host_cpu_percent": {
+          "max": 100.0,
+          "mean": 50.875390625
+        }
+      },
+      "zero_over_50_ms": false
+    },
+    {
+      "case": "gtx1080",
+      "run_name": "20261007-030345-862300-gtx1080",
+      "completed": false,
+      "server_exit": 70,
+      "error": "RuntimeError('server exited 70: status')",
+      "duration_seconds": 261.4370000001509,
+      "walking_percent": 100,
+      "player_targets": [
+        300
+      ],
+      "natural_spawn_phase": true,
+      "natural_phase_seconds": 10,
+      "record_end_without_tick_ms": 62962.126708984375,
+      "tick_record_note": "A tick that never completes has no TickEnd sample. Failure and the final gap must be considered alongside reported MSPT.",
+      "jar_sha256": "3fe9e13a298fd9547d0198f9c5ced619e3a2c01af9f02ef256b52591286d8336",
+      "seed": 1196459378,
+      "plugin_sha256": "ad49eff13a5edbff5a4bb6ca63a99ec871eaf433fac1a9241ed3f650f18b1be8",
+      "viaversion_sha256": "760838f7790083ed9e22c71b29ea5a479d4997c09ad3277971d8deca4f41bed4",
+      "viabackwards_sha256": "c3cb4e2b4e04b9d9bf3d75318a44133146982295021ea9e26984606bdd709481",
+      "heap_gib": 16,
+      "view_distance": 6,
+      "simulation_distance": 4,
+      "force_gpu_diagnostic": false,
+      "admitted_devices": [
+        "[12:03:59 INFO]: [GPur] Exact compute ready: NVIDIA GeForce GTX 1080"
+      ],
+      "clients": {
+        "live": 0,
+        "play": 0,
+        "spawned": 0,
+        "survival": 0,
+        "everSpawned": 300,
+        "errors": 27,
+        "kicks": 273,
+        "unexpectedLosses": 300,
+        "receivedBytes": 1297688432,
+        "sentBytes": 14333019,
+        "movementPackets": 419066,
+        "teleportConfirms": 600
+      },
+      "client_fleets_at_finish": [
+        {
+          "timestamp": "2026-10-07T03:08:06.822Z",
+          "elapsedSeconds": 232.0280587,
+          "type": "fleet_stats",
+          "phase": "players-300-settle",
+          "action": "walk",
+          "requested": 300,
+          "workerCount": 2,
+          "staleWorkers": [],
+          "attempted": 300,
+          "connected": 0,
+          "loggedIn": 0,
+          "play": 0,
+          "spawned": 0,
+          "live": 0,
+          "survival": 0,
+          "everSpawned": 300,
+          "ended": 300,
+          "errors": 27,
+          "kicks": 273,
+          "unexpectedLosses": 300,
+          "movementPackets": 419066,
+          "teleportConfirms": 600,
+          "keepalives": 33881,
+          "chunkBatches": 0,
+          "receivedBytes": 1297688432,
+          "sentBytes": 14333019,
+          "rssBytes": 494833664,
+          "heapUsedBytes": 254939808,
+          "cpuCorePercent": 0,
+          "walking": 0,
+          "eventLoopP99Ms": 16.383999,
+          "eventLoopMaxMs": 16.449535,
+          "clientCpuHostPercent": 0,
+          "parentRssBytes": 49659904,
+          "workers": [
+            {
+              "workerId": 0,
+              "pid": 75160,
+              "action": "walk",
+              "attempted": 150,
+              "connected": 0,
+              "loggedIn": 0,
+              "play": 0,
+              "spawned": 0,
+              "survival": 0,
+              "live": 0,
+              "walking": 0,
+              "everSpawned": 150,
+              "ended": 150,
+              "errors": 12,
+              "kicks": 138,
+              "unexpectedLosses": 150,
+              "movementPackets": 209610,
+              "teleportConfirms": 300,
+              "keepalives": 16956,
+              "chunkBatches": 0,
+              "receivedBytes": 649585144,
+              "sentBytes": 7169340,
+              "rssBytes": 247189504,
+              "heapUsedBytes": 132408184,
+              "cpuCorePercent": 0,
+              "eventLoopP99Ms": 16.351231,
+              "eventLoopMaxMs": 16.449535
+            },
+            {
+              "workerId": 1,
+              "pid": 72468,
+              "action": "walk",
+              "attempted": 150,
+              "connected": 0,
+              "loggedIn": 0,
+              "play": 0,
+              "spawned": 0,
+              "survival": 0,
+              "live": 0,
+              "walking": 0,
+              "everSpawned": 150,
+              "ended": 150,
+              "errors": 15,
+              "kicks": 135,
+              "unexpectedLosses": 150,
+              "movementPackets": 209456,
+              "teleportConfirms": 300,
+              "keepalives": 16925,
+              "chunkBatches": 0,
+              "receivedBytes": 648103288,
+              "sentBytes": 7163679,
+              "rssBytes": 247644160,
+              "heapUsedBytes": 122531624,
+              "cpuCorePercent": 0,
+              "eventLoopP99Ms": 16.383999,
+              "eventLoopMaxMs": 16.400383
+            }
+          ]
+        }
+      ],
+      "all": {
+        "id": -1,
+        "phase": "all_including_setup_and_spikes",
+        "complete": true,
+        "start_epoch_ms": 1791342242165,
+        "wall_seconds": 233.0591267,
+        "ticks": 1773,
+        "actual_wall_tps": 7.607511557709788,
+        "start_interval_tps": 10.43802322715698,
+        "p50_ms": 14.2501,
+        "p95_ms": 327.4168,
+        "p99_ms": 483.0186,
+        "max_ms": 1726.5146,
+        "mean_ms": 65.5130306824591,
+        "ticks_over_50_ms": 313,
+        "ticks_over_100_ms": 306,
+        "players_min": 0,
+        "players_max": 300,
+        "bench_players_min": 0,
+        "bench_players_max": 300,
+        "gc_collections": 59,
+        "gc_collection_ms": 1692,
+        "gc_notification_count": 59,
+        "gc_notification_duration_ms": 1695,
+        "gc_run_max_notification_ms": 50
+      },
+      "end_metadata": {
+        "reason": "plugin_disable",
+        "time": "2026-10-07T03:07:55.223444400Z"
+      },
+      "phases": [
+        {
+          "phase": "startup",
+          "start_epoch_ms": 1791342242165,
+          "wall_seconds": 0.3655921,
+          "ticks": 3,
+          "actual_wall_tps": 8.205866592850338,
+          "start_interval_tps": 20.92547079693609,
+          "p50_ms": 31.9703,
+          "p95_ms": 1726.5146,
+          "p99_ms": 1726.5146,
+          "mean_ms": 589.6287,
+          "max_ms": 1726.5146,
+          "ticks_over_50_ms": 1,
+          "ticks_over_100_ms": 1,
+          "gc_collections": 0,
+          "gc_collection_ms": 0,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 2.0
+            },
+            "survey_ms": {
+              "min": 5.0706,
+              "max": 5.0706
+            }
+          },
+          "start_interval_ms": {
+            "p99": 50.1492,
+            "max": 50.1492,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "unavailable",
+          "gpu_status_end": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-world",
+          "start_epoch_ms": 1791342242529,
+          "wall_seconds": 1.8011526,
+          "ticks": 6,
+          "actual_wall_tps": 3.3312002547701955,
+          "start_interval_tps": 71.52359563419972,
+          "p50_ms": 10.0569,
+          "p95_ms": 31.7822,
+          "p99_ms": 31.7822,
+          "mean_ms": 16.814583333333335,
+          "max_ms": 31.7822,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 1,
+          "gc_collection_ms": 28,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 3.0,
+              "max": 8.0
+            },
+            "survey_ms": {
+              "min": 5.0706,
+              "max": 5.0706
+            }
+          },
+          "start_interval_ms": {
+            "p99": 1726.7899,
+            "max": 1726.7899,
+            "over_55_ms": 1,
+            "over_100_ms": 1
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "idle-baseline",
+          "start_epoch_ms": 1791342244331,
+          "wall_seconds": 10.2227142,
+          "ticks": 206,
+          "actual_wall_tps": 20.15120407063713,
+          "start_interval_tps": 20.055429489517223,
+          "p50_ms": 0.4736,
+          "p95_ms": 1.3016,
+          "p99_ms": 4.6896,
+          "mean_ms": 0.6813873786407767,
+          "max_ms": 9.4339,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 3,
+          "gc_collection_ms": 17,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.0863,
+              "max": 5.0706
+            }
+          },
+          "start_interval_ms": {
+            "p99": 51.8539,
+            "max": 52.0717,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "network-ramp-300",
+          "start_epoch_ms": 1791342254553,
+          "wall_seconds": 62.9655317,
+          "ticks": 1254,
+          "actual_wall_tps": 19.915658077417618,
+          "start_interval_tps": 19.92071181495093,
+          "p50_ms": 13.4401,
+          "p95_ms": 30.399,
+          "p99_ms": 41.2711,
+          "mean_ms": 15.541907814992026,
+          "max_ms": 139.5211,
+          "ticks_over_50_ms": 8,
+          "ticks_over_100_ms": 3,
+          "gc_collections": 10,
+          "gc_collection_ms": 236,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 117.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 105.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 324.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.0945,
+              "max": 1.7137
+            }
+          },
+          "start_interval_ms": {
+            "p99": 57.7091,
+            "max": 498.9401,
+            "over_55_ms": 16,
+            "over_100_ms": 4
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=1033, CPU fallbacks=127, Anti-Xray rejected=false, eligibility skips=[distance=960447, Anti-Xray=62406], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=256, dispatch avg/max ns=305633/2412100, wire CPU avg ns=73950, samples=2, backoffs=2, backoff ms=23829], NVIDIA GeForce GTX 1080[workload=2, results=777, dispatch avg/max ns=1208243/65666400, wire CPU avg ns=718725, samples=4, backoffs=2, backoff ms=1282]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 1033,
+            "cpu_fallbacks": 127
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 268.62090908128545,
+            "eventLoopP99Ms": 493.879295,
+            "eventLoopMaxMs": 493.879295,
+            "rssBytes": 564469760,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-placement",
+          "start_epoch_ms": 1791342317519,
+          "wall_seconds": 94.3412821,
+          "ticks": 301,
+          "actual_wall_tps": 3.190543877503653,
+          "start_interval_tps": 3.1847716280415623,
+          "p50_ms": 292.5977,
+          "p95_ms": 494.6207,
+          "p99_ms": 620.4068,
+          "mean_ms": 313.152473089701,
+          "max_ms": 702.7927,
+          "ticks_over_50_ms": 301,
+          "ticks_over_100_ms": 300,
+          "gc_collections": 41,
+          "gc_collection_ms": 1248,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 1.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 116.0,
+              "max": 185.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 104.0,
+              "max": 170.0
+            },
+            "loaded_chunks": {
+              "min": 324.0,
+              "max": 12223.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.3895,
+              "max": 4.1919
+            }
+          },
+          "start_interval_ms": {
+            "p99": 622.0862,
+            "max": 702.7326,
+            "over_55_ms": 300,
+            "over_100_ms": 299
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=1033, CPU fallbacks=127, Anti-Xray rejected=false, eligibility skips=[distance=960447, Anti-Xray=62406], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=256, dispatch avg/max ns=305633/2412100, wire CPU avg ns=73950, samples=2, backoffs=2, backoff ms=23829], NVIDIA GeForce GTX 1080[workload=2, results=777, dispatch avg/max ns=1208243/65666400, wire CPU avg ns=718725, samples=4, backoffs=2, backoff ms=1282]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=2821, CPU fallbacks=228, Anti-Xray rejected=false, eligibility skips=[distance=1299879, Anti-Xray=118332], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=1024, dispatch avg/max ns=293166/3572400, wire CPU avg ns=40760, samples=5, backoffs=5, backoff ms=24462], NVIDIA GeForce GTX 1080[workload=2, results=1797, dispatch avg/max ns=1492424/65666400, wire CPU avg ns=673550, samples=8, backoffs=5, backoff ms=10961]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 24,
+            "move_events": 0,
+            "chunk_load_events": 12942,
+            "damage_events": 85,
+            "gpu_completed": 1788,
+            "cpu_fallbacks": 101
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 152.02610203601907,
+            "eventLoopP99Ms": 36.863999,
+            "eventLoopMaxMs": 87.162879,
+            "rssBytes": 531312640,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-remove-natural",
+          "start_epoch_ms": 1791342411860,
+          "wall_seconds": 0.4009098,
+          "ticks": 3,
+          "actual_wall_tps": 7.482979962076257,
+          "start_interval_tps": 6.634771110348851,
+          "p50_ms": 142.4735,
+          "p95_ms": 160.442,
+          "p99_ms": 160.442,
+          "mean_ms": 132.00573333333332,
+          "max_ms": 160.442,
+          "ticks_over_50_ms": 3,
+          "ticks_over_100_ms": 2,
+          "gc_collections": 1,
+          "gc_collection_ms": 38,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 121.0,
+              "max": 185.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 108.0,
+              "max": 169.0
+            },
+            "loaded_chunks": {
+              "min": 12223.0,
+              "max": 12588.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 11.0
+            },
+            "survey_ms": {
+              "min": 1.9908,
+              "max": 4.1919
+            }
+          },
+          "start_interval_ms": {
+            "p99": 151.6463,
+            "max": 151.6463,
+            "over_55_ms": 3,
+            "over_100_ms": 3
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=2821, CPU fallbacks=228, Anti-Xray rejected=false, eligibility skips=[distance=1299879, Anti-Xray=118332], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=1024, dispatch avg/max ns=293166/3572400, wire CPU avg ns=40760, samples=5, backoffs=5, backoff ms=24462], NVIDIA GeForce GTX 1080[workload=2, results=1797, dispatch avg/max ns=1492424/65666400, wire CPU avg ns=673550, samples=8, backoffs=5, backoff ms=10961]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=2821, CPU fallbacks=228, Anti-Xray rejected=false, eligibility skips=[distance=1300265, Anti-Xray=120337], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=1024, dispatch avg/max ns=293166/3572400, wire CPU avg ns=40760, samples=5, backoffs=5, backoff ms=21774], NVIDIA GeForce GTX 1080[workload=2, results=1797, dispatch avg/max ns=1492424/65666400, wire CPU avg ns=673550, samples=8, backoffs=5, backoff ms=8273]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 57,
+            "damage_events": 5,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 121.11758517775142,
+            "eventLoopP99Ms": 22.560767,
+            "eventLoopMaxMs": 25.591807,
+            "rssBytes": 510078976,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "players-300-settle",
+          "start_epoch_ms": 1791342412261,
+          "wall_seconds": 62.9619442,
+          "ticks": 0,
+          "actual_wall_tps": 0.0,
+          "start_interval_tps": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "mean_ms": null,
+          "max_ms": null,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 3,
+          "gc_collection_ms": 125,
+          "census_ranges": {
+            "online_players": null,
+            "bench_players": null,
+            "synthetic_mobs": null,
+            "mobs": null,
+            "in_ticking_chunk_mobs": null,
+            "loaded_chunks": null,
+            "survey_age_ticks": null,
+            "survey_ms": null
+          },
+          "start_interval_ms": {
+            "p99": null,
+            "max": 0,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=2821, CPU fallbacks=228, Anti-Xray rejected=false, eligibility skips=[distance=1300265, Anti-Xray=120337], device workloads=[NVIDIA GeForce GTX 1080[workload=1, results=1024, dispatch avg/max ns=293166/3572400, wire CPU avg ns=40760, samples=5, backoffs=5, backoff ms=21774], NVIDIA GeForce GTX 1080[workload=2, results=1797, dispatch avg/max ns=1492424/65666400, wire CPU avg ns=673550, samples=8, backoffs=5, backoff ms=8273]]",
+          "gpu_status_end": null,
+          "event_deltas": {},
+          "client_fleet_maxima": {
+            "cpuCorePercent": 139.06561625955453,
+            "eventLoopP99Ms": 28.786687,
+            "eventLoopMaxMs": 38.764543,
+            "rssBytes": 509108224,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        }
+      ],
+      "stopped_world_gc_pause_ms": {
+        "count": 83,
+        "max": 72.755,
+        "total": 2127.77
+      },
+      "safepoint_total_ms": {
+        "count": 23393,
+        "max": 1003.1427
+      },
+      "resources": {
+        "server_cpu_core_percent": {
+          "max": 837.2,
+          "mean": 395.07992125984254
+        },
+        "server_rss_bytes": {
+          "max": 12138360832,
+          "mean": 8292953257.322835
+        },
+        "host_cpu_percent": {
+          "max": 88.4,
+          "mean": 48.95157480314961
+        }
+      },
+      "zero_over_50_ms": false
+    },
+    {
+      "case": "mixed",
+      "run_name": "20261007-030807-557500-mixed",
+      "completed": false,
+      "server_exit": 70,
+      "error": "RuntimeError('server exited 70: status')",
+      "duration_seconds": 264.5779999999795,
+      "walking_percent": 100,
+      "player_targets": [
+        300
+      ],
+      "natural_spawn_phase": true,
+      "natural_phase_seconds": 10,
+      "record_end_without_tick_ms": 62781.664794921875,
+      "tick_record_note": "A tick that never completes has no TickEnd sample. Failure and the final gap must be considered alongside reported MSPT.",
+      "jar_sha256": "3fe9e13a298fd9547d0198f9c5ced619e3a2c01af9f02ef256b52591286d8336",
+      "seed": 1196459378,
+      "plugin_sha256": "ad49eff13a5edbff5a4bb6ca63a99ec871eaf433fac1a9241ed3f650f18b1be8",
+      "viaversion_sha256": "760838f7790083ed9e22c71b29ea5a479d4997c09ad3277971d8deca4f41bed4",
+      "viabackwards_sha256": "c3cb4e2b4e04b9d9bf3d75318a44133146982295021ea9e26984606bdd709481",
+      "heap_gib": 16,
+      "view_distance": 6,
+      "simulation_distance": 4,
+      "force_gpu_diagnostic": false,
+      "admitted_devices": [
+        "[12:08:20 INFO]: [GPur] Exact compute ready: NVIDIA GeForce RTX 3070",
+        "[12:08:21 INFO]: [GPur] Exact compute ready: NVIDIA GeForce GTX 1080"
+      ],
+      "clients": {
+        "live": 0,
+        "play": 0,
+        "spawned": 0,
+        "survival": 0,
+        "everSpawned": 300,
+        "errors": 14,
+        "kicks": 286,
+        "unexpectedLosses": 300,
+        "receivedBytes": 1312316722,
+        "sentBytes": 14339771,
+        "movementPackets": 419603,
+        "teleportConfirms": 600
+      },
+      "client_fleets_at_finish": [
+        {
+          "timestamp": "2026-10-07T03:12:31.061Z",
+          "elapsedSeconds": 234.37082160000003,
+          "type": "fleet_stats",
+          "phase": "players-300-settle",
+          "action": "walk",
+          "requested": 300,
+          "workerCount": 2,
+          "staleWorkers": [],
+          "attempted": 300,
+          "connected": 0,
+          "loggedIn": 0,
+          "play": 0,
+          "spawned": 0,
+          "live": 0,
+          "survival": 0,
+          "everSpawned": 300,
+          "ended": 300,
+          "errors": 14,
+          "kicks": 286,
+          "unexpectedLosses": 300,
+          "movementPackets": 419603,
+          "teleportConfirms": 600,
+          "keepalives": 34477,
+          "chunkBatches": 0,
+          "receivedBytes": 1312316722,
+          "sentBytes": 14339771,
+          "rssBytes": 483491840,
+          "heapUsedBytes": 268960496,
+          "cpuCorePercent": 0,
+          "walking": 0,
+          "eventLoopP99Ms": 16.392191,
+          "eventLoopMaxMs": 16.424959,
+          "clientCpuHostPercent": 0,
+          "parentRssBytes": 49790976,
+          "workers": [
+            {
+              "workerId": 0,
+              "pid": 73028,
+              "action": "walk",
+              "attempted": 150,
+              "connected": 0,
+              "loggedIn": 0,
+              "play": 0,
+              "spawned": 0,
+              "survival": 0,
+              "live": 0,
+              "walking": 0,
+              "everSpawned": 150,
+              "ended": 150,
+              "errors": 0,
+              "kicks": 150,
+              "unexpectedLosses": 150,
+              "movementPackets": 209903,
+              "teleportConfirms": 300,
+              "keepalives": 17253,
+              "chunkBatches": 0,
+              "receivedBytes": 655864920,
+              "sentBytes": 7171859,
+              "rssBytes": 252121088,
+              "heapUsedBytes": 130944720,
+              "cpuCorePercent": 0,
+              "eventLoopP99Ms": 16.334847,
+              "eventLoopMaxMs": 16.383999
+            },
+            {
+              "workerId": 1,
+              "pid": 71544,
+              "action": "walk",
+              "attempted": 150,
+              "connected": 0,
+              "loggedIn": 0,
+              "play": 0,
+              "spawned": 0,
+              "survival": 0,
+              "live": 0,
+              "walking": 0,
+              "everSpawned": 150,
+              "ended": 150,
+              "errors": 14,
+              "kicks": 136,
+              "unexpectedLosses": 150,
+              "movementPackets": 209700,
+              "teleportConfirms": 300,
+              "keepalives": 17224,
+              "chunkBatches": 0,
+              "receivedBytes": 656451802,
+              "sentBytes": 7167912,
+              "rssBytes": 231370752,
+              "heapUsedBytes": 138015776,
+              "cpuCorePercent": 0,
+              "eventLoopP99Ms": 16.392191,
+              "eventLoopMaxMs": 16.424959
+            }
+          ]
+        }
+      ],
+      "all": {
+        "id": -1,
+        "phase": "all_including_setup_and_spikes",
+        "complete": true,
+        "start_epoch_ms": 1791342504016,
+        "wall_seconds": 235.3726648,
+        "ticks": 1772,
+        "actual_wall_tps": 7.528486799882635,
+        "start_interval_tps": 10.28067059087855,
+        "p50_ms": 14.9217,
+        "p95_ms": 334.732,
+        "p99_ms": 494.7943,
+        "max_ms": 1708.5254,
+        "mean_ms": 67.91470688487584,
+        "ticks_over_50_ms": 324,
+        "ticks_over_100_ms": 305,
+        "players_min": 0,
+        "players_max": 300,
+        "bench_players_min": 0,
+        "bench_players_max": 300,
+        "gc_collections": 55,
+        "gc_collection_ms": 1623,
+        "gc_notification_count": 55,
+        "gc_notification_duration_ms": 1624,
+        "gc_run_max_notification_ms": 49
+      },
+      "end_metadata": {
+        "time": "2026-10-07T03:12:19.386908900Z",
+        "reason": "plugin_disable"
+      },
+      "phases": [
+        {
+          "phase": "startup",
+          "start_epoch_ms": 1791342504016,
+          "wall_seconds": 0.4509537,
+          "ticks": 5,
+          "actual_wall_tps": 11.087612763793711,
+          "start_interval_tps": 20.227672568595832,
+          "p50_ms": 12.487,
+          "p95_ms": 1708.5254,
+          "p99_ms": 1708.5254,
+          "mean_ms": 354.4214,
+          "max_ms": 1708.5254,
+          "ticks_over_50_ms": 1,
+          "ticks_over_100_ms": 1,
+          "gc_collections": 0,
+          "gc_collection_ms": 0,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 4.0
+            },
+            "survey_ms": {
+              "min": 9.9574,
+              "max": 9.9574
+            }
+          },
+          "start_interval_ms": {
+            "p99": 50.9217,
+            "max": 50.9217,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "unavailable",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-world",
+          "start_epoch_ms": 1791342504465,
+          "wall_seconds": 1.7766609,
+          "ticks": 6,
+          "actual_wall_tps": 3.3771216555731036,
+          "start_interval_tps": 72.21123809056157,
+          "p50_ms": 10.0064,
+          "p95_ms": 32.3136,
+          "p99_ms": 32.3136,
+          "mean_ms": 14.232716666666667,
+          "max_ms": 32.3136,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 1,
+          "gc_collection_ms": 23,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 5.0,
+              "max": 10.0
+            },
+            "survey_ms": {
+              "min": 9.9574,
+              "max": 9.9574
+            }
+          },
+          "start_interval_ms": {
+            "p99": 1708.7857,
+            "max": 1708.7857,
+            "over_55_ms": 1,
+            "over_100_ms": 1
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "idle-baseline",
+          "start_epoch_ms": 1791342506242,
+          "wall_seconds": 10.206205,
+          "ticks": 205,
+          "actual_wall_tps": 20.085820341645107,
+          "start_interval_tps": 20.000888863031527,
+          "p50_ms": 0.4803,
+          "p95_ms": 1.3655,
+          "p99_ms": 4.0099,
+          "mean_ms": 0.6959190243902439,
+          "max_ms": 11.6186,
+          "ticks_over_50_ms": 0,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 3,
+          "gc_collection_ms": 17,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.0815,
+              "max": 9.9574
+            }
+          },
+          "start_interval_ms": {
+            "p99": 51.7756,
+            "max": 52.817,
+            "over_55_ms": 0,
+            "over_100_ms": 0
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 0,
+            "eventLoopP99Ms": 0,
+            "eventLoopMaxMs": 0,
+            "rssBytes": 0,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "network-ramp-300",
+          "start_epoch_ms": 1791342516448,
+          "wall_seconds": 63.0732816,
+          "ticks": 1252,
+          "actual_wall_tps": 19.849926438582514,
+          "start_interval_tps": 19.857182413910998,
+          "p50_ms": 14.0402,
+          "p95_ms": 35.8302,
+          "p99_ms": 57.0673,
+          "mean_ms": 17.045254552715654,
+          "max_ms": 400.532,
+          "ticks_over_50_ms": 19,
+          "ticks_over_100_ms": 2,
+          "gc_collections": 11,
+          "gc_collection_ms": 230,
+          "census_ranges": {
+            "online_players": {
+              "min": 0.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 0.0,
+              "max": 122.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 0.0,
+              "max": 111.0
+            },
+            "loaded_chunks": {
+              "min": 0.0,
+              "max": 324.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.0897,
+              "max": 1.7828
+            }
+          },
+          "start_interval_ms": {
+            "p99": 63.8787,
+            "max": 556.1639,
+            "over_55_ms": 27,
+            "over_100_ms": 3
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=0, CPU fallbacks=0, Anti-Xray rejected=false, eligibility skips=[distance=0, Anti-Xray=0], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce RTX 3070[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=1, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0], NVIDIA GeForce GTX 1080[workload=2, results=0, dispatch avg/max ns=0/0, wire CPU avg ns=0, samples=0, backoffs=0, backoff ms=0]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=1285, CPU fallbacks=147, Anti-Xray rejected=false, eligibility skips=[distance=949459, Anti-Xray=62228], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=256, dispatch avg/max ns=849660/2441500, wire CPU avg ns=35900, samples=2, backoffs=2, backoff ms=23899], NVIDIA GeForce RTX 3070[workload=2, results=256, dispatch avg/max ns=1458732/44164400, wire CPU avg ns=483850, samples=2, backoffs=2, backoff ms=577], NVIDIA GeForce GTX 1080[workload=1, results=256, dispatch avg/max ns=469425/1435700, wire CPU avg ns=45150, samples=2, backoffs=2, backoff ms=23897], NVIDIA GeForce GTX 1080[workload=2, results=517, dispatch avg/max ns=2000045/102705200, wire CPU avg ns=1832033, samples=3, backoffs=2, backoff ms=1276]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 0,
+            "damage_events": 0,
+            "gpu_completed": 1285,
+            "cpu_fallbacks": 147
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 278.1157479896441,
+            "eventLoopP99Ms": 698.351615,
+            "eventLoopMaxMs": 698.351615,
+            "rssBytes": 547721216,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-placement",
+          "start_epoch_ms": 1791342579521,
+          "wall_seconds": 96.5814772,
+          "ticks": 300,
+          "actual_wall_tps": 3.1061856651743156,
+          "start_interval_tps": 3.1048283991197945,
+          "p50_ms": 296.1253,
+          "p95_ms": 497.7303,
+          "p99_ms": 599.2159,
+          "mean_ms": 321.68253500000003,
+          "max_ms": 650.2405,
+          "ticks_over_50_ms": 300,
+          "ticks_over_100_ms": 299,
+          "gc_collections": 35,
+          "gc_collection_ms": 1166,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 1.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 120.0,
+              "max": 194.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 109.0,
+              "max": 178.0
+            },
+            "loaded_chunks": {
+              "min": 324.0,
+              "max": 12262.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 19.0
+            },
+            "survey_ms": {
+              "min": 0.2715,
+              "max": 3.4521
+            }
+          },
+          "start_interval_ms": {
+            "p99": 597.4424,
+            "max": 650.3067,
+            "over_55_ms": 299,
+            "over_100_ms": 298
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=1285, CPU fallbacks=147, Anti-Xray rejected=false, eligibility skips=[distance=949459, Anti-Xray=62228], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=256, dispatch avg/max ns=849660/2441500, wire CPU avg ns=35900, samples=2, backoffs=2, backoff ms=23899], NVIDIA GeForce RTX 3070[workload=2, results=256, dispatch avg/max ns=1458732/44164400, wire CPU avg ns=483850, samples=2, backoffs=2, backoff ms=577], NVIDIA GeForce GTX 1080[workload=1, results=256, dispatch avg/max ns=469425/1435700, wire CPU avg ns=45150, samples=2, backoffs=2, backoff ms=23897], NVIDIA GeForce GTX 1080[workload=2, results=517, dispatch avg/max ns=2000045/102705200, wire CPU avg ns=1832033, samples=3, backoffs=2, backoff ms=1276]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=4869, CPU fallbacks=310, Anti-Xray rejected=false, eligibility skips=[distance=1289872, Anti-Xray=117484], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=1024, dispatch avg/max ns=816710/5801600, wire CPU avg ns=19500, samples=5, backoffs=5, backoff ms=24064], NVIDIA GeForce RTX 3070[workload=2, results=1281, dispatch avg/max ns=1106430/44164400, wire CPU avg ns=268333, samples=6, backoffs=6, backoff ms=29206], NVIDIA GeForce GTX 1080[workload=1, results=1024, dispatch avg/max ns=443792/1435700, wire CPU avg ns=21700, samples=5, backoffs=5, backoff ms=24063], NVIDIA GeForce GTX 1080[workload=2, results=1540, dispatch avg/max ns=1526586/102705200, wire CPU avg ns=1055914, samples=7, backoffs=6, backoff ms=29506]]",
+          "event_deltas": {
+            "redstone_events": 1,
+            "spawn_events": 25,
+            "move_events": 0,
+            "chunk_load_events": 12937,
+            "damage_events": 82,
+            "gpu_completed": 3584,
+            "cpu_fallbacks": 163
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 132.70435827038813,
+            "eventLoopP99Ms": 41.517055,
+            "eventLoopMaxMs": 54.951935,
+            "rssBytes": 580042752,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "setup-remove-natural",
+          "start_epoch_ms": 1791342676102,
+          "wall_seconds": 0.4055101,
+          "ticks": 3,
+          "actual_wall_tps": 7.398089468055173,
+          "start_interval_tps": 7.028545382790396,
+          "p50_ms": 116.8314,
+          "p95_ms": 170.0165,
+          "p99_ms": 170.0165,
+          "mean_ms": 133.71803333333335,
+          "max_ms": 170.0165,
+          "ticks_over_50_ms": 3,
+          "ticks_over_100_ms": 3,
+          "gc_collections": 1,
+          "gc_collection_ms": 40,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 129.0,
+              "max": 194.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 116.0,
+              "max": 178.0
+            },
+            "loaded_chunks": {
+              "min": 12262.0,
+              "max": 12580.0
+            },
+            "survey_age_ticks": {
+              "min": 0.0,
+              "max": 9.0
+            },
+            "survey_ms": {
+              "min": 2.9701,
+              "max": 3.4521
+            }
+          },
+          "start_interval_ms": {
+            "p99": 260.0118,
+            "max": 260.0118,
+            "over_55_ms": 3,
+            "over_100_ms": 3
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=4869, CPU fallbacks=310, Anti-Xray rejected=false, eligibility skips=[distance=1289872, Anti-Xray=117484], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=1024, dispatch avg/max ns=816710/5801600, wire CPU avg ns=19500, samples=5, backoffs=5, backoff ms=24064], NVIDIA GeForce RTX 3070[workload=2, results=1281, dispatch avg/max ns=1106430/44164400, wire CPU avg ns=268333, samples=6, backoffs=6, backoff ms=29206], NVIDIA GeForce GTX 1080[workload=1, results=1024, dispatch avg/max ns=443792/1435700, wire CPU avg ns=21700, samples=5, backoffs=5, backoff ms=24063], NVIDIA GeForce GTX 1080[workload=2, results=1540, dispatch avg/max ns=1526586/102705200, wire CPU avg ns=1055914, samples=7, backoffs=6, backoff ms=29506]]",
+          "gpu_status_end": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=4869, CPU fallbacks=310, Anti-Xray rejected=false, eligibility skips=[distance=1290190, Anti-Xray=119174], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=1024, dispatch avg/max ns=816710/5801600, wire CPU avg ns=19500, samples=5, backoffs=5, backoff ms=21800], NVIDIA GeForce RTX 3070[workload=2, results=1281, dispatch avg/max ns=1106430/44164400, wire CPU avg ns=268333, samples=6, backoffs=6, backoff ms=26943], NVIDIA GeForce GTX 1080[workload=1, results=1024, dispatch avg/max ns=443792/1435700, wire CPU avg ns=21700, samples=5, backoffs=5, backoff ms=21800], NVIDIA GeForce GTX 1080[workload=2, results=1540, dispatch avg/max ns=1526586/102705200, wire CPU avg ns=1055914, samples=7, backoffs=6, backoff ms=27242]]",
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 59,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 118.08794446046173,
+            "eventLoopP99Ms": 24.936447,
+            "eventLoopMaxMs": 41.254911,
+            "rssBytes": 502697984,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        },
+        {
+          "phase": "players-300-settle",
+          "start_epoch_ms": 1791342676508,
+          "wall_seconds": 62.8785763,
+          "ticks": 1,
+          "actual_wall_tps": 0.015903667971566334,
+          "start_interval_tps": null,
+          "p50_ms": 98.1206,
+          "p95_ms": 98.1206,
+          "p99_ms": 98.1206,
+          "mean_ms": 98.1206,
+          "max_ms": 98.1206,
+          "ticks_over_50_ms": 1,
+          "ticks_over_100_ms": 0,
+          "gc_collections": 4,
+          "gc_collection_ms": 147,
+          "census_ranges": {
+            "online_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "bench_players": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "synthetic_mobs": {
+              "min": 0.0,
+              "max": 0.0
+            },
+            "mobs": {
+              "min": 129.0,
+              "max": 129.0
+            },
+            "in_ticking_chunk_mobs": {
+              "min": 116.0,
+              "max": 116.0
+            },
+            "loaded_chunks": {
+              "min": 12580.0,
+              "max": 12580.0
+            },
+            "survey_age_ticks": {
+              "min": 1.0,
+              "max": 1.0
+            },
+            "survey_ms": {
+              "min": 2.9701,
+              "max": 2.9701
+            }
+          },
+          "start_interval_ms": {
+            "p99": 121.8833,
+            "max": 121.8833,
+            "over_55_ms": 1,
+            "over_100_ms": 1
+          },
+          "gpu_status_start": "devices=[NVIDIA GeForce RTX 3070[ready, busy=0], NVIDIA GeForce GTX 1080[ready, busy=0]], completed GPU results=4869, CPU fallbacks=310, Anti-Xray rejected=false, eligibility skips=[distance=1290190, Anti-Xray=119174], device workloads=[NVIDIA GeForce RTX 3070[workload=1, results=1024, dispatch avg/max ns=816710/5801600, wire CPU avg ns=19500, samples=5, backoffs=5, backoff ms=21800], NVIDIA GeForce RTX 3070[workload=2, results=1281, dispatch avg/max ns=1106430/44164400, wire CPU avg ns=268333, samples=6, backoffs=6, backoff ms=26943], NVIDIA GeForce GTX 1080[workload=1, results=1024, dispatch avg/max ns=443792/1435700, wire CPU avg ns=21700, samples=5, backoffs=5, backoff ms=21800], NVIDIA GeForce GTX 1080[workload=2, results=1540, dispatch avg/max ns=1526586/102705200, wire CPU avg ns=1055914, samples=7, backoffs=6, backoff ms=27242]]",
+          "gpu_status_end": null,
+          "event_deltas": {
+            "redstone_events": 0,
+            "spawn_events": 0,
+            "move_events": 0,
+            "chunk_load_events": 12,
+            "damage_events": 0,
+            "gpu_completed": 0,
+            "cpu_fallbacks": 0
+          },
+          "client_fleet_maxima": {
+            "cpuCorePercent": 137.47973264956684,
+            "eventLoopP99Ms": 25.985023,
+            "eventLoopMaxMs": 29.835263,
+            "rssBytes": 504541184,
+            "errors": 0,
+            "kicks": 0,
+            "unexpectedLosses": 0
+          }
+        }
+      ],
+      "stopped_world_gc_pause_ms": {
+        "count": 77,
+        "max": 82.039,
+        "total": 2102.046
+      },
+      "safepoint_total_ms": {
+        "count": 23619,
+        "max": 775.1215
+      },
+      "resources": {
+        "server_cpu_core_percent": {
+          "max": 830.5,
+          "mean": 397.126953125
+        },
+        "server_rss_bytes": {
+          "max": 15382069248,
+          "mean": 10710416256.0
+        },
+        "host_cpu_percent": {
+          "max": 100.0,
+          "mean": 50.8421875
+        }
+      },
+      "zero_over_50_ms": false
+    }
+  ]
+}

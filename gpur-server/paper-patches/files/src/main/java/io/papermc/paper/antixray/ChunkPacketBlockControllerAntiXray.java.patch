@@ -1,0 +1,248 @@
+--- a/src/main/java/io/papermc/paper/antixray/ChunkPacketBlockControllerAntiXray.java
++++ b/src/main/java/io/papermc/paper/antixray/ChunkPacketBlockControllerAntiXray.java
+@@ -7,6 +_,12 @@
+ import java.util.LinkedList;
+ import java.util.List;
+ import java.util.Set;
++import java.util.Map;
++import java.util.LinkedHashMap;
++import org.gpur.GPurConfig;
++import org.gpur.GPurServices;
++import org.gpur.compute.ComputeService;
++import org.gpur.compute.ExactCompute;
+ import java.util.concurrent.Executor;
+ import java.util.concurrent.ThreadLocalRandom;
+ import java.util.function.IntSupplier;
+@@ -210,7 +_,19 @@
+     private static final ThreadLocal<boolean[][]> NEXT = ThreadLocal.withInitial(() -> new boolean[16][16]);
+     private static final ThreadLocal<boolean[][]> NEXT_NEXT = ThreadLocal.withInitial(() -> new boolean[16][16]);
+ 
++    private final java.util.concurrent.atomic.AtomicLong gpurPackets = new java.util.concurrent.atomic.AtomicLong();
++    private static final byte GPUR_SOLID_FLAG = 1;
++    private static final byte GPUR_OBFUSCATE_FLAG = 2;
++    private static final int GPUR_SECTION_VOLUME = 4096;
++    private static final int GPUR_PADDED_EDGE = 18;
++    private static final int GPUR_PADDED_SLICE = 324;
++
+     public void obfuscate(ChunkPacketInfoAntiXray chunkPacketInfoAntiXray) {
++        if (!this.gpurObfuscate(chunkPacketInfoAntiXray)) this.obfuscateCpu(chunkPacketInfoAntiXray);
++        chunkPacketInfoAntiXray.getChunkPacket().setReady(true);
++    }
++
++    private void obfuscateCpu(ChunkPacketInfoAntiXray chunkPacketInfoAntiXray) {
+         int[] presetBlockStateBits = this.presetBlockStateBits.get();
+         boolean[] solid = SOLID.get();
+         boolean[] obfuscate = OBFUSCATE.get();
+@@ -382,8 +_,210 @@
+             }
+         }
+ 
+-        chunkPacketInfoAntiXray.getChunkPacket().setReady(true);
+-    }
++    }
++
++    private boolean gpurObfuscate(ChunkPacketInfoAntiXray info) {
++        ComputeService service = GPurServices.compute();
++        if (!GPurConfig.antiXrayGpuEnabled || this.engineMode != EngineMode.HIDE || service == null || !service.eligible(2)) return false;
++        LevelChunk chunk = info.getChunk();
++        int max = Math.min((this.maxBlockHeight >> 4) - chunk.getMinSectionY(), chunk.getSectionsCount()) - 1;
++        int count = 0;
++        for (int i = 0; i <= max; i++) if (info.isWritten(i) && info.getPresetValues(i) != null) count++;
++        // Gate before decoding the packet or allocating halo buffers.
++        if (count < GPurConfig.antiXrayGpuMinSections) return false;
++        byte[] original = info.getBuffer();
++        try {
++            Map<Integer, GpurPreparedSection> sections = this.prepareGpuSections(info);
++            if (sections.size() != count) return false;
++            int[] input = new int[2 + count * ExactCompute.SECTION_WORDS];
++            input[0] = 2;
++            input[1] = count * GPUR_SECTION_VOLUME;
++            int offset = 2;
++            for (GpurPreparedSection section : sections.values()) {
++                if (section.presetBlockStateBits().length != 1) return false;
++                for (byte flag : section.stateFlags()) input[offset++] = flag;
++                for (byte transparent : this.buildGpuPaddedTransparency(info, sections, section.sectionIndex())) input[offset++] = transparent;
++            }
++            int[] mask = service.tryCompute(input);
++            if (mask == null || mask.length != count * GPUR_SECTION_VOLUME) return false;
++            for (int value : mask) if (value != 0 && value != 1) return false;
++            // Stage the entire packet. A failure must never leave a partially obfuscated buffer.
++            byte[] staged = original.clone();
++            BitStorageWriter writer = new BitStorageWriter();
++            writer.setBuffer(staged);
++            offset = 0;
++            for (GpurPreparedSection section : sections.values()) {
++                writer.setBits(info.getBits(section.sectionIndex()));
++                writer.setIndex(info.getIndex(section.sectionIndex()));
++                for (int block = 0; block < GPUR_SECTION_VOLUME; block++) {
++                    if (mask[offset++] == 1) writer.write(section.presetBlockStateBits()[0]);
++                    else writer.skip();
++                }
++                writer.flush();
++            }
++            // Validate byte-for-byte against Paper itself, including section and height boundaries.
++            long packet = this.gpurPackets.incrementAndGet();
++            if (packet == 1 || packet % 256 == 0) {
++                byte[] reference = original.clone();
++                info.setBuffer(reference);
++                try { this.obfuscateCpu(info); } finally { info.setBuffer(original); }
++                if (!java.util.Arrays.equals(reference, staged)) {
++                    service.rejectAntiXray();
++                    System.arraycopy(reference, 0, original, 0, original.length);
++                    return true;
++                }
++            }
++            System.arraycopy(staged, 0, original, 0, original.length);
++            return true;
++        } catch (RuntimeException failure) {
++            info.setBuffer(original);
++            service.rejectAntiXray();
++            return false;
++        }
++    }
++
++    private Map<Integer, GpurPreparedSection> prepareGpuSections(ChunkPacketInfoAntiXray chunkPacketInfoAntiXray) {
++        Map<Integer, GpurPreparedSection> sections = new LinkedHashMap<>();
++        BitStorageReader bitStorageReader = new BitStorageReader();
++        bitStorageReader.setBuffer(chunkPacketInfoAntiXray.getBuffer());
++        boolean[] solid = SOLID.get();
++        boolean[] obfuscate = OBFUSCATE.get();
++        LevelChunk chunk = chunkPacketInfoAntiXray.getChunk();
++        int maxChunkSectionIndex = Math.min((maxBlockHeight >> 4) - chunk.getMinSectionY(), chunk.getSectionsCount()) - 1;
++
++        for (int chunkSectionIndex = 0; chunkSectionIndex <= maxChunkSectionIndex; chunkSectionIndex++) {
++            if (!chunkPacketInfoAntiXray.isWritten(chunkSectionIndex) || chunkPacketInfoAntiXray.getPresetValues(chunkSectionIndex) == null) {
++                continue;
++            }
++
++            int[] presetBlockStateBits = this.resolvePresetBlockStateBits(chunkPacketInfoAntiXray, chunk, chunkSectionIndex);
++            bitStorageReader.setBits(chunkPacketInfoAntiXray.getBits(chunkSectionIndex));
++            bitStorageReader.setIndex(chunkPacketInfoAntiXray.getIndex(chunkSectionIndex));
++
++            boolean[] solidTemp = readPalette(chunkPacketInfoAntiXray.getPalette(chunkSectionIndex), solid, solidGlobal);
++            boolean[] obfuscateTemp = readPalette(chunkPacketInfoAntiXray.getPalette(chunkSectionIndex), obfuscate, obfuscateGlobal);
++            byte[] stateFlags = new byte[GPUR_SECTION_VOLUME];
++
++            for (int y = 0; y < 16; y++) {
++                for (int z = 0; z < 16; z++) {
++                    for (int x = 0; x < 16; x++) {
++                        int bits = bitStorageReader.read();
++                        byte flags = 0;
++                        if (solidTemp[bits]) {
++                            flags |= GPUR_SOLID_FLAG;
++                        }
++                        if (obfuscateTemp[bits]) {
++                            flags |= GPUR_OBFUSCATE_FLAG;
++                        }
++                        // Paper supports custom hidden non-conductors; retain its exact CPU path for those.
++                        if ((flags & GPUR_OBFUSCATE_FLAG) != 0 && (flags & GPUR_SOLID_FLAG) == 0) return Map.of();
++                        stateFlags[gpurBlockIndex(x, y, z)] = flags;
++                    }
++                }
++            }
++
++            sections.put(chunkSectionIndex, new GpurPreparedSection(chunkSectionIndex, presetBlockStateBits, stateFlags));
++        }
++
++        return sections;
++    }
++
++    private int[] resolvePresetBlockStateBits(ChunkPacketInfoAntiXray chunkPacketInfoAntiXray, LevelChunk chunk, int chunkSectionIndex) {
++        if (chunkPacketInfoAntiXray.getPalette(chunkSectionIndex) instanceof GlobalPalette) {
++            if (engineMode == EngineMode.HIDE) {
++                return switch (chunk.getLevel().getWorld().getEnvironment()) {
++                    case NETHER -> presetBlockStateBitsNetherrackGlobal;
++                    case THE_END -> presetBlockStateBitsEndStoneGlobal;
++                    default -> chunkSectionIndex + chunk.getMinSectionY() < 0 ? presetBlockStateBitsDeepslateGlobal : presetBlockStateBitsStoneGlobal;
++                };
++            }
++
++            return presetBlockStateBitsGlobal;
++        }
++
++        BlockState[] presetBlockStatesFull = chunkPacketInfoAntiXray.getPresetValues(chunkSectionIndex) == presetBlockStates
++            ? this.presetBlockStatesFull
++            : chunkPacketInfoAntiXray.getPresetValues(chunkSectionIndex);
++        int[] resolvedBits = new int[presetBlockStatesFull.length];
++
++        for (int i = 0; i < resolvedBits.length; i++) {
++            resolvedBits[i] = chunkPacketInfoAntiXray.getPalette(chunkSectionIndex).idFor(presetBlockStatesFull[i], PaletteResize.noResizeExpected());
++        }
++
++        return resolvedBits;
++    }
++
++    private byte[] buildGpuPaddedTransparency(
++        ChunkPacketInfoAntiXray chunkPacketInfoAntiXray,
++        Map<Integer, GpurPreparedSection> preparedSections,
++        int chunkSectionIndex
++    ) {
++        byte[] paddedTransparency = new byte[GPUR_PADDED_EDGE * GPUR_PADDED_EDGE * GPUR_PADDED_EDGE];
++        GpurPreparedSection currentSection = preparedSections.get(chunkSectionIndex);
++        LevelChunk chunk = chunkPacketInfoAntiXray.getChunk();
++        GpurPreparedSection belowPrepared = preparedSections.get(chunkSectionIndex - 1);
++        GpurPreparedSection abovePrepared = preparedSections.get(chunkSectionIndex + 1);
++        LevelChunkSection belowChunkSection = chunkSectionIndex > 0 ? chunk.getSections()[chunkSectionIndex - 1] : EMPTY_SECTION;
++        LevelChunkSection aboveChunkSection = chunkSectionIndex + 1 < chunk.getSectionsCount() ? chunk.getSections()[chunkSectionIndex + 1] : EMPTY_SECTION;
++        LevelChunk[] nearbyChunks = chunkPacketInfoAntiXray.getNearbyChunks();
++        LevelChunkSection westChunkSection = nearbyChunks[0] == null ? EMPTY_SECTION : nearbyChunks[0].getSections()[chunkSectionIndex];
++        LevelChunkSection eastChunkSection = nearbyChunks[1] == null ? EMPTY_SECTION : nearbyChunks[1].getSections()[chunkSectionIndex];
++        LevelChunkSection northChunkSection = nearbyChunks[2] == null ? EMPTY_SECTION : nearbyChunks[2].getSections()[chunkSectionIndex];
++        LevelChunkSection southChunkSection = nearbyChunks[3] == null ? EMPTY_SECTION : nearbyChunks[3].getSections()[chunkSectionIndex];
++
++        for (int y = 0; y < 16; y++) {
++            for (int z = 0; z < 16; z++) {
++                for (int x = 0; x < 16; x++) {
++                    paddedTransparency[gpurPaddedIndex(x + 1, y + 1, z + 1)] = this.gpurTransparentByte(currentSection, x, y, z);
++                }
++            }
++        }
++
++        for (int z = 0; z < 16; z++) {
++            for (int x = 0; x < 16; x++) {
++                paddedTransparency[gpurPaddedIndex(x + 1, 0, z + 1)] = this.gpurTransparentByte(belowPrepared, x, 15, z, belowChunkSection);
++                paddedTransparency[gpurPaddedIndex(x + 1, 17, z + 1)] = this.gpurTransparentByte(abovePrepared, x, 0, z, aboveChunkSection);
++            }
++        }
++
++        for (int y = 0; y < 16; y++) {
++            for (int z = 0; z < 16; z++) {
++                paddedTransparency[gpurPaddedIndex(0, y + 1, z + 1)] = this.gpurTransparentByte(westChunkSection, 15, y, z);
++                paddedTransparency[gpurPaddedIndex(17, y + 1, z + 1)] = this.gpurTransparentByte(eastChunkSection, 0, y, z);
++            }
++        }
++
++        for (int y = 0; y < 16; y++) {
++            for (int x = 0; x < 16; x++) {
++                paddedTransparency[gpurPaddedIndex(x + 1, y + 1, 0)] = this.gpurTransparentByte(northChunkSection, x, y, 15);
++                paddedTransparency[gpurPaddedIndex(x + 1, y + 1, 17)] = this.gpurTransparentByte(southChunkSection, x, y, 0);
++            }
++        }
++
++        return paddedTransparency;
++    }
++
++    private byte gpurTransparentByte(GpurPreparedSection section, int x, int y, int z) {
++        return (byte)(section == null || (section.stateFlags()[gpurBlockIndex(x, y, z)] & GPUR_SOLID_FLAG) == 0 ? 1 : 0);
++    }
++
++    private byte gpurTransparentByte(GpurPreparedSection preparedSection, int x, int y, int z, LevelChunkSection fallbackSection) {
++        return preparedSection != null ? this.gpurTransparentByte(preparedSection, x, y, z) : this.gpurTransparentByte(fallbackSection, x, y, z);
++    }
++
++    private byte gpurTransparentByte(LevelChunkSection chunkSection, int x, int y, int z) {
++        return (byte)(chunkSection == EMPTY_SECTION || isTransparent(chunkSection, x, y, z) ? 1 : 0);
++    }
++
++    private static int gpurBlockIndex(int x, int y, int z) {
++        return (y << 8) | (z << 4) | x;
++    }
++
++    private static int gpurPaddedIndex(int x, int y, int z) {
++        return y * GPUR_PADDED_SLICE + z * GPUR_PADDED_EDGE + x;
++    }
++
++    private record GpurPreparedSection(int sectionIndex, int[] presetBlockStateBits, byte[] stateFlags) {}
+ 
+     private void obfuscateLayer(int y, BitStorageReader bitStorageReader, BitStorageWriter bitStorageWriter, boolean[] solid, boolean[] obfuscate, int[] presetBlockStateBits, boolean[][] current, boolean[][] next, boolean[][] nextNext, LevelChunkSection[] nearbyChunkSections, IntSupplier random) {
+         // First block of first line

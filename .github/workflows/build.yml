@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - "gpur/ver/**"
+      - "ver/**"
 
 jobs:
   build:
@@ -29,4 +30,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: gpur-server
-          path: purpur-server/build/libs/gpur-*.jar
+          path: gpur-server/build/libs/gpur-server-26.2.local-SNAPSHOT.jar

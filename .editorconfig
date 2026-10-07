@@ -51,10 +51,10 @@ ij_java_doc_indent_on_continuation = true
 ij_java_doc_param_description_on_new_line = false
 ij_java_doc_use_throws_not_exception_tag = true
 
-[purpur-server/src/minecraft/java/**/*.java]
+[gpur-server/src/minecraft/java/**/*.java]
 ij_java_use_fq_class_names = true
 
-[purpur-server/src/minecraft/resources/data/**/*.json]
+[gpur-server/src/minecraft/resources/data/**/*.json]
 indent_size = 2
 
 [paper-{server,api}/src/generated/java/**/*.java]
