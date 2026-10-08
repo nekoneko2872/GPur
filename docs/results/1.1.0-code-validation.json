@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-08",
+  "minecraft": "26.2",
+  "gpur": "SNAPSHOT1.1.0",
+  "scope": "code, CPU unit tests, CPU shader compilation, and artifact build",
+  "commands": [
+    "./gradlew applyAllPatches",
+    "./gradlew :purpur-server:test :purpur-server:createPaperclipJar"
+  ],
+  "jdk": "OpenJDK 25.0.2",
+  "patches": "passed",
+  "build": "passed",
+  "tests": { "total": 9334, "failures": 0, "errors": 0, "skipped": 26 },
+  "shader_compilation": "passed; no Vulkan device initialized by the test",
+  "custom_terrain_tests": {
+    "rules": 5,
+    "bounded_scheduler": 3,
+    "world_registry": 6,
+    "pipeline_cache": 3,
+    "tuning_profile": 3,
+    "status_display": 1
+  },
+  "gpu_hardware_tests_run": false,
+  "live_server_load_tests_run": false,
+  "soak_tests_run": false,
+  "performance_improvement_established": false,
+  "artifact": "gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.1.0.jar"
+}

@@ -7,6 +7,141 @@ layout(std430, binding = 1) writeonly buffer Output { uint result[]; };
 
 double readDouble(uint offset) { return packDouble2x32(uvec2(data[offset], data[offset + 1])); }
 
+const int Q10 = 1024;
+
+uint terrainHash(int x, int y, int z, uint seedLow, uint seedHigh, int salt) {
+    uint h = uint(x) * 0x9e3779b9u;
+    h ^= uint(y) * 0x85ebca6bu;
+    h ^= uint(z) * 0xc2b2ae35u;
+    h ^= seedLow;
+    h ^= (seedHigh << 16u) | (seedHigh >> 16u);
+    h ^= uint(salt) * 0x27d4eb2du;
+    h ^= h >> 16u;
+    h *= 0x7feb352du;
+    h ^= h >> 15u;
+    h *= 0x846ca68bu;
+    h ^= h >> 16u;
+    return h;
+}
+
+int terrainValue(int x, int y, int z, uint seedLow, uint seedHigh, int salt) {
+    return int(terrainHash(x, y, z, seedLow, seedHigh, salt) & 2047u) - Q10;
+}
+
+int divideTowardZero(int value, int positiveDivisor) {
+    // All numerators in terrain interpolation are bounded away from INT_MIN.
+    // Divide only nonnegative operands, then restore the sign explicitly.
+    return value < 0 ? -((-value) / positiveDivisor) : value / positiveDivisor;
+}
+int mulQ10(int a, int b) { return divideTowardZero(a * b, Q10); }
+int lerpQ10(int a, int b, int t) { return a + divideTowardZero((b - a) * t, Q10); }
+int smoothQ10(int fraction, int scale) {
+    int t = divideTowardZero(fraction * Q10, scale);
+    return mulQ10(mulQ10(t, t), 3 * Q10 - 2 * t);
+}
+int amplitude(int q10, int amount) { return divideTowardZero(q10 * amount, Q10); }
+int clampInt(int v, int lo, int hi) { return max(lo, min(v, hi)); }
+int signedWord(uint v) {
+    // Convert modulo 2^32 without relying on out-of-range uint-to-int casts.
+    return v <= 0x7fffffffu ? int(v) : -1 - int(~v);
+}
+int floorCell(int coordinate, int scale) {
+    int magnitude = coordinate < 0 ? -coordinate : coordinate;
+    int quotient = magnitude / scale;
+    int remainder = magnitude % scale;
+    return coordinate < 0 ? -quotient - (remainder == 0 ? 0 : 1) : quotient;
+}
+int floorFraction(int coordinate, int scale) {
+    int magnitude = coordinate < 0 ? -coordinate : coordinate;
+    int remainder = magnitude % scale;
+    return coordinate < 0 && remainder != 0 ? scale - remainder : remainder;
+}
+
+int terrainNoise2(uint seedLow, uint seedHigh, int x, int z, int scale, int salt) {
+    int gx = floorCell(x, scale);
+    int gz = floorCell(z, scale);
+    int fx = floorFraction(x, scale);
+    int fz = floorFraction(z, scale);
+    int sx = smoothQ10(fx, scale);
+    int sz = smoothQ10(fz, scale);
+    int a = lerpQ10(terrainValue(gx, 0, gz, seedLow, seedHigh, salt), terrainValue(gx + 1, 0, gz, seedLow, seedHigh, salt), sx);
+    int b = lerpQ10(terrainValue(gx, 0, gz + 1, seedLow, seedHigh, salt), terrainValue(gx + 1, 0, gz + 1, seedLow, seedHigh, salt), sx);
+    return lerpQ10(a, b, sz);
+}
+
+int terrainNoise3(uint seedLow, uint seedHigh, int x, int y, int z, int scale, int salt) {
+    int gx = floorCell(x, scale);
+    int gy = floorCell(y, scale);
+    int gz = floorCell(z, scale);
+    int fx = floorFraction(x, scale);
+    int fy = floorFraction(y, scale);
+    int fz = floorFraction(z, scale);
+    int sx = smoothQ10(fx, scale);
+    int sy = smoothQ10(fy, scale);
+    int sz = smoothQ10(fz, scale);
+    int z00 = lerpQ10(terrainValue(gx, gy, gz, seedLow, seedHigh, salt), terrainValue(gx + 1, gy, gz, seedLow, seedHigh, salt), sx);
+    int z10 = lerpQ10(terrainValue(gx, gy + 1, gz, seedLow, seedHigh, salt), terrainValue(gx + 1, gy + 1, gz, seedLow, seedHigh, salt), sx);
+    int z01 = lerpQ10(terrainValue(gx, gy, gz + 1, seedLow, seedHigh, salt), terrainValue(gx + 1, gy, gz + 1, seedLow, seedHigh, salt), sx);
+    int z11 = lerpQ10(terrainValue(gx, gy + 1, gz + 1, seedLow, seedHigh, salt), terrainValue(gx + 1, gy + 1, gz + 1, seedLow, seedHigh, salt), sx);
+    return lerpQ10(lerpQ10(z00, z10, sy), lerpQ10(z01, z11, sy), sz);
+}
+
+int terrainSurface(uint seedLow, uint seedHigh, int x, int z, int minY, int height, int seaLevel) {
+    int continental = terrainNoise2(seedLow, seedHigh, x, z, 768, 11);
+    int hills = terrainNoise2(seedLow, seedHigh, x, z, 192, 23);
+    int detail = terrainNoise2(seedLow, seedHigh, x, z, 48, 37);
+    int mountain = max(0, continental - 320);
+    int natural = seaLevel + 2 + amplitude(continental, 42) + amplitude(hills, 24)
+        + amplitude(detail, 6) + amplitude(mountain, 90);
+    return clampInt(natural, minY + 8, minY + height - 1);
+}
+
+int terrainBiome(uint seedLow, uint seedHigh, int x, int z, int seaLevel, int surface) {
+    if (surface < seaLevel) return 5; // ocean
+    int continental = terrainNoise2(seedLow, seedHigh, x, z, 768, 11);
+    int temperature = terrainNoise2(seedLow, seedHigh, x, z, 896, 301);
+    int moisture = terrainNoise2(seedLow, seedHigh, x, z, 640, 302);
+    if (surface >= seaLevel + 66 || (surface >= seaLevel + 38 && continental > 500)) return 7; // stony peaks
+    if (temperature < -430) return 4; // snowy plains
+    if (temperature > 390 && moisture < 120) return 2; // desert
+    if (temperature < -145) return 3; // taiga
+    if (surface > seaLevel + 28 && moisture > -180 && moisture < 260) return 6; // meadow
+    if (moisture > 145) return 1; // forest
+    return 0; // plains
+}
+
+uint terrainBlock(uint seedLow, uint seedHigh, int x, int y, int z, int minY, int seaLevel, int surface, int biome) {
+    if (y == minY) return 3u; // bedrock
+    if (y > surface) {
+        if (y <= seaLevel) {
+            if (y == seaLevel && biome == 4 && seaLevel - surface <= 8) return 12u; // ice
+            return 4u; // water
+        }
+        return 0u; // air
+    }
+    if (y < surface - 4 && y > minY + 4
+        && terrainNoise3(seedLow, seedHigh, x, y, z, 48, 501) > 535
+        && terrainNoise3(seedLow, seedHigh, x, y, z, 22, 502) > -160) {
+        return y < minY + 12 ? 5u : 0u; // fixed-depth cave lava
+    }
+    if (biome == 2) {
+        if (y >= surface - 3) return 8u; // sand
+        if (y >= surface - 7) return 9u; // sandstone
+    } else if (biome == 5) {
+        if (surface < seaLevel - 20) {
+            if (y >= surface - 2) return 10u; // gravel
+        } else if (y >= surface - 1) {
+            return 8u; // sand
+        }
+    } else if (y == surface) {
+        if (biome == 4) return 11u; // snow
+        return biome == 7 ? 1u : 7u; // stone on peaks, grass elsewhere
+    } else if (y >= surface - 3) {
+        return biome == 7 ? 1u : 6u; // stone on peaks, dirt elsewhere
+    }
+    return y < seaLevel - 36 ? 2u : 1u; // deepslate or stone
+}
+
 void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= data[1]) return;
@@ -38,5 +173,29 @@ void main() {
         hidden = hidden && data[center - 18u] == 0u && data[center + 18u] == 0u;
         hidden = hidden && data[center - 324u] == 0u && data[center + 324u] == 0u;
         result[i] = hidden ? 1u : 0u;
+    } else if (data[0] == 3u) {
+        // One invocation owns one (chunk, localX, localZ) column. The CPU rules
+        // use the same Q10 interpolation, unsigned hash and loop ordering.
+        int minY = signedWord(data[4]);
+        int height = signedWord(data[5]);
+        int seaLevel = signedWord(data[7]);
+        uint seedLow = data[2];
+        uint seedHigh = data[3];
+        uint chunk = i / 256u;
+        uint column = i % 256u;
+        int chunkX = signedWord(data[8u + chunk * 2u]);
+        int chunkZ = signedWord(data[9u + chunk * 2u]);
+        int localX = int(column & 15u);
+        int localZ = int(column >> 4u);
+        int x = chunkX * 16 + localX;
+        int z = chunkZ * 16 + localZ;
+        int surface = terrainSurface(seedLow, seedHigh, x, z, minY, height, seaLevel);
+        int biome = terrainBiome(seedLow, seedHigh, x, z, seaLevel, surface);
+        // Palette output layout is ((chunk * height) + yOffset) * 256 + column.
+        for (int dy = 0; dy < height; dy++) {
+            int y = minY + dy;
+            uint outIndex = ((chunk * uint(height) + uint(dy)) * 256u) + uint(localZ * 16 + localX);
+            result[outIndex] = terrainBlock(seedLow, seedHigh, x, y, z, minY, seaLevel, surface, biome);
+        }
     }
 }

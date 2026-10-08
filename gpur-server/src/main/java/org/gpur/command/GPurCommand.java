@@ -40,7 +40,12 @@ public final class GPurCommand extends Command {
         GPurStatusDisplay.Options options = new GPurStatusDisplay.Options(GPurConfig.gpuAccelerationEnabled,
             GPurConfig.gpuForce, GPurConfig.playersGpuEnabled || GPurConfig.mobSpawnGpuEnabled, GPurConfig.antiXrayGpuEnabled,
             GPurConfig.preloadingEnabled, GPurConfig.preloadMaxExtraDistance, GPurConfig.elytraThroughputBoostEnabled);
-        GPurStatusDisplay.render(service == null ? null : service.statusSnapshot(), options, detail).forEach(sender::sendMessage);
+        org.gpur.terrain.TerrainScheduler terrain = GPurServices.terrain();
+        int terrainWorlds = (int)Bukkit.getWorlds().stream()
+            .filter(world -> world.getGenerator() instanceof org.gpur.terrain.GPurTerrainGenerator).count();
+        GPurStatusDisplay.TerrainOverview terrainOverview = terrain == null || service == null ? null
+            : new GPurStatusDisplay.TerrainOverview(terrainWorlds, terrain.status(), service.terrainDeviceStatuses());
+        GPurStatusDisplay.render(service == null ? null : service.statusSnapshot(), options, detail, terrainOverview).forEach(sender::sendMessage);
         return true;
     }
 

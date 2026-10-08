@@ -106,12 +106,17 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkApplicationInfo;
@@ -139,6 +144,7 @@ import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
 import org.lwjgl.vulkan.VkPipelineLayoutCreateInfo;
+import org.lwjgl.vulkan.VkPipelineCacheCreateInfo;
 import org.lwjgl.vulkan.VkPipelineShaderStageCreateInfo;
 import org.lwjgl.vulkan.VkQueue;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
@@ -162,6 +168,13 @@ public final class VulkanDevice implements AutoCloseable {
     private final long descriptorSetLayout;
     private final long pipelineLayout;
     private final long pipeline;
+    private final long pipelineCache;
+    private final boolean persistentCacheEnabled;
+    private final Path cacheDirectory;
+    private final int cacheVendorId;
+    private final int cacheDeviceId;
+    private final byte[] cacheUuid;
+    private final String fingerprint;
     private final List<ExecutionContext> executionContexts;
     private final BlockingQueue<ExecutionContext> contexts;
     private final Object queueSubmitLock = new Object();
@@ -172,7 +185,9 @@ public final class VulkanDevice implements AutoCloseable {
 
     private VulkanDevice(String uuid, String deviceName, VkInstance instance, VkPhysicalDevice physicalDevice,
                          VkDevice device, VkQueue computeQueue, long descriptorSetLayout, long pipelineLayout,
-                         long pipeline, List<ExecutionContext> executionContexts) {
+                         long pipeline, long pipelineCache, boolean persistentCacheEnabled, Path cacheDirectory,
+                         int cacheVendorId, int cacheDeviceId, byte[] cacheUuid, String fingerprint,
+                         List<ExecutionContext> executionContexts) {
         this.uuid = uuid;
         this.deviceName = deviceName;
         this.instance = instance;
@@ -182,12 +197,20 @@ public final class VulkanDevice implements AutoCloseable {
         this.descriptorSetLayout = descriptorSetLayout;
         this.pipelineLayout = pipelineLayout;
         this.pipeline = pipeline;
+        this.pipelineCache = pipelineCache;
+        this.persistentCacheEnabled = persistentCacheEnabled;
+        this.cacheDirectory = cacheDirectory;
+        this.cacheVendorId = cacheVendorId;
+        this.cacheDeviceId = cacheDeviceId;
+        this.cacheUuid = cacheUuid.clone();
+        this.fingerprint = fingerprint;
         this.executionContexts = executionContexts;
         this.contexts = new ArrayBlockingQueue<>(executionContexts.size(), false, executionContexts);
     }
 
     public String name() { return this.deviceName; }
     public String uuid() { return this.uuid; }
+    public String fingerprint() { return this.fingerprint; }
     public void disable() { this.failed = true; }
     public boolean available() { return !this.failed && !this.closed; }
     public int busy() { return this.busy.get(); }
@@ -206,7 +229,7 @@ public final class VulkanDevice implements AutoCloseable {
             throw new IllegalArgumentException("Invalid GPur compute buffer dimensions");
         }
         ExactCompute.validate(input);
-        if (input[1] != invocations || outputWords != (long)input[1] * (input[0] == 1 ? 2 : 1)) {
+        if (input[1] != invocations || outputWords != ExactCompute.outputWords(input)) {
             throw new IllegalArgumentException("Inconsistent GPur dispatch dimensions");
         }
         this.lifecycle.readLock().lock();
@@ -252,6 +275,13 @@ public final class VulkanDevice implements AutoCloseable {
         long descriptorSetLayout = VK_NULL_HANDLE;
         long pipelineLayout = VK_NULL_HANDLE;
         long pipeline = VK_NULL_HANDLE;
+        long pipelineCache = VK_NULL_HANDLE;
+        boolean persistentCacheEnabled = GPurConfig.gpuCacheEnabled;
+        Path cacheDirectory = GPurConfig.gpuCacheDirectory();
+        int cacheVendorId = 0;
+        int cacheDeviceId = 0;
+        byte[] cacheUuid = new byte[VK_UUID_SIZE];
+        String fingerprint = "";
         List<ExecutionContext> executionContexts = List.of();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -271,6 +301,20 @@ public final class VulkanDevice implements AutoCloseable {
 
             final PhysicalDeviceSelection selectedDevice = selectPhysicalDevice(instance, stack, uuid);
             physicalDevice = selectedDevice.device();
+            final VkPhysicalDeviceProperties selectedProperties = VkPhysicalDeviceProperties.calloc(stack);
+            vkGetPhysicalDeviceProperties(physicalDevice, selectedProperties);
+            cacheVendorId = selectedProperties.vendorID();
+            cacheDeviceId = selectedProperties.deviceID();
+            selectedProperties.pipelineCacheUUID().get(cacheUuid);
+            fingerprint = GpuPipelineCache.fingerprint(
+                uuid,
+                cacheVendorId,
+                cacheDeviceId,
+                selectedProperties.driverVersion(),
+                cacheUuid,
+                shaderSha256(),
+                org.gpur.terrain.TerrainRules.VERSION
+            );
 
             final VkDeviceQueueCreateInfo.Buffer queueCreateInfos = VkDeviceQueueCreateInfo.calloc(1, stack);
             queueCreateInfos.get(0)
@@ -319,8 +363,41 @@ public final class VulkanDevice implements AutoCloseable {
                 .stage(shaderStageCreateInfo)
                 .layout(pipelineLayout);
 
+            final byte[] initialCacheData = persistentCacheEnabled
+                ? GpuPipelineCache.load(cacheDirectory, fingerprint, cacheVendorId, cacheDeviceId, cacheUuid, Logger.getLogger("GPur")).orElse(null)
+                : null;
+            final VkPipelineCacheCreateInfo cacheCreateInfo = VkPipelineCacheCreateInfo.calloc(stack)
+                .sType(VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO);
+            final LongBuffer pipelineCacheHandle = stack.mallocLong(1);
+            int cacheCreateResult;
+            ByteBuffer initialCacheBuffer = null;
+            if (initialCacheData != null) {
+                try {
+                    initialCacheBuffer = org.lwjgl.system.MemoryUtil.memAlloc(initialCacheData.length);
+                    initialCacheBuffer.put(initialCacheData).flip();
+                    cacheCreateInfo.pInitialData(initialCacheBuffer);
+                    cacheCreateResult = vkCreatePipelineCache(device, cacheCreateInfo, null, pipelineCacheHandle);
+                } finally {
+                    cacheCreateInfo.pInitialData(null);
+                    if (initialCacheBuffer != null) org.lwjgl.system.MemoryUtil.memFree(initialCacheBuffer);
+                }
+            } else {
+                cacheCreateResult = vkCreatePipelineCache(device, cacheCreateInfo, null, pipelineCacheHandle);
+            }
+            if (cacheCreateResult != VK_SUCCESS && initialCacheData != null) {
+                Logger.getLogger("GPur").warning("GPur Vulkan pipeline cache was rejected; creating a fresh cache");
+                pipelineCacheHandle.put(0, VK_NULL_HANDLE);
+                cacheCreateResult = vkCreatePipelineCache(device, cacheCreateInfo, null, pipelineCacheHandle);
+            }
+            if (cacheCreateResult == VK_SUCCESS) {
+                pipelineCache = pipelineCacheHandle.get(0);
+            } else {
+                Logger.getLogger("GPur").log(Level.WARNING,
+                    "Vulkan pipeline cache could not be created; continuing without driver cache (vk result {0})", cacheCreateResult);
+            }
+
             final LongBuffer pipelineHandle = stack.mallocLong(1);
-            checkVk(vkCreateComputePipelines(device, VK_NULL_HANDLE, pipelineCreateInfos, null, pipelineHandle), "create Vulkan compute pipeline");
+            checkVk(vkCreateComputePipelines(device, pipelineCache, pipelineCreateInfos, null, pipelineHandle), "create Vulkan compute pipeline");
             pipeline = pipelineHandle.get(0);
 
             executionContexts = createExecutionContexts(
@@ -335,14 +412,18 @@ public final class VulkanDevice implements AutoCloseable {
             shaderModule = VK_NULL_HANDLE;
 
             return new VulkanDevice(uuid, selectedDevice.deviceName(), instance, physicalDevice, device,
-                computeQueue, descriptorSetLayout, pipelineLayout, pipeline, executionContexts);
-        } catch (final RuntimeException | LinkageError ex) {
+                computeQueue, descriptorSetLayout, pipelineLayout, pipeline, pipelineCache,
+                persistentCacheEnabled, cacheDirectory, cacheVendorId, cacheDeviceId, cacheUuid, fingerprint, executionContexts);
+        } catch (final RuntimeException | LinkageError | OutOfMemoryError ex) {
             destroyExecutionContexts(executionContexts);
             if (shaderModule != VK_NULL_HANDLE && device != null) {
                 vkDestroyShaderModule(device, shaderModule, null);
             }
             if (pipeline != VK_NULL_HANDLE && device != null) {
                 vkDestroyPipeline(device, pipeline, null);
+            }
+            if (pipelineCache != VK_NULL_HANDLE && device != null) {
+                vkDestroyPipelineCache(device, pipelineCache, null);
             }
             if (pipelineLayout != VK_NULL_HANDLE && device != null) {
                 vkDestroyPipelineLayout(device, pipelineLayout, null);
@@ -475,7 +556,7 @@ public final class VulkanDevice implements AutoCloseable {
             final long mappedAddress = mappedPointer.get(0);
             final ByteBuffer mappedBytes = memByteBuffer(mappedAddress, Math.toIntExact(size)).order(ByteOrder.nativeOrder());
             return new MappedBufferAllocation(buffer, memory, size, mappedAddress, mappedBytes);
-        } catch (RuntimeException | LinkageError failure) {
+        } catch (RuntimeException | LinkageError | OutOfMemoryError failure) {
             if (mapped) vkUnmapMemory(this.device, memory);
             if (buffer != VK_NULL_HANDLE) vkDestroyBuffer(this.device, buffer, null);
             if (memory != VK_NULL_HANDLE) vkFreeMemory(this.device, memory, null);
@@ -515,12 +596,44 @@ public final class VulkanDevice implements AutoCloseable {
             vkDeviceWaitIdle(this.device);
             destroyExecutionContexts(this.executionContexts);
             vkDestroyPipeline(this.device, this.pipeline, null);
+            if (this.persistentCacheEnabled && this.pipelineCache != VK_NULL_HANDLE) this.savePipelineCache();
+            if (this.pipelineCache != VK_NULL_HANDLE) vkDestroyPipelineCache(this.device, this.pipelineCache, null);
             vkDestroyPipelineLayout(this.device, this.pipelineLayout, null);
             vkDestroyDescriptorSetLayout(this.device, this.descriptorSetLayout, null);
             vkDestroyDevice(this.device, null);
             vkDestroyInstance(this.instance, null);
         } finally {
             this.lifecycle.writeLock().unlock();
+        }
+    }
+
+    private void savePipelineCache() {
+        ByteBuffer data = null;
+        try {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                PointerBuffer size = stack.mallocPointer(1);
+                int result = vkGetPipelineCacheData(this.device, this.pipelineCache, size, null);
+                if (result != VK_SUCCESS || size.get(0) < GpuPipelineCache.HEADER_BYTES || size.get(0) > GpuPipelineCache.MAX_BYTES) {
+                    Logger.getLogger("GPur").log(Level.WARNING,
+                        "Could not read a bounded Vulkan pipeline cache for GPU {0} (vk result {1})", new Object[] {this.deviceName, result});
+                    return;
+                }
+                data = org.lwjgl.system.MemoryUtil.memAlloc(Math.toIntExact(size.get(0)));
+                result = vkGetPipelineCacheData(this.device, this.pipelineCache, size, data);
+                if (result != VK_SUCCESS || size.get(0) > data.capacity()) {
+                    Logger.getLogger("GPur").log(Level.WARNING,
+                        "Could not read Vulkan pipeline cache data for GPU {0} (vk result {1})", new Object[] {this.deviceName, result});
+                    return;
+                }
+                byte[] bytes = new byte[Math.toIntExact(size.get(0))];
+                data.position(0).limit(bytes.length).get(bytes);
+                GpuPipelineCache.save(this.cacheDirectory, this.fingerprint, bytes,
+                    this.cacheVendorId, this.cacheDeviceId, this.cacheUuid, Logger.getLogger("GPur"));
+            }
+        } catch (RuntimeException | OutOfMemoryError failure) {
+            Logger.getLogger("GPur").log(Level.WARNING, "Could not save Vulkan pipeline cache for GPU " + this.deviceName, failure);
+        } finally {
+            if (data != null) org.lwjgl.system.MemoryUtil.memFree(data);
         }
     }
 
@@ -537,7 +650,7 @@ public final class VulkanDevice implements AutoCloseable {
                 contexts.add(createExecutionContext(device, physicalDevice, descriptorSetLayout, queueFamilyIndex));
             }
             return contexts;
-        } catch (final RuntimeException | LinkageError ex) {
+        } catch (final RuntimeException | LinkageError | OutOfMemoryError ex) {
             destroyExecutionContexts(contexts);
             throw ex;
         }
@@ -582,7 +695,7 @@ public final class VulkanDevice implements AutoCloseable {
             fence = fenceHandle.get(0);
 
             return new ExecutionContext(device, commandPool, commandBuffer, descriptorPool, descriptorSet, fence);
-        } catch (final RuntimeException | LinkageError ex) {
+        } catch (final RuntimeException | LinkageError | OutOfMemoryError ex) {
             if (fence != VK_NULL_HANDLE) {
                 vkDestroyFence(device, fence, null);
             }
@@ -766,6 +879,15 @@ public final class VulkanDevice implements AutoCloseable {
         } finally {
             shaderc_result_release(result);
             shaderc_compiler_release(compiler);
+        }
+    }
+
+    private static String shaderSha256() {
+        try (InputStream inputStream = VulkanDevice.class.getClassLoader().getResourceAsStream(SHADER_RESOURCE)) {
+            if (inputStream == null) throw new IllegalStateException("Missing shader resource: " + SHADER_RESOURCE);
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(inputStream.readAllBytes()));
+        } catch (IOException | NoSuchAlgorithmException failure) {
+            throw new IllegalStateException("Failed to fingerprint Vulkan compute shader", failure);
         }
     }
 

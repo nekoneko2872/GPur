@@ -9,6 +9,8 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.gpur.compute.ComputeService.DeviceWorkloadStatus;
 import org.gpur.compute.ComputeService.StatusSnapshot;
+import org.gpur.compute.ComputeService.TerrainDeviceStatus;
+import org.gpur.terrain.TerrainScheduler;
 
 /** Human-readable command output, separate from the compute service's machine-readable diagnostics. */
 final class GPurStatusDisplay {
@@ -17,7 +19,15 @@ final class GPurStatusDisplay {
 
     private GPurStatusDisplay() {}
 
+    record TerrainOverview(int worlds, TerrainScheduler.Status scheduler, List<TerrainDeviceStatus> devices) {
+        TerrainOverview { devices = List.copyOf(devices); }
+    }
+
     static List<Component> render(StatusSnapshot snapshot, Options options, boolean detail) {
+        return render(snapshot, options, detail, null);
+    }
+
+    static List<Component> render(StatusSnapshot snapshot, Options options, boolean detail, TerrainOverview terrain) {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.text("GPur 26.2 | Compute status", NamedTextColor.AQUA).decorate(TextDecoration.BOLD));
         List<DeviceWorkloadStatus> devices = snapshot == null ? List.of() : snapshot.workloads().stream()
@@ -55,11 +65,43 @@ final class GPurStatusDisplay {
                 lines.add(workloadRow(snapshot, options, workload));
                 if (detail) addWorkloadDetails(lines, workload);
             }
+            if (terrain != null) {
+                for (TerrainDeviceStatus workload : terrain.devices()) {
+                    if (!workload.uuid().equals(device.uuid())) continue;
+                    String terrainState = !terrain.scheduler().enabled() || terrain.scheduler().stopped() || !workload.available()
+                        ? "CPU fallback" : terrain.worlds() == 0 ? "Waiting for a custom world" : "GPU enabled";
+                    lines.add(row("  Custom terrain: ", terrainState, workload.available() && terrain.scheduler().enabled()
+                        ? NamedTextColor.GREEN : NamedTextColor.GRAY)
+                        .append(Component.text(" | " + count(workload.gpuChunks()) + " chunks", NamedTextColor.GRAY))
+                        .hoverEvent(Component.text("Accepted custom-terrain dispatches, including chunks whose callers may have timed out.\n"
+                            + "Maximum batch: " + workload.batchSize() + " | batches: " + workload.batches()
+                            + "\nVanilla terrain, decoration, structures, lighting, and saving remain on CPU.")));
+                    if (detail) {
+                        lines.add(row("    Terrain batch / parity samples: ", workload.batchSize() + " / " + count(workload.paritySamples()), NamedTextColor.WHITE));
+                        lines.add(row("    Terrain dispatch avg / max: ", millis(workload.averageDispatchNanos()) + " / "
+                            + millis(workload.maxDispatchNanos()) + " ms", NamedTextColor.WHITE));
+                    }
+                }
+            }
             if (detail) lines.add(row("  UUID: ", device.uuid(), NamedTextColor.GRAY));
         }
         lines.add(Component.empty());
         lines.add(row("CPU: ", "Mob AI, redstone, plugins", NamedTextColor.GRAY));
-        lines.add(row("Terrain: ", "CPU (original generator)", NamedTextColor.GRAY));
+        lines.add(row("Terrain: ", terrain == null || terrain.worlds() == 0 ? "CPU (original generator)"
+            : terrain.worlds() + " custom world(s) | other worlds: CPU", NamedTextColor.GRAY));
+        if (terrain != null) {
+            TerrainScheduler.Status stats = terrain.scheduler();
+            lines.add(row("Custom terrain returned: ", "GPU " + count(stats.gpuChunks()) + " | CPU " + count(stats.cpuChunks())
+                + " | queued " + stats.queued(), NamedTextColor.WHITE)
+                .hoverEvent(Component.text("Base palettes returned to generator callbacks since reload; not final decorated/saved chunks."
+                    + "\nPrimary-thread generation is CPU-only and excluded. GPU work requires a selected gpur:terrain-v1 world.")));
+            if (detail) {
+                for (TerrainScheduler.Fallback reason : TerrainScheduler.Fallback.values()) {
+                    lines.add(row("  Terrain CPU " + reason.name().toLowerCase(Locale.ROOT).replace('_', ' ') + ": ",
+                        count(stats.fallbacks().getOrDefault(reason, 0L)), NamedTextColor.GRAY));
+                }
+            }
+        }
         lines.add(row("Preload: ", options.preloadingEnabled()
             ? "CPU priority | extra radius: " + options.extraLoadRadius() : "Disabled", NamedTextColor.GRAY)
             .hoverEvent(Component.text("Preloading changes chunk queue priority on CPU. Extra radius expands loading/generation in all directions. It is not GPU terrain generation.")));

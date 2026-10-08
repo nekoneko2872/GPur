@@ -22,7 +22,7 @@ public final class ComputeService implements AutoCloseable {
 
     public ComputeService(Logger logger) {
         this.logger = logger;
-        List<VulkanDevice> opened = new ArrayList<>();
+        List<DeviceState> opened = new ArrayList<>();
         if (GPurConfig.gpuAccelerationEnabled) {
             try {
                 List<VulkanDevice.Info> inventory = VulkanDevice.discover();
@@ -38,7 +38,10 @@ public final class ComputeService implements AutoCloseable {
                     try {
                         device = VulkanDevice.create(info.uuid());
                         selfTest(device);
-                        opened.add(device);
+                        int terrainBatchSize = GPurConfig.terrainCustomEnabled && GPurConfig.terrainGpuEnabled
+                            ? TerrainTuningProfile.batchSize(device, logger) : 1;
+                        if (!device.available()) throw new IllegalStateException("GPU failed terrain calibration validation");
+                        opened.add(new DeviceState(device, terrainBatchSize));
                         logger.info("Exact compute ready: " + info.name());
                         if (!GPurConfig.multiGpuEnabled) break;
                     } catch (RuntimeException | LinkageError failure) {
@@ -50,7 +53,7 @@ public final class ComputeService implements AutoCloseable {
                 logger.warning("Vulkan unavailable, using CPU: " + failure.getMessage());
             }
         }
-        this.devices = opened.stream().map(DeviceState::new).toList();
+        this.devices = List.copyOf(opened);
     }
 
     private static boolean matches(String selector, VulkanDevice.Info info) {
@@ -74,6 +77,7 @@ public final class ComputeService implements AutoCloseable {
     /** Returns null without mutation when the caller should run its original CPU implementation. */
     public int[] tryCompute(int[] input) {
         ExactCompute.validate(input);
+        if (input[0] == 3) throw new IllegalArgumentException("Terrain jobs require the bounded terrain scheduler");
         if (input[1] == 0) return new int[0];
         int workload = input[0];
         if (!this.eligible(workload)) {
@@ -136,6 +140,74 @@ public final class ComputeService implements AutoCloseable {
         }
         this.cpuFallbacks.incrementAndGet();
         return null;
+    }
+
+    /** Dedicated terrain workers use the same logical device and context pool as other kernels.
+     * Terrain has no speed cooldown: it is admitted for additional throughput, with exact fallback. */
+    public int[] tryTerrainCompute(int deviceIndex, int[] input) {
+        ExactCompute.validate(input);
+        if (input[0] != 3) throw new IllegalArgumentException("Not a terrain workload");
+        if (deviceIndex < 0 || deviceIndex >= this.devices.size()) throw new IllegalArgumentException("Unknown GPU index");
+        for (int offset = 0; offset < this.devices.size(); offset++) {
+            DeviceState state = this.devices.get((deviceIndex + offset) % this.devices.size());
+            int[] result = this.tryTerrainOnDevice(state, input);
+            if (result != null) return result;
+        }
+        return null;
+    }
+
+    private int[] tryTerrainOnDevice(DeviceState state, int[] input) {
+        VulkanDevice device = state.device;
+        if (!this.resultGate.allows(3) || !device.canAccept(3)) return null;
+        try {
+            long start = System.nanoTime();
+            int[] result = device.compute(input, ExactCompute.outputWords(input), input[1]);
+            long elapsed = System.nanoTime() - start;
+            if (result == null) return null;
+            long attempt = state.terrainDispatches.incrementAndGet();
+            state.terrainDispatchNanos.addAndGet(elapsed);
+            state.terrainMaxDispatchNanos.accumulateAndGet(elapsed, Math::max);
+            if (attempt == 1 || attempt % this.terrainParityInterval == 0) {
+                state.terrainParitySamples.incrementAndGet();
+                if (!ExactCompute.equal(ExactCompute.reference(input), result, 3)) {
+                    this.resultGate.disable(device::disable);
+                    this.logger.warning("Terrain parity failed, device disabled: " + device.name());
+                    return null;
+                }
+            }
+            if (!this.resultGate.accept(3, device::available, () -> {
+                state.terrainBatches.incrementAndGet();
+                state.terrainChunks.addAndGet(input[1] / 256);
+            })) return null;
+            return result;
+        } catch (RuntimeException failure) {
+            this.resultGate.disable(device::disable);
+            this.logger.warning("Terrain GPU disabled, using identical CPU terrain: " + device.name() + ": " + failure.getMessage());
+            return null;
+        }
+    }
+
+    private final int terrainParityInterval = GPurConfig.terrainParityInterval;
+
+    public int terrainDeviceCount() { return this.devices.size(); }
+    public int terrainBatchSize(int deviceIndex) { return this.devices.get(deviceIndex).terrainBatchSize; }
+
+    public record TerrainDeviceStatus(int index, String uuid, String name, boolean available, int batchSize,
+                                      long gpuChunks, long batches, long averageDispatchNanos,
+                                      long maxDispatchNanos, long paritySamples) {}
+
+    public List<TerrainDeviceStatus> terrainDeviceStatuses() {
+        List<TerrainDeviceStatus> result = new ArrayList<>(this.devices.size());
+        for (int i = 0; i < this.devices.size(); i++) {
+            DeviceState state = this.devices.get(i);
+            long dispatches = state.terrainDispatches.get();
+            result.add(new TerrainDeviceStatus(i, state.device.uuid(), state.device.name(),
+                !this.resultGate.isClosed() && state.device.available(), state.terrainBatchSize,
+                state.terrainChunks.get(), state.terrainBatches.get(),
+                dispatches == 0 ? 0 : state.terrainDispatchNanos.get() / dispatches,
+                state.terrainMaxDispatchNanos.get(), state.terrainParitySamples.get()));
+        }
+        return List.copyOf(result);
     }
 
     public String status() {
@@ -214,10 +286,11 @@ public final class ComputeService implements AutoCloseable {
         section[1] = 8192;
         for (int i = 2; i < section.length; i++) section[i] = random.nextInt(4);
         check(device, section);
+        check(device, org.gpur.terrain.TerrainRules.input(0x47507572426L, -64, 384, 63, -17, 21, 1874998, -1874998));
     }
 
     private static void check(VulkanDevice device, int[] input) {
-        int[] actual = device.compute(input, input[1] * (input[0] == 1 ? 2 : 1), input[1]);
+        int[] actual = device.compute(input, ExactCompute.outputWords(input), input[1]);
         if (!ExactCompute.equal(ExactCompute.reference(input), actual, input[0])) {
             throw new IllegalStateException("CPU/GPU parity self-test failed");
         }
@@ -232,9 +305,17 @@ public final class ComputeService implements AutoCloseable {
     private static final class DeviceState {
         private final VulkanDevice device;
         private final WorkloadState[] workloads = {null, new WorkloadState(), new WorkloadState()};
+        private final int terrainBatchSize;
+        private final AtomicLong terrainDispatches = new AtomicLong();
+        private final AtomicLong terrainDispatchNanos = new AtomicLong();
+        private final AtomicLong terrainMaxDispatchNanos = new AtomicLong();
+        private final AtomicLong terrainChunks = new AtomicLong();
+        private final AtomicLong terrainBatches = new AtomicLong();
+        private final AtomicLong terrainParitySamples = new AtomicLong();
 
-        private DeviceState(VulkanDevice device) {
+        private DeviceState(VulkanDevice device, int terrainBatchSize) {
             this.device = device;
+            this.terrainBatchSize = terrainBatchSize;
         }
 
         private boolean canAccept(int workload, long now, boolean force) {

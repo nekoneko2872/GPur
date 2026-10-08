@@ -12,7 +12,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 public final class GPurConfig {
     private static final String HEADER = "This is the main configuration file for GPur.\n"
         + "GPur adds directional chunk preloading and experimental Vulkan-backed\n"
-        + "exact numeric compute on top of Purpur 26.2.\n"
+        + "exact numeric compute and opt-in custom terrain on top of Purpur 26.2.\n"
         + "\n"
         + "If Vulkan initialization fails or no compatible GPU is present, GPur\n"
         + "will automatically continue in CPU mode.\n";
@@ -109,6 +109,15 @@ public final class GPurConfig {
     public static boolean playersGpuEnabled = true;
     public static int playersGpuMinPlayers = 128;
 
+    public static boolean gpuCacheEnabled = true;
+    public static boolean terrainCustomEnabled = true;
+    public static boolean terrainAutoTune = true;
+    public static int terrainMaxBatchChunks = 8;
+    public static int terrainQueueCapacity = 128;
+    public static int terrainBatchWaitMillis = 2;
+    public static int terrainRequestTimeoutMillis = 250;
+    public static int terrainParityInterval = 128;
+
     private GPurConfig() {
     }
 
@@ -143,6 +152,7 @@ public final class GPurConfig {
         playersGpuEnabled = getBoolean("gpu-offload.players.enabled", true);
         playersGpuMinPlayers = clamp(getInt("gpu-offload.players.min-players", 128), 1, 16384, "gpu-offload.players.min-players");
         readGpuAcceleration();
+        readCustomTerrain();
         readPreloading();
         preloadMaxExtraDistance = clamp(getInt("chunk-generation.preloading.max-extra-distance", 0), 0, 16, "chunk-generation.preloading.max-extra-distance");
         readGpuOffload();
@@ -229,6 +239,28 @@ public final class GPurConfig {
             1000,
             "chunk-generation.gpu-acceleration.terrain-heavy-load.sustain-ms"
         );
+    }
+
+    private static void readCustomTerrain() {
+        gpuCacheEnabled = getBoolean("gpu.cache.enabled", true);
+        terrainCustomEnabled = getBoolean("chunk-generation.custom-terrain.enabled", true);
+        terrainAutoTune = getBoolean("chunk-generation.custom-terrain.auto-tune", true);
+        terrainMaxBatchChunks = clamp(getInt("chunk-generation.custom-terrain.max-batch-chunks", 8), 1, 8,
+            "chunk-generation.custom-terrain.max-batch-chunks");
+        terrainQueueCapacity = clamp(getInt("chunk-generation.custom-terrain.queue-capacity", 128), 1, 1024,
+            "chunk-generation.custom-terrain.queue-capacity");
+        terrainBatchWaitMillis = clamp(getInt("chunk-generation.custom-terrain.batch-wait-ms", 2), 0, 10,
+            "chunk-generation.custom-terrain.batch-wait-ms");
+        terrainRequestTimeoutMillis = clamp(getInt("chunk-generation.custom-terrain.request-timeout-ms", 250), 1, 5000,
+            "chunk-generation.custom-terrain.request-timeout-ms");
+        terrainParityInterval = clamp(getInt("chunk-generation.custom-terrain.parity-interval", 128), 1, 4096,
+            "chunk-generation.custom-terrain.parity-interval");
+    }
+
+    public static java.nio.file.Path gpuCacheDirectory() {
+        java.nio.file.Path parent = (configFile == null ? new File("gpur.yml") : configFile)
+            .toPath().toAbsolutePath().normalize().getParent();
+        return parent.resolve("cache").resolve("gpur-gpu");
     }
 
     private static void readPreloading() {

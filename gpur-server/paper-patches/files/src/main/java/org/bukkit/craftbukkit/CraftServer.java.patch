@@ -107,6 +107,18 @@
      @Override
      public List<Recipe> getRecipesFor(ItemStack result) {
          Preconditions.checkArgument(result != null, "ItemStack cannot be null");
+@@ -1769,6 +_,11 @@
+     public ChunkGenerator getGenerator(String world) {
+         ConfigurationSection section = this.configuration.getConfigurationSection("worlds");
+         ChunkGenerator result = null;
++        ConfigurationSection worldSection = section == null ? null : section.getConfigurationSection(world);
++        String configured = worldSection == null ? null : worldSection.getString("generator");
++        if (configured != null && configured.isBlank()) configured = null;
++        org.gpur.terrain.GPurTerrainGenerator custom = org.gpur.terrain.TerrainWorldRegistry.resolve(new File(this.getWorldContainer(), world).toPath(), configured);
++        if (custom != null) return custom;
+ 
+         if (section != null) {
+             section = section.getConfigurationSection(world);
 @@ -2726,6 +_,18 @@
              return CraftServer.this.console.paperConfigurations.createLegacyObject(CraftServer.this.console);
          }

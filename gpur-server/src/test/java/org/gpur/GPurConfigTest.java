@@ -9,6 +9,33 @@ import org.junit.jupiter.api.io.TempDir;
 class GPurConfigTest {
     @TempDir Path directory;
 
+    @Test void customTerrainDefaultsAndLimitsPersistWithoutChangingGpuSelection() throws Exception {
+        Path config = directory.resolve("gpur.yml");
+        Files.writeString(config, """
+            gpu:
+              multi-gpu:
+                enabled: false
+                devices: [NVIDIA GeForce GTX 1080]
+            chunk-generation:
+              custom-terrain:
+                max-batch-chunks: 100
+                queue-capacity: 0
+                request-timeout-ms: 0
+                parity-interval: 0
+            """);
+        GPurConfig.init(config.toFile());
+        assertEquals(java.util.List.of("NVIDIA GeForce GTX 1080"), GPurConfig.gpuDevices);
+        assertFalse(GPurConfig.multiGpuEnabled);
+        assertTrue(GPurConfig.terrainCustomEnabled);
+        assertTrue(GPurConfig.terrainAutoTune);
+        assertEquals(8, GPurConfig.terrainMaxBatchChunks);
+        assertEquals(1, GPurConfig.terrainQueueCapacity);
+        assertEquals(1, GPurConfig.terrainRequestTimeoutMillis);
+        assertEquals(1, GPurConfig.terrainParityInterval);
+        assertEquals(directory.resolve("cache/gpur-gpu").toAbsolutePath(), GPurConfig.gpuCacheDirectory());
+        assertEquals(8, GPurConfig.config.getInt("chunk-generation.custom-terrain.max-batch-chunks"));
+    }
+
     @Test void preloadingDefaultsPrioritizeExistingChunksWithoutIncreasingGenerationDemand() throws Exception {
         Path config = directory.resolve("gpur.yml");
         Files.writeString(config, "config-version: 2\n");

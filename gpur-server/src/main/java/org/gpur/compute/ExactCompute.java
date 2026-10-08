@@ -33,11 +33,22 @@ public final class ExactCompute {
         long count = input[1];
         if (input[0] == 1 && input.length == 8L + count * 6) return;
         if (input[0] == 2 && count % 4096 == 0 && input.length == 2L + count / 4096 * SECTION_WORDS) return;
+        if (input[0] == 3) {
+            org.gpur.terrain.TerrainRules.validate(input);
+            return;
+        }
         throw new IllegalArgumentException("Invalid GPur workload dimensions");
+    }
+
+    public static int outputWords(int[] input) {
+        validate(input);
+        if (input[0] == 3) return org.gpur.terrain.TerrainRules.outputWords(input);
+        return Math.multiplyExact(input[1], input[0] == 1 ? 2 : 1);
     }
 
     public static int[] reference(int[] input) {
         validate(input);
+        if (input[0] == 3) return org.gpur.terrain.TerrainRules.reference(input);
         if (input.length < 2 || input[1] < 0) throw new IllegalArgumentException("Invalid compute header");
         int count = input[1];
         if (input[0] == 1) {
