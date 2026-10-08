@@ -10,7 +10,7 @@ import org.gpur.terrain.TerrainScheduler;
 import org.junit.jupiter.api.Test;
 
 class GPurStatusDisplayTest {
-    @Test void terrainStatusDistinguishesDispatchedChunksFromReturnedPalettesAndCpuReasons() {
+    @Test void retiredCustomWorldsAreClearlyCpuOnlyRegardlessOfHistoricalGpuCounters() {
         var device = new ComputeService.DeviceWorkloadStatus("uuid", "NVIDIA GeForce GTX 1080", 1, true, 0,
             0, 0, 0, 0, 0, 0, 0);
         var snapshot = new ComputeService.StatusSnapshot(false, false, 0, 0, 0, 0, List.of(device));
@@ -20,10 +20,26 @@ class GPurStatusDisplayTest {
         var options = new GPurStatusDisplay.Options(true, false, true, true, true, 0, false);
         String output = GPurStatusDisplay.render(snapshot, options, true, terrain).stream()
             .map(PlainTextComponentSerializer.plainText()::serialize).collect(java.util.stream.Collectors.joining("\n"));
-        assertTrue(output.contains("Custom terrain: GPU enabled | 16 chunks"));
-        assertTrue(output.contains("Custom terrain returned: GPU 15 | CPU 1 | queued 2"));
-        assertTrue(output.contains("Terrain CPU timeout: 1"));
-        assertTrue(output.contains("Terrain batch / parity samples: 8 / 1"));
+        assertTrue(output.contains("Legacy custom terrain: 1 world(s) | CPU only (retired generator)"));
+        assertFalse(output.contains("GPU enabled"));
+        assertFalse(output.contains("16 chunks"));
         assertTrue(output.contains("CPU: Mob AI, redstone, plugins"));
+    }
+
+    @Test void vanillaStatusWorksWithoutCustomWorldsAndCountsSlabsRatherThanChunks() {
+        var device = new ComputeService.DeviceWorkloadStatus("uuid", "NVIDIA GeForce GTX 1080", 1, true, 0,
+            0, 0, 0, 0, 0, 0, 0);
+        var snapshot = new ComputeService.StatusSnapshot(false, false, 0, 0, 0, 0, List.of(device));
+        var vanilla = new ComputeService.VanillaStatus(true, true, 2, 0,
+            List.of(new ComputeService.VanillaDeviceStatus("uuid", 8, 393216, 500000, 900000, 8)));
+        var options = new GPurStatusDisplay.Options(true, false, true, true, true, 0, false);
+        String output = GPurStatusDisplay.render(snapshot, options, true, null, vanilla).stream()
+            .map(PlainTextComponentSerializer.plainText()::serialize).collect(java.util.stream.Collectors.joining("\n"));
+        assertTrue(output.contains("Vanilla interpolation: GPU enabled | 8 slabs"));
+        assertTrue(output.contains("Values / full parity checks: 393,216 / 8"));
+        assertTrue(output.contains("Original world generator | vanilla rules preserved"));
+        assertTrue(output.contains("Every returned GPU slab (strict)"));
+        assertFalse(output.contains("Waiting for a custom world"));
+        assertFalse(output.contains("8 chunks"));
     }
 }

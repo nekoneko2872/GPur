@@ -1,0 +1,141 @@
+--- a/net/minecraft/world/level/levelgen/NoiseChunk.java
++++ b/net/minecraft/world/level/levelgen/NoiseChunk.java
+@@ -57,6 +_,11 @@
+     private long interpolationCounter;
+     private long arrayInterpolationCounter;
+     private int arrayIndex;
++    // GPur: only the native chunk-fill loop opts into exact interpolation of its CPU density slices.
++    private boolean gpurVanillaInterpolation;
++    private org.gpur.compute.VanillaTerrainSlab gpurSlab;
++    private int gpurCellY;
++    private int gpurCellZ;
+     private final DensityFunction.ContextProvider sliceFillingContextProvider = new DensityFunction.ContextProvider() {
+         @Override
+         public DensityFunction.FunctionContext forIndex(final int cellYIndex) {
+@@ -247,6 +_,32 @@
+         this.arrayInterpolationCounter++;
+     }
+ 
++    public void gpurEnableVanillaInterpolation() {
++        this.gpurVanillaInterpolation = true;
++    }
++
++    public void gpurClearVanillaInterpolation() {
++        this.gpurSlab = null;
++        this.gpurVanillaInterpolation = false;
++    }
++
++    private void gpurPrepareVanillaSlab() {
++        this.gpurSlab = null;
++        org.gpur.compute.ComputeService service = org.gpur.GPurServices.compute();
++        if (!this.gpurVanillaInterpolation || service == null || !service.vanillaTerrainEligible()
++            || org.bukkit.Bukkit.isPrimaryThread() || this.cellCountXZ * this.cellWidth != 16) return;
++        int count = this.interpolators.size();
++        if (count == 0 || count > org.gpur.GPurConfig.vanillaTerrainMaxInterpolators) return;
++        double[][][] lower = new double[count][][];
++        double[][][] upper = new double[count][][];
++        for (int i = 0; i < count; i++) {
++            lower[i] = this.interpolators.get(i).slice0;
++            upper[i] = this.interpolators.get(i).slice1;
++        }
++        // The codec copies primitive values. No NoiseChunk/world/cache object crosses threads.
++        this.gpurSlab = service.prepareVanillaSlab(this.cellWidth, this.cellHeight, this.cellCountY, lower, upper);
++    }
++
+     public void initializeForFirstCellX() {
+         if (this.interpolating) {
+             throw new IllegalStateException("Staring interpolation twice");
+@@ -260,6 +_,7 @@
+     public void advanceCellX(final int cellXIndex) {
+         this.fillSlice(false, this.firstCellX + cellXIndex + 1);
+         this.cellStartBlockX = (this.firstCellX + cellXIndex) * this.cellWidth;
++        this.gpurPrepareVanillaSlab();
+     }
+ 
+     @Override
+@@ -294,6 +_,8 @@
+     }
+ 
+     public void selectCellYZ(final int cellYIndex, final int cellZIndex) {
++        this.gpurCellY = cellYIndex;
++        this.gpurCellZ = cellZIndex;
+         for (NoiseChunk.NoiseInterpolator i : this.interpolators) {
+             i.selectCellYZ(cellYIndex, cellZIndex);
+         }
+@@ -314,16 +_,20 @@
+     public void updateForY(final int posY, final double factorY) {
+         this.inCellY = posY - this.cellStartBlockY;
+ 
+-        for (NoiseChunk.NoiseInterpolator i : this.interpolators) {
+-            i.updateForY(factorY);
++        if (this.gpurSlab == null) {
++            for (NoiseChunk.NoiseInterpolator i : this.interpolators) {
++                i.updateForY(factorY);
++            }
+         }
+     }
+ 
+     public void updateForX(final int posX, final double factorX) {
+         this.inCellX = posX - this.cellStartBlockX;
+ 
+-        for (NoiseChunk.NoiseInterpolator i : this.interpolators) {
+-            i.updateForX(factorX);
++        if (this.gpurSlab == null) {
++            for (NoiseChunk.NoiseInterpolator i : this.interpolators) {
++                i.updateForX(factorX);
++            }
+         }
+     }
+ 
+@@ -331,8 +_,10 @@
+         this.inCellZ = posZ - this.cellStartBlockZ;
+         this.interpolationCounter++;
+ 
+-        for (NoiseChunk.NoiseInterpolator i : this.interpolators) {
+-            i.updateForZ(factorZ);
++        if (this.gpurSlab == null) {
++            for (NoiseChunk.NoiseInterpolator i : this.interpolators) {
++                i.updateForZ(factorZ);
++            }
+         }
+     }
+ 
+@@ -342,9 +_,11 @@
+         }
+ 
+         this.interpolating = false;
++        this.gpurClearVanillaInterpolation();
+     }
+ 
+     public void swapSlices() {
++        this.gpurSlab = null;
+         this.interpolators.forEach(NoiseChunk.NoiseInterpolator::swapSlices);
+     }
+ 
+@@ -734,6 +_,7 @@
+     }
+ 
+     public class NoiseInterpolator implements NoiseChunk.NoiseChunkDensityFunction, DensityFunctions.MarkerOrMarked {
++        private final int gpurIndex;
+         private double[][] slice0;
+         private double[][] slice1;
+         private final DensityFunction noiseFiller;
+@@ -754,6 +_,7 @@
+         private double value;
+ 
+         private NoiseInterpolator(final DensityFunction noiseFiller) {
++            this.gpurIndex = NoiseChunk.this.interpolators.size();
+             this.noiseFiller = noiseFiller;
+             this.slice0 = this.allocateSlice(NoiseChunk.this.cellCountY, NoiseChunk.this.cellCountXZ);
+             this.slice1 = this.allocateSlice(NoiseChunk.this.cellCountY, NoiseChunk.this.cellCountXZ);
+@@ -806,6 +_,10 @@
+             } else if (!NoiseChunk.this.interpolating) {
+                 throw new IllegalStateException("Trying to sample interpolator outside the interpolation loop");
+             } else {
++                if (NoiseChunk.this.gpurSlab != null) {
++                    return NoiseChunk.this.gpurSlab.value(this.gpurIndex, NoiseChunk.this.gpurCellY, NoiseChunk.this.gpurCellZ,
++                        NoiseChunk.this.inCellY, NoiseChunk.this.inCellX, NoiseChunk.this.inCellZ, NoiseChunk.this.fillingCell);
++                }
+                 return NoiseChunk.this.fillingCell
+                     ? Mth.lerp3(
+                         (double)NoiseChunk.this.inCellX / NoiseChunk.this.cellWidth,

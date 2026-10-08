@@ -52,7 +52,7 @@ public final class TerrainScheduler implements AutoCloseable {
             public boolean available() { return compute.activeDeviceCount() > 0; }
             public int batchSize(int device) { return compute.terrainBatchSize(device); }
             public int[] compute(int device, int[] input) { return compute.tryTerrainCompute(device, input); }
-        }, GPurConfig.gpuAccelerationEnabled && GPurConfig.terrainGpuEnabled && GPurConfig.terrainCustomEnabled,
+        }, false, // Retired generator: marked worlds retain the legacy CPU rules only.
             GPurConfig.terrainQueueCapacity, GPurConfig.terrainMaxBatchChunks,
             GPurConfig.terrainBatchWaitMillis, GPurConfig.terrainRequestTimeoutMillis);
     }

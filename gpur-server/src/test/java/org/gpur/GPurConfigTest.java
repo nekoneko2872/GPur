@@ -9,6 +9,44 @@ import org.junit.jupiter.api.io.TempDir;
 class GPurConfigTest {
     @TempDir Path directory;
 
+    @Test void vanillaTerrainRequiresOptInAndKeepsStrictParityAndBoundedFlightDefaults() throws Exception {
+        Path config = directory.resolve("gpur.yml");
+        Files.writeString(config, "config-version: 2\n");
+        GPurConfig.init(config.toFile());
+        assertFalse(GPurConfig.vanillaTerrainEnabled);
+        assertTrue(GPurConfig.vanillaTerrainVerifyEveryBatch);
+        assertEquals(16, GPurConfig.vanillaTerrainMaxInterpolators);
+        assertEquals(1_048_576, GPurConfig.vanillaTerrainMaxSlabValues);
+        assertEquals(1024, GPurConfig.vanillaTerrainMinValues);
+        assertEquals(8, GPurConfig.elytraMaxExtraConcurrentGenerates);
+
+        Files.writeString(config, """
+            gpu:
+              multi-gpu:
+                enabled: false
+                devices: [NVIDIA GeForce GTX 1080]
+            chunk-generation:
+              vanilla-terrain:
+                enabled: true
+                max-interpolators: 100
+                max-slab-values: 1
+                minimum-values: 100000000
+                parity-interval: 0
+              preloading:
+                elytra-throughput-boost:
+                  max-extra-concurrent-generates: -1
+            """);
+        GPurConfig.init(config.toFile());
+        assertTrue(GPurConfig.vanillaTerrainEnabled);
+        assertTrue(GPurConfig.vanillaTerrainVerifyEveryBatch);
+        assertEquals(16, GPurConfig.vanillaTerrainMaxInterpolators);
+        assertEquals(1024, GPurConfig.vanillaTerrainMaxSlabValues);
+        assertEquals(1024, GPurConfig.vanillaTerrainMinValues);
+        assertEquals(1, GPurConfig.vanillaTerrainParityInterval);
+        assertEquals(0, GPurConfig.elytraMaxExtraConcurrentGenerates);
+        assertEquals(java.util.List.of("NVIDIA GeForce GTX 1080"), GPurConfig.gpuDevices);
+    }
+
     @Test void customTerrainDefaultsAndLimitsPersistWithoutChangingGpuSelection() throws Exception {
         Path config = directory.resolve("gpur.yml");
         Files.writeString(config, """
@@ -26,7 +64,7 @@ class GPurConfigTest {
         GPurConfig.init(config.toFile());
         assertEquals(java.util.List.of("NVIDIA GeForce GTX 1080"), GPurConfig.gpuDevices);
         assertFalse(GPurConfig.multiGpuEnabled);
-        assertTrue(GPurConfig.terrainCustomEnabled);
+        assertFalse(GPurConfig.terrainCustomEnabled);
         assertTrue(GPurConfig.terrainAutoTune);
         assertEquals(8, GPurConfig.terrainMaxBatchChunks);
         assertEquals(1, GPurConfig.terrainQueueCapacity);
@@ -34,6 +72,24 @@ class GPurConfigTest {
         assertEquals(1, GPurConfig.terrainParityInterval);
         assertEquals(directory.resolve("cache/gpur-gpu").toAbsolutePath(), GPurConfig.gpuCacheDirectory());
         assertEquals(8, GPurConfig.config.getInt("chunk-generation.custom-terrain.max-batch-chunks"));
+    }
+
+    @Test void customTerrainDefaultsDisabledButPreservesExplicitLegacySetting() throws Exception {
+        Path config = directory.resolve("gpur.yml");
+        Files.writeString(config, "config-version: 2\n");
+        GPurConfig.init(config.toFile());
+        assertFalse(GPurConfig.terrainCustomEnabled);
+        assertFalse(GPurConfig.config.getBoolean("chunk-generation.custom-terrain.enabled"));
+
+        Files.writeString(config, """
+            config-version: 2
+            chunk-generation:
+              custom-terrain:
+                enabled: true
+            """);
+        GPurConfig.init(config.toFile());
+        assertTrue(GPurConfig.terrainCustomEnabled);
+        assertTrue(GPurConfig.config.getBoolean("chunk-generation.custom-terrain.enabled"));
     }
 
     @Test void preloadingDefaultsPrioritizeExistingChunksWithoutIncreasingGenerationDemand() throws Exception {

@@ -1,5 +1,7 @@
 package org.gpur.terrain;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -17,37 +19,70 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class TerrainWorldRegistryTest {
+    private static final String LEGACY_MARKER = "schema=1\nversion=1\nseed=37\nmin-y=-64\nheight=384\nsea-level=63\n";
+
     @TempDir
     Path directory;
 
     @Test
-    void writesPermanentMarkerAndRestoresGeneratorWhenConfigurationIsRemoved() throws Exception {
-        Path world = this.directory.resolve("new-world");
+    void restoresLegacyMarkerWhenGeneratorSettingWasRemovedEvenWhenCustomTerrainIsDisabled() throws Exception {
+        Path world = this.directory.resolve("legacy-world");
         Files.createDirectories(world);
-
-        GPurTerrainGenerator optedIn = TerrainWorldRegistry.resolve(world, TerrainWorldRegistry.GENERATOR_ID);
-        assertNotNull(optedIn);
-        optedIn.validateWorldInfo(worldInfo(37L, -64, 320));
-
         Path marker = world.resolve(TerrainWorldRegistry.MARKER_FILENAME);
-        assertTrue(Files.isRegularFile(marker));
-        String contents = Files.readString(marker);
-        assertTrue(contents.contains("schema=1\n"));
-        assertTrue(contents.contains("version=1\n"));
-        assertTrue(contents.contains("seed=37\n"));
-        assertTrue(contents.contains("min-y=-64\n"));
-        assertTrue(contents.contains("height=384\n"));
-        assertTrue(contents.contains("sea-level=63\n"));
+        Files.writeString(marker, LEGACY_MARKER);
 
-        assertSame(optedIn, TerrainWorldRegistry.resolve(world, null));
-        assertNull(TerrainWorldRegistry.resolve(this.directory.resolve("vanilla-world"), null));
+        boolean previous = GPurConfig.terrainCustomEnabled;
+        try {
+            GPurConfig.terrainCustomEnabled = false;
+            GPurTerrainGenerator restored = TerrainWorldRegistry.resolve(world, null);
+
+            assertNotNull(restored);
+            assertSame(restored, TerrainWorldRegistry.resolve(world, null));
+            assertSame(restored, TerrainWorldRegistry.resolve(world, TerrainWorldRegistry.GENERATOR_ID));
+            restored.validateWorldInfo(worldInfo(37L, -64, 320));
+            assertEquals(LEGACY_MARKER, Files.readString(marker));
+        } finally {
+            GPurConfig.terrainCustomEnabled = previous;
+        }
     }
 
     @Test
-    void rejectsSeedOrHeightChangesForMarkedWorld() throws Exception {
+    void rejectsNewOptInWithActionableReasonAndLeavesWorldDataUntouched() throws Exception {
+        Path emptyWorld = this.directory.resolve("new-world");
+        IllegalStateException emptyFailure = assertThrows(IllegalStateException.class,
+            () -> TerrainWorldRegistry.resolve(emptyWorld, TerrainWorldRegistry.GENERATOR_ID));
+        assertTrue(emptyFailure.getMessage().contains("retired"));
+        assertFalse(Files.exists(emptyWorld));
+
+        Path world = this.directory.resolve("requested-custom-world");
+        Path region = world.resolve("region");
+        Files.createDirectories(region);
+        Path existingRegion = region.resolve("r.0.0.mca");
+        Files.write(existingRegion, new byte[] {1, 2, 3});
+
+        boolean previous = GPurConfig.terrainCustomEnabled;
+        try {
+            // Retired opt-ins remain rejected even when an older config explicitly enabled them.
+            GPurConfig.terrainCustomEnabled = true;
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> TerrainWorldRegistry.resolve(world, TerrainWorldRegistry.GENERATOR_ID));
+
+            assertTrue(failure.getMessage().contains("retired"));
+            assertTrue(failure.getMessage().contains("original vanilla terrain generator"));
+            assertTrue(failure.getMessage().contains("server.properties"));
+            assertTrue(failure.getMessage().contains("left untouched"));
+            assertFalse(Files.exists(world.resolve(TerrainWorldRegistry.MARKER_FILENAME)));
+            assertTrue(Files.exists(existingRegion));
+        } finally {
+            GPurConfig.terrainCustomEnabled = previous;
+        }
+    }
+
+    @Test
+    void rejectsSeedOrHeightChangesForLegacyMarkedWorld() throws Exception {
         Path world = this.directory.resolve("immutable-world");
-        Files.createDirectories(world);
-        GPurTerrainGenerator generator = TerrainWorldRegistry.resolve(world, TerrainWorldRegistry.GENERATOR_ID);
+        writeLegacyMarker(world);
+        GPurTerrainGenerator generator = TerrainWorldRegistry.resolve(world, null);
         generator.validateWorldInfo(worldInfo(37L, -64, 320));
 
         assertThrows(IllegalStateException.class, () -> generator.validateWorldInfo(worldInfo(38L, -64, 320)));
@@ -55,17 +90,15 @@ class TerrainWorldRegistryTest {
     }
 
     @Test
-    void rejectsPopulatedWorldOnFirstOptIn() throws Exception {
-        Path world = this.directory.resolve("populated-world");
-        Path region = world.resolve("DIM-1/region");
-        Files.createDirectories(region);
-        Files.write(region.resolve("r.0.0.mca"), new byte[] {0});
+    void rejectsChangingGeneratorOfLegacyMarkedWorld() throws Exception {
+        Path world = this.directory.resolve("changed-generator-world");
+        writeLegacyMarker(world);
 
-        assertThrows(IllegalStateException.class, () -> TerrainWorldRegistry.resolve(world, TerrainWorldRegistry.GENERATOR_ID));
+        assertThrows(IllegalStateException.class, () -> TerrainWorldRegistry.resolve(world, "some-plugin:generator"));
     }
 
     @Test
-    void failsClosedForMalformedOrUnsupportedMarkers() throws Exception {
+    void failsClosedForMalformedOrUnsupportedLegacyMarkers() throws Exception {
         Path malformedWorld = this.directory.resolve("malformed-world");
         Files.createDirectories(malformedWorld);
         Files.writeString(malformedWorld.resolve(TerrainWorldRegistry.MARKER_FILENAME), "schema=1\nversion=1\nseed=broken\n");
@@ -79,31 +112,16 @@ class TerrainWorldRegistryTest {
     }
 
     @Test
-    void rejectsChangingGeneratorOfMarkedWorld() throws Exception {
-        Path world = this.directory.resolve("changed-generator-world");
+    void returnsNullForUnmarkedVanillaWorld() throws Exception {
+        Path world = this.directory.resolve("vanilla-world");
         Files.createDirectories(world);
-        GPurTerrainGenerator generator = TerrainWorldRegistry.resolve(world, TerrainWorldRegistry.GENERATOR_ID);
-        generator.validateWorldInfo(worldInfo(37L, -64, 320));
 
-        assertThrows(IllegalStateException.class, () -> TerrainWorldRegistry.resolve(world, "some-plugin:generator"));
+        assertNull(TerrainWorldRegistry.resolve(world, null));
     }
 
-    @Test
-    void customTerrainDisableBlocksNewOptInButStillRestoresMarkedWorld() throws Exception {
-        Path world = this.directory.resolve("previously-marked-world");
+    private static void writeLegacyMarker(Path world) throws Exception {
         Files.createDirectories(world);
-        GPurTerrainGenerator generator = TerrainWorldRegistry.resolve(world, TerrainWorldRegistry.GENERATOR_ID);
-        generator.validateWorldInfo(worldInfo(37L, -64, 320));
-
-        boolean previous = GPurConfig.terrainCustomEnabled;
-        try {
-            GPurConfig.terrainCustomEnabled = false;
-            assertSame(generator, TerrainWorldRegistry.resolve(world, null));
-            assertThrows(IllegalStateException.class,
-                () -> TerrainWorldRegistry.resolve(this.directory.resolve("disabled-new-world"), TerrainWorldRegistry.GENERATOR_ID));
-        } finally {
-            GPurConfig.terrainCustomEnabled = previous;
-        }
+        Files.writeString(world.resolve(TerrainWorldRegistry.MARKER_FILENAME), LEGACY_MARKER);
     }
 
     private static WorldInfo worldInfo(long seed, int minHeight, int maxHeight) {

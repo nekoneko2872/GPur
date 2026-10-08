@@ -7,6 +7,18 @@ layout(std430, binding = 1) writeonly buffer Output { uint result[]; };
 
 double readDouble(uint offset) { return packDouble2x32(uvec2(data[offset], data[offset + 1])); }
 
+precise double preciseLerp(double alpha, double p0, double p1) {
+    precise double difference = p1 - p0;
+    precise double scaled = alpha * difference;
+    precise double resultValue = p0 + scaled;
+    return resultValue;
+}
+
+double interpolationCorner(uint interpolator, uint slice, uint z, uint y, uint zBoundaries, uint yBoundaries) {
+    uint doubleIndex = ((interpolator * 2u + slice) * zBoundaries + z) * yBoundaries + y;
+    return readDouble(6u + doubleIndex * 2u);
+}
+
 const int Q10 = 1024;
 
 uint terrainHash(int x, int y, int z, uint seedLow, uint seedHigh, int salt) {
@@ -173,6 +185,68 @@ void main() {
         hidden = hidden && data[center - 18u] == 0u && data[center + 18u] == 0u;
         hidden = hidden && data[center - 324u] == 0u && data[center + 324u] == 0u;
         result[i] = hidden ? 1u : 0u;
+    } else if (data[0] == 4u) {
+        // The CPU has already evaluated the vanilla DensityFunction graph at
+        // both X boundaries. One invocation computes one exact interpolation
+        // result; mode 0 follows updateForY/X/Z and mode 1 follows Mth.lerp3.
+        uint cellWidth = data[2];
+        uint cellHeight = data[3];
+        uint cellCountY = data[4];
+        uint interpolatorCount = data[5];
+        uint totalHeight = cellHeight * cellCountY;
+        uint cellCountZ = 16u / cellWidth;
+
+        uint zAcross16 = i % 16u;
+        uint remainder = i / 16u;
+        uint localX = remainder % cellWidth;
+        remainder /= cellWidth;
+        uint yAscending = remainder % totalHeight;
+        remainder /= totalHeight;
+        uint mode = remainder % 2u;
+        uint interpolator = remainder / 2u;
+        if (interpolator >= interpolatorCount) return;
+
+        uint cellY = yAscending / cellHeight;
+        uint localY = yAscending % cellHeight;
+        uint cellZ = zAcross16 / cellWidth;
+        uint localZ = zAcross16 % cellWidth;
+        precise double alphaX = double(localX) / double(cellWidth);
+        precise double alphaY = double(localY) / double(cellHeight);
+        precise double alphaZ = double(localZ) / double(cellWidth);
+        uint zBoundaries = cellCountZ + 1u;
+        uint yBoundaries = cellCountY + 1u;
+
+        double n000 = interpolationCorner(interpolator, 0u, cellZ, cellY, zBoundaries, yBoundaries);
+        double n100 = interpolationCorner(interpolator, 1u, cellZ, cellY, zBoundaries, yBoundaries);
+        double n010 = interpolationCorner(interpolator, 0u, cellZ, cellY + 1u, zBoundaries, yBoundaries);
+        double n110 = interpolationCorner(interpolator, 1u, cellZ, cellY + 1u, zBoundaries, yBoundaries);
+        double n001 = interpolationCorner(interpolator, 0u, cellZ + 1u, cellY, zBoundaries, yBoundaries);
+        double n101 = interpolationCorner(interpolator, 1u, cellZ + 1u, cellY, zBoundaries, yBoundaries);
+        double n011 = interpolationCorner(interpolator, 0u, cellZ + 1u, cellY + 1u, zBoundaries, yBoundaries);
+        double n111 = interpolationCorner(interpolator, 1u, cellZ + 1u, cellY + 1u, zBoundaries, yBoundaries);
+        precise double interpolated;
+        if (mode == 0u) {
+            // NoiseInterpolator.updateForY -> updateForX -> updateForZ.
+            precise double valueXZ00 = preciseLerp(alphaY, n000, n010);
+            precise double valueXZ10 = preciseLerp(alphaY, n100, n110);
+            precise double valueXZ01 = preciseLerp(alphaY, n001, n011);
+            precise double valueXZ11 = preciseLerp(alphaY, n101, n111);
+            precise double valueZ0 = preciseLerp(alphaX, valueXZ00, valueXZ10);
+            precise double valueZ1 = preciseLerp(alphaX, valueXZ01, valueXZ11);
+            interpolated = preciseLerp(alphaZ, valueZ0, valueZ1);
+        } else {
+            // Mth.lerp3 is lerp(Z, lerp2(X,Y, first 4), lerp2(X,Y, last 4)).
+            precise double x000 = preciseLerp(alphaX, n000, n100);
+            precise double x010 = preciseLerp(alphaX, n010, n110);
+            precise double x001 = preciseLerp(alphaX, n001, n101);
+            precise double x011 = preciseLerp(alphaX, n011, n111);
+            precise double y00 = preciseLerp(alphaY, x000, x010);
+            precise double y01 = preciseLerp(alphaY, x001, x011);
+            interpolated = preciseLerp(alphaZ, y00, y01);
+        }
+        uvec2 bits = unpackDouble2x32(interpolated);
+        result[2u * i] = bits.x;
+        result[2u * i + 1u] = bits.y;
     } else if (data[0] == 3u) {
         // One invocation owns one (chunk, localX, localZ) column. The CPU rules
         // use the same Q10 interpolation, unsigned hash and loop ordering.

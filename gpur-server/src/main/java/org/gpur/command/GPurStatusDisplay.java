@@ -28,6 +28,11 @@ final class GPurStatusDisplay {
     }
 
     static List<Component> render(StatusSnapshot snapshot, Options options, boolean detail, TerrainOverview terrain) {
+        return render(snapshot, options, detail, terrain, null);
+    }
+
+    static List<Component> render(StatusSnapshot snapshot, Options options, boolean detail, TerrainOverview terrain,
+                                  org.gpur.compute.ComputeService.VanillaStatus vanilla) {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.text("GPur 26.2 | Compute status", NamedTextColor.AQUA).decorate(TextDecoration.BOLD));
         List<DeviceWorkloadStatus> devices = snapshot == null ? List.of() : snapshot.workloads().stream()
@@ -49,7 +54,7 @@ final class GPurStatusDisplay {
                 .hoverEvent(Component.text("Performance cooldown is bypassed. Capacity limits and result validation still apply.")));
         }
         if (snapshot != null) {
-            lines.add(row("GPU results: ", count(snapshot.gpuResults()) + " | CPU fallbacks: " + count(snapshot.cpuFallbacks()), NamedTextColor.WHITE)
+            lines.add(row("GPU query results: ", count(snapshot.gpuResults()) + " | query CPU fallbacks: " + count(snapshot.cpuFallbacks()), NamedTextColor.WHITE)
                 .hoverEvent(Component.text("Totals since start/reload. Results are accepted GPU batches, not players, packets, or ticks. CPU fallbacks count submitted compute attempts only; earlier CPU paths are excluded.")));
         }
         int index = 0;
@@ -65,20 +70,22 @@ final class GPurStatusDisplay {
                 lines.add(workloadRow(snapshot, options, workload));
                 if (detail) addWorkloadDetails(lines, workload);
             }
-            if (terrain != null) {
-                for (TerrainDeviceStatus workload : terrain.devices()) {
+            if (vanilla != null) {
+                for (var workload : vanilla.devices()) {
                     if (!workload.uuid().equals(device.uuid())) continue;
-                    String terrainState = !terrain.scheduler().enabled() || terrain.scheduler().stopped() || !workload.available()
-                        ? "CPU fallback" : terrain.worlds() == 0 ? "Waiting for a custom world" : "GPU enabled";
-                    lines.add(row("  Custom terrain: ", terrainState, workload.available() && terrain.scheduler().enabled()
-                        ? NamedTextColor.GREEN : NamedTextColor.GRAY)
-                        .append(Component.text(" | " + count(workload.gpuChunks()) + " chunks", NamedTextColor.GRAY))
-                        .hoverEvent(Component.text("Accepted custom-terrain dispatches, including chunks whose callers may have timed out.\n"
-                            + "Maximum batch: " + workload.batchSize() + " | batches: " + workload.batches()
-                            + "\nVanilla terrain, decoration, structures, lighting, and saving remain on CPU.")));
+                    String stateText = !vanilla.enabled() ? "CPU (disabled in config)"
+                        : !device.available() || snapshot.stopped() ? "CPU (GPU unavailable)"
+                        : workload.slabs() == 0 ? "Ready (no slabs yet)" : "GPU enabled";
+                    lines.add(row("  Vanilla interpolation: ", stateText,
+                        vanilla.enabled() && device.available() ? NamedTextColor.GREEN : NamedTextColor.GRAY)
+                        .append(Component.text(" | " + count(workload.slabs()) + " slabs", NamedTextColor.GRAY))
+                        .hoverEvent(Component.text("Exact interpolation of vanilla CPU-sampled density corners. Existing worlds use their original generator.\n"
+                            + "Density noise, biomes, surfaces, carvers, aquifers, structures, and saving remain CPU.\n"
+                            + "A slab is one X cell width, not a complete chunk.")));
                     if (detail) {
-                        lines.add(row("    Terrain batch / parity samples: ", workload.batchSize() + " / " + count(workload.paritySamples()), NamedTextColor.WHITE));
-                        lines.add(row("    Terrain dispatch avg / max: ", millis(workload.averageDispatchNanos()) + " / "
+                        lines.add(row("    Values / full parity checks: ", count(workload.values()) + " / "
+                            + count(workload.paritySamples()), NamedTextColor.WHITE));
+                        lines.add(row("    Interpolation dispatch avg / max: ", millis(workload.averageDispatchNanos()) + " / "
                             + millis(workload.maxDispatchNanos()) + " ms", NamedTextColor.WHITE));
                     }
                 }
@@ -87,20 +94,19 @@ final class GPurStatusDisplay {
         }
         lines.add(Component.empty());
         lines.add(row("CPU: ", "Mob AI, redstone, plugins", NamedTextColor.GRAY));
-        lines.add(row("Terrain: ", terrain == null || terrain.worlds() == 0 ? "CPU (original generator)"
-            : terrain.worlds() + " custom world(s) | other worlds: CPU", NamedTextColor.GRAY));
-        if (terrain != null) {
-            TerrainScheduler.Status stats = terrain.scheduler();
-            lines.add(row("Custom terrain returned: ", "GPU " + count(stats.gpuChunks()) + " | CPU " + count(stats.cpuChunks())
-                + " | queued " + stats.queued(), NamedTextColor.WHITE)
-                .hoverEvent(Component.text("Base palettes returned to generator callbacks since reload; not final decorated/saved chunks."
-                    + "\nPrimary-thread generation is CPU-only and excluded. GPU work requires a selected gpur:terrain-v1 world.")));
-            if (detail) {
-                for (TerrainScheduler.Fallback reason : TerrainScheduler.Fallback.values()) {
-                    lines.add(row("  Terrain CPU " + reason.name().toLowerCase(Locale.ROOT).replace('_', ' ') + ": ",
-                        count(stats.fallbacks().getOrDefault(reason, 0L)), NamedTextColor.GRAY));
-                }
-            }
+        lines.add(row("Terrain: ", "Original world generator | vanilla rules preserved", NamedTextColor.GRAY));
+        if (vanilla != null) {
+            lines.add(row("Vanilla interpolation CPU attempts: ", count(vanilla.cpuFallbacks())
+                + " | parity failures: " + count(vanilla.parityFailures()), NamedTextColor.WHITE)
+                .hoverEvent(Component.text("Submitted or bounded interpolation attempts that retained vanilla CPU math. Not all CPU terrain work.")));
+            lines.add(row("Vanilla CPU parity: ", vanilla.verifyEveryBatch() ? "Every returned GPU slab (strict)"
+                : "First and periodic slabs", vanilla.verifyEveryBatch() ? NamedTextColor.GREEN : NamedTextColor.YELLOW)
+                .hoverEvent(Component.text("Strict mode computes all reference values on CPU before accepting a GPU slab. It adds CPU work and does not establish speedup.")));
+        }
+        if (terrain != null && terrain.worlds() > 0) {
+            lines.add(row("Legacy custom terrain: ", terrain.worlds() + " world(s) | CPU only (retired generator)", NamedTextColor.YELLOW)
+                .hoverEvent(Component.text("These saved worlds keep their previous custom rules to avoid terrain seams.\n"
+                    + "Removing the marker does not convert their saved chunks to vanilla. New opt-ins are rejected.")));
         }
         lines.add(row("Preload: ", options.preloadingEnabled()
             ? "CPU priority | extra radius: " + options.extraLoadRadius() : "Disabled", NamedTextColor.GRAY)

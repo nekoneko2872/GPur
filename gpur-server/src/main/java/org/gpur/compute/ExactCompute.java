@@ -37,18 +37,24 @@ public final class ExactCompute {
             org.gpur.terrain.TerrainRules.validate(input);
             return;
         }
+        if (input[0] == VanillaTerrainInterpolation.WORKLOAD) {
+            VanillaTerrainInterpolation.validate(input);
+            return;
+        }
         throw new IllegalArgumentException("Invalid GPur workload dimensions");
     }
 
     public static int outputWords(int[] input) {
         validate(input);
         if (input[0] == 3) return org.gpur.terrain.TerrainRules.outputWords(input);
+        if (input[0] == VanillaTerrainInterpolation.WORKLOAD) return VanillaTerrainInterpolation.outputWords(input);
         return Math.multiplyExact(input[1], input[0] == 1 ? 2 : 1);
     }
 
     public static int[] reference(int[] input) {
         validate(input);
         if (input[0] == 3) return org.gpur.terrain.TerrainRules.reference(input);
+        if (input[0] == VanillaTerrainInterpolation.WORKLOAD) return VanillaTerrainInterpolation.reference(input);
         if (input.length < 2 || input[1] < 0) throw new IllegalArgumentException("Invalid compute header");
         int count = input[1];
         if (input[0] == 1) {

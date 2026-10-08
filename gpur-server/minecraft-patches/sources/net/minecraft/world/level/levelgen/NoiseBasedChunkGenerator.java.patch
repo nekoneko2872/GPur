@@ -1,0 +1,16 @@
+--- a/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
++++ b/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
+@@ -371,9 +_,13 @@
+                 sections.add(section);
+             }
+ 
++            NoiseChunk gpurNoiseChunk = null;
+             try {
++                gpurNoiseChunk = centerChunk.getOrCreateNoiseChunk(chunk -> this.createNoiseChunk(chunk, structureManager, blender, randomState));
++                gpurNoiseChunk.gpurEnableVanillaInterpolation();
+                 return this.doFill(blender, structureManager, randomState, centerChunk, cellYMin, cellCountY);
+             } finally {
++                if (gpurNoiseChunk != null) gpurNoiseChunk.gpurClearVanillaInterpolation();
+                 for (LevelChunkSection section : sections) {
+                     section.release();
+                 }

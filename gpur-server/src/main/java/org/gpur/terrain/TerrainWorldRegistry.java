@@ -1,23 +1,18 @@
 package org.gpur.terrain;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 import org.bukkit.World;
 import org.bukkit.generator.WorldInfo;
-import org.gpur.GPurConfig;
 
-/** Resolves explicit custom-terrain opt-ins and restores worlds marked for GPur terrain. */
+/** Restores legacy GPur terrain worlds and rejects new opt-ins. */
 public final class TerrainWorldRegistry {
     public static final String GENERATOR_ID = "gpur:terrain-v1";
     public static final String MARKER_FILENAME = "gpur-terrain.properties";
@@ -25,14 +20,17 @@ public final class TerrainWorldRegistry {
     private static final int TERRAIN_VERSION = TerrainRules.VERSION;
     private static final Set<String> MARKER_KEYS = Set.of("schema", "version", "seed", "min-y", "height", "sea-level");
     private static final ConcurrentHashMap<Path, GPurTerrainGenerator> GENERATORS = new ConcurrentHashMap<>();
+    private static final Set<Path> LEGACY_RESTORE_WARNINGS = ConcurrentHashMap.newKeySet();
+    private static final Logger LOGGER = Logger.getLogger("GPur");
 
     private TerrainWorldRegistry() {}
 
     /**
-     * Resolve a world when it explicitly selects GPur terrain or when its persistent marker
-     * proves that it was already generated with GPur terrain.
+     * Restore a world when its persistent marker proves that it was already generated with
+     * GPur terrain. New GPur terrain opt-ins are retired; unmarked worlds use vanilla terrain
+     * unless their operator selects another supported generator.
      *
-     * @return the generator for the world, or {@code null} when the world is not opted in
+     * @return the legacy generator for a marked world, or {@code null} for an unmarked vanilla world
      */
     public static GPurTerrainGenerator resolve(Path worldDirectory, String configuredGenerator) {
         Path directory = worldDirectory.toAbsolutePath().normalize();
@@ -47,52 +45,34 @@ public final class TerrainWorldRegistry {
             if (configuredGenerator != null && !GENERATOR_ID.equals(configuredGenerator)) {
                 throw new IllegalStateException("World " + directory + " is marked for GPur terrain v1, but its configured generator was changed to '" + configuredGenerator + "'. Remove the conflicting generator setting or restore " + GENERATOR_ID + ".");
             }
-            return GENERATORS.computeIfAbsent(directory, ignored -> new GPurTerrainGenerator(directory, spec));
+            GPurTerrainGenerator generator = GENERATORS.computeIfAbsent(directory, ignored -> new GPurTerrainGenerator(directory, spec));
+            if (LEGACY_RESTORE_WARNINGS.add(directory)) {
+                LOGGER.warning("Restoring legacy GPur terrain v1 for marked world " + directory
+                    + " to keep future chunks consistent with its existing terrain. New gpur:terrain-v1 opt-ins are retired.");
+            }
+            return generator;
         }
 
         if (!GENERATOR_ID.equals(configuredGenerator)) {
             return null;
         }
-        if (!GPurConfig.terrainCustomEnabled) {
-            throw new IllegalStateException("Cannot opt in new world " + directory + " to " + GENERATOR_ID
-                + " because chunk-generation.custom-terrain.enabled is false.");
-        }
-        if (containsExistingChunks(directory)) {
-            throw new IllegalStateException("Cannot enable " + GENERATOR_ID + " for populated world " + directory + "; existing chunk data was found. Create a new empty world to use GPur terrain.");
-        }
-        return GENERATORS.computeIfAbsent(directory, ignored -> new GPurTerrainGenerator(directory, null));
+        throw new IllegalStateException("The new-world generator opt-in '" + GENERATOR_ID + "' is retired. Remove this generator entry to use the original vanilla terrain generator, or restore the original vanilla world's name in server.properties. To use a new vanilla world, choose a new world name without a custom generator. Existing world directories are left untouched.");
     }
 
     static TerrainWorldSpec validateOrCreate(Path worldDirectory, TerrainWorldSpec requested) {
         Path marker = worldDirectory.resolve(MARKER_FILENAME);
-        synchronized (GENERATORS.computeIfAbsent(worldDirectory, ignored -> new GPurTerrainGenerator(worldDirectory, null))) {
-            if (Files.exists(marker)) {
-                TerrainWorldSpec stored = readMarker(marker);
-                stored.requireMatches(requested, worldDirectory);
-                return stored;
-            }
-            if (containsExistingChunks(worldDirectory)) {
-                throw new IllegalStateException("Cannot initialize " + GENERATOR_ID + " for populated world " + worldDirectory + "; existing chunk data was found.");
-            }
-            writeMarkerAtomically(marker, requested);
-            return requested;
+        GPurTerrainGenerator generator = GENERATORS.get(worldDirectory);
+        if (generator == null) {
+            throw new IllegalStateException("Cannot initialize retired GPur terrain for unregistered world " + worldDirectory);
         }
-    }
-
-    private static boolean containsExistingChunks(Path worldDirectory) {
-        if (!Files.isDirectory(worldDirectory)) {
-            return false;
-        }
-        try (var files = Files.walk(worldDirectory)) {
-            return files.anyMatch(path -> {
-                if (!Files.isRegularFile(path)) {
-                    return false;
-                }
-                String name = path.getFileName().toString();
-                return name.endsWith(".mca") || name.endsWith(".mcc");
-            });
-        } catch (IOException exception) {
-            throw new IllegalStateException("Could not inspect world data before enabling " + GENERATOR_ID + " in " + worldDirectory, exception);
+        synchronized (generator) {
+            if (!Files.isRegularFile(marker)) {
+                throw new IllegalStateException("Cannot initialize GPur terrain v1 for " + worldDirectory
+                    + " because its legacy marker is missing; refusing to create terrain that could be mixed with vanilla chunks.");
+            }
+            TerrainWorldSpec stored = readMarker(marker);
+            stored.requireMatches(requested, worldDirectory);
+            return stored;
         }
     }
 
@@ -153,37 +133,6 @@ public final class TerrainWorldRegistry {
         }
     }
 
-    private static void writeMarkerAtomically(Path marker, TerrainWorldSpec spec) {
-        try {
-            Files.createDirectories(marker.getParent());
-            String contents = "schema=" + MARKER_SCHEMA + "\n"
-                + "version=" + TERRAIN_VERSION + "\n"
-                + "seed=" + spec.seed() + "\n"
-                + "min-y=" + spec.minY() + "\n"
-                + "height=" + spec.height() + "\n"
-                + "sea-level=" + spec.seaLevel() + "\n";
-            Path temporary = Files.createTempFile(marker.getParent(), MARKER_FILENAME + ".", ".tmp");
-            try {
-                byte[] bytes = contents.getBytes(StandardCharsets.UTF_8);
-                try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-                    ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                    while (buffer.hasRemaining()) {
-                        channel.write(buffer);
-                    }
-                    channel.force(true);
-                }
-                try {
-                    Files.move(temporary, marker, StandardCopyOption.ATOMIC_MOVE);
-                } catch (AtomicMoveNotSupportedException exception) {
-                    throw new IllegalStateException("Filesystem does not support atomic GPur terrain marker writes in " + marker.getParent(), exception);
-                }
-            } finally {
-                Files.deleteIfExists(temporary);
-            }
-        } catch (IOException exception) {
-            throw new IllegalStateException("Could not atomically write GPur terrain marker " + marker, exception);
-        }
-    }
 
     static int seaLevelFor(WorldInfo worldInfo) {
         int minY = worldInfo.getMinHeight();

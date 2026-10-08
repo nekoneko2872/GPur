@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-08",
+  "minecraft": "26.2",
+  "gpur": "SNAPSHOT1.1.0",
+  "scope": "vanilla interpolation correction: source patches, CPU tests, CPU shader compilation, artifact build",
+  "commands": [
+    "./gradlew applyAllPatches",
+    "./gradlew :purpur-server:test :purpur-server:createPaperclipJar"
+  ],
+  "jdk": "OpenJDK 25.0.2",
+  "patches": "passed: 242 Minecraft and 43 Paper server file patches",
+  "build": "passed",
+  "tests": { "total": 9346, "failures": 0, "errors": 0, "skipped": 26 },
+  "vanilla_interpolation_codec_tests": 4,
+  "noise_chunk_integration": {
+    "tests": 1,
+    "fixtures": 2,
+    "coordinates": "negative and mixed-sign near-world-border",
+    "vertical_extent": 128,
+    "x_slabs_per_fixture": 2,
+    "checked": ["interpolator raw bits", "final density raw bits", "block states", "aquifer fluid-update flags", "slice swap and stop cleanup"],
+    "backend": "injected CPU-reference slabs; no GPU dispatch"
+  },
+  "generation_concurrency_tests": 4,
+  "world_registry_tests": 6,
+  "shader_compilation": "passed: shipped shader compiled to SPIR-V on CPU",
+  "defaults": { "vanilla_gpu_interpolation": false, "verify_every_batch": true, "elytra_throughput_boost": false },
+  "new_custom_generator_opt_ins": "rejected; existing marked legacy worlds retain their prior CPU rules",
+  "gpu_hardware_tests_run": false,
+  "live_server_load_tests_run": false,
+  "soak_tests_run": false,
+  "gpu_hardware_parity_established": false,
+  "performance_improvement_established": false,
+  "artifact": "gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.1.0.jar"
+}

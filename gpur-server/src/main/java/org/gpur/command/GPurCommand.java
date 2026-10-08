@@ -45,7 +45,8 @@ public final class GPurCommand extends Command {
             .filter(world -> world.getGenerator() instanceof org.gpur.terrain.GPurTerrainGenerator).count();
         GPurStatusDisplay.TerrainOverview terrainOverview = terrain == null || service == null ? null
             : new GPurStatusDisplay.TerrainOverview(terrainWorlds, terrain.status(), service.terrainDeviceStatuses());
-        GPurStatusDisplay.render(service == null ? null : service.statusSnapshot(), options, detail, terrainOverview).forEach(sender::sendMessage);
+        GPurStatusDisplay.render(service == null ? null : service.statusSnapshot(), options, detail, terrainOverview,
+            service == null ? null : service.vanillaTerrainStatus()).forEach(sender::sendMessage);
         return true;
     }
 

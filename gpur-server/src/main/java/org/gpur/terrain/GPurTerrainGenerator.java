@@ -2,13 +2,11 @@ package org.gpur.terrain;
 
 import java.nio.file.Path;
 import java.util.Random;
-import org.bukkit.Bukkit;
 import org.bukkit.HeightMap;
 import org.bukkit.Material;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.generator.WorldInfo;
-import org.gpur.GPurServices;
 
 /** Bukkit adapter for the versioned GPur terrain palette. */
 public final class GPurTerrainGenerator extends ChunkGenerator {
@@ -44,14 +42,8 @@ public final class GPurTerrainGenerator extends ChunkGenerator {
         }
 
         int[] input = TerrainRules.input(spec.seed(), spec.minY(), spec.height(), spec.seaLevel(), chunkX, chunkZ);
-        int[] palette;
-        TerrainScheduler scheduler = GPurServices.terrain();
-        if (scheduler != null && !Bukkit.isPrimaryThread()) {
-            palette = scheduler.generate(spec.seed(), spec.minY(), spec.height(), spec.seaLevel(), chunkX, chunkZ);
-        } else {
-            // The Bukkit callback can be invoked synchronously during world creation. Keep that path CPU-only.
-            palette = TerrainRules.reference(input);
-        }
+        // Retired custom worlds keep their original rules solely to avoid changing saved-world seams.
+        int[] palette = TerrainRules.reference(input);
         int expectedLength = spec.height() * 256;
         if (palette == null || palette.length != expectedLength) {
             throw new IllegalStateException("Terrain scheduler returned " + (palette == null ? "null" : palette.length)

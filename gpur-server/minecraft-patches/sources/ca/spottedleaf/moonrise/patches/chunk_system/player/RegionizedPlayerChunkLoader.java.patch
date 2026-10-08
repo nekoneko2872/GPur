@@ -145,6 +145,27 @@
          }
  
          private long getMaxChunkLoads() {
+@@ -615,13 +_,8 @@
+         private long getMaxChunkGenerates() {
+-            final long radiusChunks = (2L * this.lastLoadDistance + 1L) * (2L * this.lastLoadDistance + 1L);
+-            long configLimit = (long)PlatformHooks.get().configPlayerMaxConcurrentGens();
+-            if (configLimit == 0L) {
+-                // by default, only allow 1/5th of the chunks in the view distance to be concurrently active
+-                configLimit = Math.max(5L, radiusChunks / 5L);
+-            } else if (configLimit < 0L) {
+-                configLimit = Integer.MAX_VALUE;
+-            } // else: use the value configured
+-            configLimit = configLimit - this.generatingQueue.size();
+-
+-            return configLimit;
++            final long configLimit = (long)PlatformHooks.get().configPlayerMaxConcurrentGens();
++            final long effectiveLimit = org.gpur.preload.GPurGenerationConcurrency.effectiveLimit(configLimit,
++                this.lastLoadDistance, GPurConfig.elytraThroughputBoostEnabled, this.gpurProfile.active(),
++                GPurConfig.elytraConcurrentGeneratesMultiplier, GPurConfig.elytraMaxExtraConcurrentGenerates);
++            return effectiveLimit - this.generatingQueue.size();
+
+         }
+
 @@ -931,15 +_,20 @@
                      playerDistances.loadViewDistance, worldDistances.loadViewDistance
              );

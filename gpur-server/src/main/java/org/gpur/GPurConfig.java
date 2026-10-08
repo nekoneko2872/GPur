@@ -12,7 +12,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 public final class GPurConfig {
     private static final String HEADER = "This is the main configuration file for GPur.\n"
         + "GPur adds directional chunk preloading and experimental Vulkan-backed\n"
-        + "exact numeric compute and opt-in custom terrain on top of Purpur 26.2.\n"
+        + "exact numeric compute on top of Purpur 26.2. Existing marked legacy\n"
+        + "custom-terrain worlds are retained for consistency; new opt-ins are retired.\n"
         + "\n"
         + "If Vulkan initialization fails or no compatible GPU is present, GPur\n"
         + "will automatically continue in CPU mode.\n";
@@ -110,13 +111,20 @@ public final class GPurConfig {
     public static int playersGpuMinPlayers = 128;
 
     public static boolean gpuCacheEnabled = true;
-    public static boolean terrainCustomEnabled = true;
+    public static boolean terrainCustomEnabled = false;
     public static boolean terrainAutoTune = true;
     public static int terrainMaxBatchChunks = 8;
     public static int terrainQueueCapacity = 128;
     public static int terrainBatchWaitMillis = 2;
     public static int terrainRequestTimeoutMillis = 250;
     public static int terrainParityInterval = 128;
+    public static boolean vanillaTerrainEnabled = false;
+    public static boolean vanillaTerrainVerifyEveryBatch = true;
+    public static int vanillaTerrainMaxInterpolators = 16;
+    public static int vanillaTerrainMaxSlabValues = 1_048_576;
+    public static int vanillaTerrainMinValues = 1024;
+    public static int vanillaTerrainParityInterval = 128;
+    public static int elytraMaxExtraConcurrentGenerates = 8;
 
     private GPurConfig() {
     }
@@ -153,6 +161,7 @@ public final class GPurConfig {
         playersGpuMinPlayers = clamp(getInt("gpu-offload.players.min-players", 128), 1, 16384, "gpu-offload.players.min-players");
         readGpuAcceleration();
         readCustomTerrain();
+        readVanillaTerrain();
         readPreloading();
         preloadMaxExtraDistance = clamp(getInt("chunk-generation.preloading.max-extra-distance", 0), 0, 16, "chunk-generation.preloading.max-extra-distance");
         readGpuOffload();
@@ -243,7 +252,7 @@ public final class GPurConfig {
 
     private static void readCustomTerrain() {
         gpuCacheEnabled = getBoolean("gpu.cache.enabled", true);
-        terrainCustomEnabled = getBoolean("chunk-generation.custom-terrain.enabled", true);
+        terrainCustomEnabled = getBoolean("chunk-generation.custom-terrain.enabled", false);
         terrainAutoTune = getBoolean("chunk-generation.custom-terrain.auto-tune", true);
         terrainMaxBatchChunks = clamp(getInt("chunk-generation.custom-terrain.max-batch-chunks", 8), 1, 8,
             "chunk-generation.custom-terrain.max-batch-chunks");
@@ -261,6 +270,19 @@ public final class GPurConfig {
         java.nio.file.Path parent = (configFile == null ? new File("gpur.yml") : configFile)
             .toPath().toAbsolutePath().normalize().getParent();
         return parent.resolve("cache").resolve("gpur-gpu");
+    }
+
+    private static void readVanillaTerrain() {
+        vanillaTerrainEnabled = getBoolean("chunk-generation.vanilla-terrain.enabled", false);
+        vanillaTerrainVerifyEveryBatch = getBoolean("chunk-generation.vanilla-terrain.verify-every-batch", true);
+        vanillaTerrainMaxInterpolators = clamp(getInt("chunk-generation.vanilla-terrain.max-interpolators", 16),
+            1, 16, "chunk-generation.vanilla-terrain.max-interpolators");
+        vanillaTerrainMaxSlabValues = clamp(getInt("chunk-generation.vanilla-terrain.max-slab-values", 1_048_576),
+            1024, 1_048_576, "chunk-generation.vanilla-terrain.max-slab-values");
+        vanillaTerrainMinValues = clamp(getInt("chunk-generation.vanilla-terrain.minimum-values", 1024),
+            1, vanillaTerrainMaxSlabValues, "chunk-generation.vanilla-terrain.minimum-values");
+        vanillaTerrainParityInterval = clamp(getInt("chunk-generation.vanilla-terrain.parity-interval", 128),
+            1, 4096, "chunk-generation.vanilla-terrain.parity-interval");
     }
 
     private static void readPreloading() {
@@ -337,6 +359,9 @@ public final class GPurConfig {
             "chunk-generation.preloading.send-burst.extra-chunks"
         );
         elytraThroughputBoostEnabled = getBoolean("chunk-generation.preloading.elytra-throughput-boost.enabled", false);
+        elytraMaxExtraConcurrentGenerates = clamp(
+            getInt("chunk-generation.preloading.elytra-throughput-boost.max-extra-concurrent-generates", 8),
+            0, 64, "chunk-generation.preloading.elytra-throughput-boost.max-extra-concurrent-generates");
         elytraBoostStartSpeed = clamp(
             getDouble("chunk-generation.preloading.elytra-throughput-boost.start-speed", 18.0D),
             0.0D,

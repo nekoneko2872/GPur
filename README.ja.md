@@ -13,7 +13,8 @@ Paper/Purpurプラグインは通常のサーバースレッド上で動作し�
 | 移行・実装範囲 | [日本語](docs/26.2-migration.md) | [English](docs/26.2-migration.en.md) |
 | 実機・負荷検証 | [日本語](docs/26.2-validation.md) | [English](docs/26.2-validation.en.md) |
 | 状態表示・エリトラ先読みの更新 | [日本語](docs/26.2-runtime-updates.md) | [English](docs/26.2-runtime-updates.en.md) |
-| 明示選択式のカスタム地形 | [日本語](docs/26.2-custom-terrain.md) | [English](docs/26.2-custom-terrain.en.md) |
+| バニラ地形ノイズ補間 | [日本語](docs/26.2-vanilla-terrain.md) | [English](docs/26.2-vanilla-terrain.en.md) |
+| 廃止したカスタム地形設計の記録 | [日本語](docs/26.2-custom-terrain.md) | [English](docs/26.2-custom-terrain.en.md) |
 
 ## ビルド
 
@@ -45,52 +46,58 @@ gpu:
 
 `force`は診断用に速度によるCPU優先を解除しますが、同一結果の検査や安全上の制限は解除しません。通常はディスパッチと読み戻しの時間を測定し、GPU計算が遅い場合は一時的にCPUを優先します。実行コンテキストの占有率は、GPUハードウェアの使用率を表すものではありません。
 
-## 明示選択式のカスタム地形
+## バニラ地形ノイズ補間
 
-1.1.0では、新しく作るオーバーワールドに対して、ワールドごとに明示選択するバージョン付き地形生成を追加しました。指定しない既存ワールドと新規ワールドの既定値は、従来どおりCPU上のバニラ生成です。`bukkit.yml`の`worlds`設定は、指定した名前のワールドへgeneratorを割り当てるだけで、ワールドの作成や既存チャンクの変換はしません。現在のメインワールドはCPU上のバニラ地形のままで、generatorの設定を追加するだけでは変換されません。既存のワールドディレクトリは残し、未使用の新しいワールド名を選んでください。
+GPur 1.1.0には、既存のバニラ地形生成器で行うノイズ密度補間だけを対象にした、範囲を制限した実験的Vulkan経路があります。初期値は無効です。`bukkit.yml`のgenerator設定や新しいワールドは不要です。既存・新規のバニラワールドは同じバニラ生成器とワールドデータ仕様を維持し、保存済みチャンク、シード、データパック、保存形式を置き換えません。
 
-新しいワールドをサーバーのメインワールドにするには、`server.properties`で未使用の名前を指定します。
+CPUが密度グラフを組み立て、実際の角の密度値を計算します。GPUはFP64とCPUと同じ演算順序で、範囲を制限したスラブ内の値を補間します。既定の厳密検証では、各GPUバッチをそのスラブ全体のCPU参照結果と比較します。チャンク全体をGPUで生成するわけではありません。密度・ノイズグラフ、乱数生成、ブレンディング、アクアファイア、地表ルール、洞窟、バイオーム、構造物、ブロック配置、ライティング、直列化、保存はCPU処理です。
 
-```properties
-level-name=gpur_world
-```
-
-次にサーバー起動前に`bukkit.yml`で同じ名前のgeneratorを指定します。
+この経路には`chunk-generation.vanilla-terrain.enabled: true`に加え、`chunk-generation.gpu-acceleration.enabled: true`と`chunk-generation.gpu-acceleration.terrain-enabled: true`が必要です。既定値は次のとおりです。
 
 ```yaml
-worlds:
-  gpur_world:
-    generator: gpur:terrain-v1
-```
-
-または、通常のワールド管理プラグインで、新しいNORMALワールドを作成するときに`gpur:terrain-v1`を選択してください。
-
-新しいワールドでこの方式を選ぶには、`chunk-generation.custom-terrain.enabled: true`も必要です。この設定だけではワールドは切り替わりません。一度GPur地形のマーカーが作られたワールドは、後から`bukkit.yml`のgenerator指定を削除しても同じカスタム生成器で読み込みます。`gpur-terrain.properties`には地形ルールのバージョン、シード、最小Y、高さ、海面を記録し、チャンク生成前に原子的に保存します。これらはワールドごとに固定です。GPU計算を止めたりシードを再生成したりするためにマーカーを削除・編集しないでください。GPUが無効・未対応・利用不可の場合も、同じカスタム地形ルールでCPUへ退避します。既存チャンクがあるワールドへの初回適用は拒否します。対応対象はNORMAL環境のみで、ネザーとエンドは従来のCPU生成を維持します。
-
-ワールドの明示選択、カスタム地形設定、GPUの利用可否は別々の条件です。GPU計算には全体のGPUアクセラレーションと、旧設定名の`chunk-generation.gpu-acceleration.terrain-enabled`も必要です。この旧キーは明示選択されたカスタム地形のGPU計算だけを制御し、バニラ地形をGPUへ移すものではありません。GPUは既存の`gpu.multi-gpu.devices`でUUIDまたは正確な名前を指定します。GTX 1080だけを選ぶ例です。
-
-```yaml
-gpu:
-  multi-gpu:
+chunk-generation:
+  vanilla-terrain:
     enabled: false
-    devices: [NVIDIA GeForce GTX 1080]
+    verify-every-batch: true
+    max-interpolators: 16
+    max-slab-values: 1048576
+    minimum-values: 1024
+    parity-interval: 128
 ```
 
-GPUは選択したワールドの地形パレットを計算し、Bukkitのgeneratorコールバック上でCPUがチャンクデータへ反映します。バイオーム参照と基準高度の問い合わせ、バニラの構造物・装飾（鉱石を含む）、ライティング、チャンクの直列化・保存、Mob AI、レッドストーン、プラグインコールバック、ワールド更新はCPU処理です。保存処理は既存のPaper/Minecraftの経路を使い、この変更による保存性能の向上は主張しません。Bukkit標準のgeneratorとbiome provider APIを使いますが、すべてのプラグインとの互換性を保証するものではありません。
+GPUごとに使用するデバイスは既存の`gpu.multi-gpu.devices`で名前またはUUIDを指定します。厳密モードでは各バッチをCPU結果と照合します。`parity-interval`は`verify-every-batch: false`の場合だけ使います。1,024値未満のスラブはCPUで処理します。この新しい経路は実機・性能検証されていないため、制御された診断以外では厳密検証を無効にせず、`gpu.force: true`も高速化目的で設定しないでください。GPUを指定しただけでは地形処理がGPUに投入されたことを意味しません。
 
-`gpu.cache.enabled: true`では、GPUごとの既存パイプラインキャッシュと地形バッチ設定を保存します。自動調整はGPUごとに最大8チャンクの範囲でバッチを選び、キャッシュがない場合は最大16回の範囲を絞った調整ディスパッチとCPU/GPU同一結果検査を行います。実際の地形ディスパッチも定期的に照合し、間隔は`chunk-generation.custom-terrain.parity-interval`で調整できます。キャッシュはGPU・ドライバー・シェーダー・地形ルールのバージョンが一致しない場合に再利用しません。AI学習モデルは使用しません。状態表示ではGPUごとの地形チャンク数、退避理由、選択バッチサイズを確認できます。地形生成の要求は明示選択したワールドで新規チャンクを作るときだけなので、GPU使用率が低くても正常です。
+先読みは別のCPU負荷設定です。`chunk-generation.preloading.max-extra-distance`の初期値は`0`で、`2`にすると先読み範囲が広がり、チャンク読み込み・生成・送信のCPU負荷が増える場合があります。GPU補間を有効にする設定ではありません。詳細は[バニラ地形ノイズ補間ガイド](docs/26.2-vanilla-terrain.md)を参照してください。
 
-この文書は実装されたコードの説明であり、新たな実機試験やサーバー全体の性能検証を示すものではありません。1.0.0の実機・負荷記録は、記録されたビルドと負荷条件に対する過去の測定として有効です。1.1.0のカスタム地形経路を測定した記録ではなく、この機能の高速化や対応ハードウェアを認定するものでもありません。
+マーカーのないワールドに`gpur:terrain-v1`を新しく設定する方式は廃止され、起動時に理由を示して失敗します。バニラ地形に戻すには、そのgenerator設定を削除するか、`server.properties`の`level-name`を読み込みたい既存のバニラワールド名に戻します。たとえば、既存ディレクトリ名が`gpur`なら`level-name=gpur`を指定し、`bukkit.yml`に`worlds.gpur.generator`があればその設定を削除します。ワールドディレクトリやマーカーファイルは削除しないでください。`gpur-terrain.properties`があるワールドは、GPU設定が無効でも従来のカスタムCPUルールで生成を続けます。マーカーを削除・編集してワールドを変換しないでください。詳細は[廃止したカスタム地形の設計記録](docs/26.2-custom-terrain.md)を参照してください。
+
+旧設定`chunk-generation.custom-terrain.enabled`は、ワールドを選択せず、バニラ補間経路も有効にしません。範囲を制限したバニラ経路には`chunk-generation.vanilla-terrain.enabled`を使用します。
+
+1.1.0の起動用JARは`gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.1.0.jar`です。過去の1.0.0実機・負荷測定は当時のビルドと負荷条件について引き続き有効ですが、新しい補間経路の検証ではありません。新たな性能向上や対応ハードウェアは主張していません。
 
 ## 動作状況の確認
 
-`/gpur`または`/gpur status`は、GPUごとに項目をまとめた色付きの概要を表示します。プレイヤー距離計算とAnti-Xrayを名前で区別し、結果未記録・GPU有効・再試行までのCPU退避時間・停止・設定無効を示します。明示選択されたカスタム地形では、GPUごとの受理済みディスパッチに含まれるチャンク数、CPU退避理由、選択されたバッチサイズを表示します。全体の`Custom terrain returned`は、地形スケジューラが呼び出し元へ返したパレット数をGPU/CPU別に数えます。GPUごとの受理済みディスパッチ数には、呼び出し元がタイムアウトしてCPUパレットを受け取ったチャンクが含まれる場合があります。プライマリスレッドのCPU生成はスケジューラを通らず、集計に含まれません。先読み範囲の追加と飛行時の速度倍率も別に表示します。行にマウスを重ねると意味を確認できます。`/gpur status detail`では、ミリ秒単位の処理時間、CPU参照の照合回数、CPU退避履歴、UUID、GPU受付見送り回数を表示します。どちらも`gpur.command`権限が必要です（既定ではOP）。
+`/gpur`または`/gpur status`は、GPUごとに項目をまとめた色付きの概要を表示します。プレイヤー距離計算とAnti-Xrayを名前で区別し、結果未記録・GPU有効・再試行までのCPU退避時間・停止・設定無効を示します。GPU結果カウンターは採用済みの計算バッチ数であり、完成チャンク数・プレイヤー数・tick数・GPUハードウェア使用率ではありません。先読み範囲と飛行時の速度倍率も別に表示します。行にマウスを重ねると意味を確認できます。`/gpur status detail`では、ミリ秒単位の処理時間、CPU参照の照合回数、CPU退避履歴、UUID、GPU受付見送り回数を表示します。どちらも`gpur.command`権限が必要です（既定ではOP）。
 
 GPUが使用可能でも、処理中とは限りません。結果の件数は起動・再読み込み以降に採用したGPU計算バッチ数であり、プレイヤー数・tick数・適用済みパケット数ではありません。処理中の件数は実行枠の占有数で、GPU使用率ではありません。CPUへの切り替え・GPU受付見送りの件数も、CPUで行ったすべての計算を数えるものではありません。`/gpur reload`で件数をリセットし、デバイスを再検査します。
 
 ## エリトラの先読み
 
-新規設定では、Paperの既存のチャンク範囲内で飛行方向を優先します。`chunk-generation.preloading.max-extra-distance`の初期値は`0`、`chunk-generation.preloading.elytra-throughput-boost.enabled`は`false`です。既存の明示的な設定値は保持します。旧設定の追加範囲`3`・速度倍率有効を使用している場合は、tickの安定を優先するなら`0`・`false`へ変更してください。追加範囲は全方向のチャンク処理を増やし、速度倍率はCPUの読み込み・生成・送信量を増やします。先読み設定はGPU地形の対象ワールドを選びません。詳しくは[カスタム地形の説明](docs/26.2-custom-terrain.md)を参照してください。
+新規設定では、Paperの既存のチャンク範囲内で飛行方向を優先します。`chunk-generation.preloading.max-extra-distance`の初期値は`0`、`chunk-generation.preloading.elytra-throughput-boost.enabled`は`false`です。既存の明示的な設定値は保持します。旧設定の追加範囲`3`・速度倍率有効を使用している場合は、tickの安定を優先するなら`0`・`false`へ変更してください。追加範囲は全方向のチャンク処理を増やし、速度倍率はCPUの読み込み・生成・送信量を増やします。先読み設定はGPU地形補間を有効にしません。詳しくは[バニラ地形ノイズ補間ガイド](docs/26.2-vanilla-terrain.md)を参照してください。
+
+高性能サーバーでは、実際のエリトラ飛行中に生成並列数を増やす設定を任意で有効にできます。
+
+```yaml
+chunk-generation:
+  preloading:
+    max-extra-distance: 2
+    elytra-throughput-boost:
+      enabled: true
+      max-extra-concurrent-generates: 8
+      concurrent-generates-multiplier: 2.0
+```
+
+並列数の上限は初期値`8`（`0..64`）で、生成要求レートの倍率とは別です。CPU上の生成並列数を増やす設定です。対象チャンクは別の`max-extra-distance`設定以外では変わらず、TPSの保証やGPU地形設定の変更にはなりません。並列数の計算式とPaperの上限値の扱いは[バニラ地形ノイズ補間ガイド](docs/26.2-vanilla-terrain.md)を参照してください。
 
 方向による優先度はキューの再構築までキャッシュし、キュー内の優先順位に影響しない速度変化では再構築しません。方向先読みが動作していないときはPaperの元の比較処理を使います。先読みの追加負荷を減らす変更であり、新規地形の生成中に常時20 TPSを保証するものではありません。
 
@@ -98,7 +105,7 @@ GPUが使用可能でも、処理中とは限りません。結果の件数は�
 
 - 距離計算はFP64を使用し、Javaの演算順序を維持します。積和の融合は使用せず、各デバイスが起動時の同一結果検査を通過する必要があります。
 - Anti-Xrayのマスク計算はPaperのHIDE方式に対応します。変更確定前にパケット全体を別バッファへ書き、定期的にPaperの処理結果と全バイトを比較します。ランダム置換方式や特殊な非遮蔽ブロック設定ではPaperのCPU実装を使用します。Paper側で無効にしたワールドのAnti-XrayをGPurが有効化することはありません。
-- 旧FP32補間経路は使用しません。`gpur:terrain-v1`はバージョン付きパレットルールを使う別の明示選択式カスタム生成器であり、選択されていないワールドのバニラ生成は置き換えません。
+- `gpur:terrain-v1`の新規選択は廃止されています。マーカーがある既存ワールドは従来のカスタムCPUルールを維持します。任意のバニラ経路は範囲を制限した密度スラブを補間するだけで、残りのバニラ地形生成はCPUで行います。
 - Mob AI、移動の状態変更、プラグインのコールバック、依存するレッドストーン更新は、Paperの挙動を維持しながら並列tickとしてGPUへ渡すことはできません。CPU参照で同一結果を検証した独立した計算だけをGPUへ移します。
 
 Vulkan 1.1、コンピュートキュー、FP64シェーダー対応、ホストから見えるcoherentメモリが必要です。GTX 1080とRTX 3070は実機の計算検査を通過しています。それより古いGPUは認定していません。利用できるデバイスは起動時に検査します。Vulkanへの対応だけで高速化が保証されるわけではありません。

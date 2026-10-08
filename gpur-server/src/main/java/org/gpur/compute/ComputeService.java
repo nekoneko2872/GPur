@@ -17,6 +17,14 @@ public final class ComputeService implements AutoCloseable {
     private final AtomicLong cpuFallbacks = new AtomicLong();
     private final AtomicLongArray eligibilitySkips = new AtomicLongArray(3);
     private final AtomicLong selection = new AtomicLong();
+    private final AtomicLong vanillaFallbacks = new AtomicLong();
+    private final AtomicLong vanillaParityFailures = new AtomicLong();
+    private final boolean vanillaEnabled = GPurConfig.vanillaTerrainEnabled && GPurConfig.gpuAccelerationEnabled && GPurConfig.terrainGpuEnabled;
+    private final boolean vanillaVerifyEveryBatch = GPurConfig.vanillaTerrainVerifyEveryBatch;
+    private final int vanillaParityInterval = GPurConfig.vanillaTerrainParityInterval;
+    private final int vanillaMaxInterpolators = GPurConfig.vanillaTerrainMaxInterpolators;
+    private final int vanillaMaxValues = GPurConfig.vanillaTerrainMaxSlabValues;
+    private final int vanillaMinimumValues = GPurConfig.vanillaTerrainMinValues;
     private final ComputeResultGate resultGate = new ComputeResultGate();
     private final Logger logger;
 
@@ -38,8 +46,8 @@ public final class ComputeService implements AutoCloseable {
                     try {
                         device = VulkanDevice.create(info.uuid());
                         selfTest(device);
-                        int terrainBatchSize = GPurConfig.terrainCustomEnabled && GPurConfig.terrainGpuEnabled
-                            ? TerrainTuningProfile.batchSize(device, logger) : 1;
+                        // The former custom terrain generator is retired. Do not calibrate its kernel.
+                        int terrainBatchSize = 1;
                         if (!device.available()) throw new IllegalStateException("GPU failed terrain calibration validation");
                         opened.add(new DeviceState(device, terrainBatchSize));
                         logger.info("Exact compute ready: " + info.name());
@@ -77,7 +85,7 @@ public final class ComputeService implements AutoCloseable {
     /** Returns null without mutation when the caller should run its original CPU implementation. */
     public int[] tryCompute(int[] input) {
         ExactCompute.validate(input);
-        if (input[0] == 3) throw new IllegalArgumentException("Terrain jobs require the bounded terrain scheduler");
+        if (input[0] == 3 || input[0] == 4) throw new IllegalArgumentException("Terrain jobs require their dedicated bounded compute path");
         if (input[1] == 0) return new int[0];
         int workload = input[0];
         if (!this.eligible(workload)) {
@@ -189,6 +197,94 @@ public final class ComputeService implements AutoCloseable {
 
     private final int terrainParityInterval = GPurConfig.terrainParityInterval;
 
+    /** Admission is independent of player count and never installs a different world generator. */
+    public boolean vanillaTerrainEligible() {
+        return this.vanillaEnabled && this.activeDeviceCount() > 0;
+    }
+
+    /** Called after vanilla has sampled both density slices, before it starts the current cell slab. */
+    public VanillaTerrainSlab prepareVanillaSlab(int width, int height, int cellsY, double[][][] slice0, double[][][] slice1) {
+        if (!this.vanillaTerrainEligible()) return null;
+        long values = 2L * slice0.length * width * height * cellsY * 16;
+        if (slice0.length > this.vanillaMaxInterpolators || values < this.vanillaMinimumValues || values > this.vanillaMaxValues) {
+            this.vanillaFallbacks.incrementAndGet();
+            return null;
+        }
+        final int[] input;
+        try {
+            input = VanillaTerrainInterpolation.input(width, height, cellsY, slice0, slice1);
+        } catch (IllegalArgumentException failure) {
+            // Unusual datapack dimensions/density values retain their original CPU evaluation.
+            this.vanillaFallbacks.incrementAndGet();
+            return null;
+        }
+        int[] result = this.tryVanillaCompute(input);
+        return result == null ? null : new VanillaTerrainSlab(result, width, height, cellsY);
+    }
+
+    /** Exact FP64 interpolation only. Density graphs, aquifers, biome/ore/surface rules remain vanilla. */
+    public int[] tryVanillaCompute(int[] input) {
+        ExactCompute.validate(input);
+        if (input[0] != 4) throw new IllegalArgumentException("Not a vanilla interpolation workload");
+        if (!this.vanillaTerrainEligible()) return null;
+        if (input[5] > this.vanillaMaxInterpolators || input[1] < this.vanillaMinimumValues || input[1] > this.vanillaMaxValues) {
+            this.vanillaFallbacks.incrementAndGet();
+            return null;
+        }
+        int first = (int)Math.floorMod(this.selection.getAndIncrement(), (long)this.devices.size());
+        for (int offset = 0; offset < this.devices.size(); offset++) {
+            DeviceState state = this.devices.get((first + offset) % this.devices.size());
+            if (!this.resultGate.allows(4) || !state.device.canAccept(4)) continue;
+            try {
+                long started = System.nanoTime();
+                int[] result = state.device.compute(input, ExactCompute.outputWords(input), input[1]);
+                long elapsed = System.nanoTime() - started;
+                if (result == null) continue;
+                long attempt = state.vanillaDispatches.incrementAndGet();
+                state.vanillaDispatchNanos.addAndGet(elapsed);
+                state.vanillaMaxDispatchNanos.accumulateAndGet(elapsed, Math::max);
+                if (this.vanillaVerifyEveryBatch || attempt == 1 || attempt % this.vanillaParityInterval == 0) {
+                    state.vanillaParitySamples.incrementAndGet();
+                    if (!ExactCompute.equal(ExactCompute.reference(input), result, 4)) {
+                        this.vanillaParityFailures.incrementAndGet();
+                        this.resultGate.disable(state.device::disable);
+                        this.logger.warning("Vanilla terrain interpolation parity failed; retaining original CPU terrain on " + state.device.name());
+                        continue;
+                    }
+                }
+                if (!this.resultGate.accept(4, state.device::available, () -> {
+                    state.vanillaSlabs.incrementAndGet();
+                    state.vanillaValues.addAndGet(input[1]);
+                })) continue;
+                return result;
+            } catch (RuntimeException failure) {
+                this.resultGate.disable(state.device::disable);
+                this.logger.warning("Vanilla terrain interpolation GPU disabled; retaining original CPU terrain: " + failure.getMessage());
+            }
+        }
+        this.vanillaFallbacks.incrementAndGet();
+        return null;
+    }
+
+    public record VanillaDeviceStatus(String uuid, long slabs, long values, long averageDispatchNanos,
+                                      long maxDispatchNanos, long paritySamples) {}
+    public record VanillaStatus(boolean enabled, boolean verifyEveryBatch, long cpuFallbacks, long parityFailures,
+                                List<VanillaDeviceStatus> devices) {
+        public VanillaStatus { devices = List.copyOf(devices); }
+    }
+
+    public VanillaStatus vanillaTerrainStatus() {
+        List<VanillaDeviceStatus> result = new ArrayList<>(this.devices.size());
+        for (DeviceState state : this.devices) {
+            long dispatches = state.vanillaDispatches.get();
+            result.add(new VanillaDeviceStatus(state.device.uuid(), state.vanillaSlabs.get(), state.vanillaValues.get(),
+                dispatches == 0 ? 0 : state.vanillaDispatchNanos.get() / dispatches,
+                state.vanillaMaxDispatchNanos.get(), state.vanillaParitySamples.get()));
+        }
+        return new VanillaStatus(this.vanillaEnabled, this.vanillaVerifyEveryBatch, this.vanillaFallbacks.get(),
+            this.vanillaParityFailures.get(), result);
+    }
+
     public int terrainDeviceCount() { return this.devices.size(); }
     public int terrainBatchSize(int deviceIndex) { return this.devices.get(deviceIndex).terrainBatchSize; }
 
@@ -287,6 +383,17 @@ public final class ComputeService implements AutoCloseable {
         for (int i = 2; i < section.length; i++) section[i] = random.nextInt(4);
         check(device, section);
         check(device, org.gpur.terrain.TerrainRules.input(0x47507572426L, -64, 384, 63, -17, 21, 1874998, -1874998));
+        double[][][] lower = new double[2][5][4];
+        double[][][] upper = new double[2][5][4];
+        for (int i = 0; i < lower.length; i++) {
+            for (int z = 0; z < lower[i].length; z++) {
+                for (int y = 0; y < lower[i][z].length; y++) {
+                    lower[i][z][y] = (random.nextDouble() - 0.5) * (i == 0 ? 100 : 1e-100);
+                    upper[i][z][y] = (random.nextDouble() - 0.5) * (i == 0 ? 100 : 1e-100);
+                }
+            }
+        }
+        check(device, VanillaTerrainInterpolation.input(4, 8, 3, lower, upper));
     }
 
     private static void check(VulkanDevice device, int[] input) {
@@ -312,6 +419,12 @@ public final class ComputeService implements AutoCloseable {
         private final AtomicLong terrainChunks = new AtomicLong();
         private final AtomicLong terrainBatches = new AtomicLong();
         private final AtomicLong terrainParitySamples = new AtomicLong();
+        private final AtomicLong vanillaDispatches = new AtomicLong();
+        private final AtomicLong vanillaDispatchNanos = new AtomicLong();
+        private final AtomicLong vanillaMaxDispatchNanos = new AtomicLong();
+        private final AtomicLong vanillaSlabs = new AtomicLong();
+        private final AtomicLong vanillaValues = new AtomicLong();
+        private final AtomicLong vanillaParitySamples = new AtomicLong();
 
         private DeviceState(VulkanDevice device, int terrainBatchSize) {
             this.device = device;
