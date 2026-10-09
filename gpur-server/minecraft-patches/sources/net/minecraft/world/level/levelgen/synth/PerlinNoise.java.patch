@@ -1,0 +1,19 @@
+--- a/net/minecraft/world/level/levelgen/synth/PerlinNoise.java
++++ b/net/minecraft/world/level/levelgen/synth/PerlinNoise.java
+@@ -27,6 +27,16 @@
+     private final double lowestFreqInputFactor;
+     private final double maxValue;
+ 
++    public org.gpur.compute.VanillaNoiseBatch.PerlinNoiseProfile gpurSnapshot() {
++        org.gpur.compute.VanillaNoiseBatch.ImprovedNoiseProfile[] levels =
++            new org.gpur.compute.VanillaNoiseBatch.ImprovedNoiseProfile[this.noiseLevels.length];
++        for (int i = 0; i < levels.length; i++) {
++            if (this.noiseLevels[i] != null) levels[i] = this.noiseLevels[i].gpurSnapshot();
++        }
++        return new org.gpur.compute.VanillaNoiseBatch.PerlinNoiseProfile(levels, this.amplitudes.toDoubleArray(),
++            this.lowestFreqInputFactor, this.lowestFreqValueFactor);
++    }
++
+     @Deprecated
+     public static PerlinNoise createLegacyForBlendedNoise(final RandomSource random, final IntStream octaves) {
+         return new PerlinNoise(random, makeAmplitudes(new IntRBTreeSet(octaves.boxed().collect(ImmutableList.toImmutableList()))), false);

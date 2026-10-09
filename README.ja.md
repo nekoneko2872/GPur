@@ -13,6 +13,7 @@ Paper/Purpurプラグインは通常のサーバースレッド上で動作し�
 | 移行・実装範囲 | [日本語](docs/26.2-migration.md) | [English](docs/26.2-migration.en.md) |
 | 実機・負荷検証 | [日本語](docs/26.2-validation.md) | [English](docs/26.2-validation.en.md) |
 | GPur 1.1.0 検証記録 | [日本語](docs/1.1.0-validation.md) | [English](docs/1.1.0-validation.en.md) |
+| 2.0.0に向けた地形生成の開発 | [日本語](docs/2.0.0-development.md) | [English](docs/2.0.0-development.en.md) |
 | 状態表示・エリトラ先読みの更新 | [日本語](docs/26.2-runtime-updates.md) | [English](docs/26.2-runtime-updates.en.md) |
 | バニラ地形ノイズ補間 | [日本語](docs/26.2-vanilla-terrain.md) | [English](docs/26.2-vanilla-terrain.en.md) |
 | 非同期地形処理・照合設定 | [日本語](docs/26.2-async-terrain.md) | [English](docs/26.2-async-terrain.en.md) |

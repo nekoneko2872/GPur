@@ -1,0 +1,14 @@
+--- a/net/minecraft/world/level/levelgen/synth/ImprovedNoise.java
++++ b/net/minecraft/world/level/levelgen/synth/ImprovedNoise.java
+@@ -10,6 +10,11 @@
+     public final double xo;
+     public final double yo;
+     public final double zo;
++
++    /** GPur: copy the already-seeded parameters; never consume a random source on a GPU worker. */
++    public org.gpur.compute.VanillaNoiseBatch.ImprovedNoiseProfile gpurSnapshot() {
++        return new org.gpur.compute.VanillaNoiseBatch.ImprovedNoiseProfile(this.xo, this.yo, this.zo, this.p);
++    }
+ 
+     public ImprovedNoise(final RandomSource random) {
+         this.xo = random.nextDouble() * 256.0;

@@ -1,6 +1,6 @@
 --- a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/task/ChunkUpgradeGenericStatusTask.java
 +++ b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/task/ChunkUpgradeGenericStatusTask.java
-@@ -32,6 +_,10 @@
+@@ -32,6 +32,10 @@
      private final StaticCache2D<GenerationChunkHolder> neighbours;
  
      private final PrioritisedExecutor.PrioritisedTask generateTask;
@@ -11,7 +11,7 @@
  
      public ChunkUpgradeGenericStatusTask(final ChunkTaskScheduler scheduler, final ServerLevel world, final int chunkX,
                                           final int chunkZ, final ChunkAccess chunk, final StaticCache2D<GenerationChunkHolder> neighbours,
-@@ -40,6 +_,7 @@
+@@ -40,6 +44,7 @@
          if (!Priority.isValidPriority(priority)) {
              throw new IllegalArgumentException("Invalid priority " + priority);
          }
@@ -19,7 +19,7 @@
          this.fromChunk = chunk;
          this.fromStatus = chunk.getPersistedStatus();
          this.toStatus = toStatus;
-@@ -83,6 +_,20 @@
+@@ -83,6 +88,20 @@
          // schedule() calls this synchronously if it will run through that path
  
          final WorldGenContext ctx = chunkMap.worldGenContext;
@@ -40,7 +40,7 @@
          try {
              generation = !chunk.getPersistedStatus().isOrAfter(this.toStatus);
              if (generation) {
-@@ -128,6 +_,20 @@
+@@ -128,6 +147,21 @@
              );
  
              return;
@@ -53,7 +53,8 @@
 +            this.gpurSuspended = true;
 +            completeFuture.whenComplete((newChunk, failure) -> {
 +                this.gpurSuspended = false;
-+                if (failure != null) this.complete(null, failure);
++                if (failure != null) this.complete(null,
++                    org.gpur.terrain.VanillaNoiseContinuation.isCancellation(failure) ? null : failure);
 +                else if (newChunk == null) this.complete(null, new IllegalStateException("GPur NOISE returned a null chunk"));
 +                else this.complete(newChunk, null);
 +            });
@@ -61,7 +62,17 @@
          }
  
          if (!completeFuture.isDone() && !((ChunkSystemChunkStatus)this.toStatus).moonrise$getWarnedAboutNoImmediateComplete().getAndSet(true)) {
-@@ -187,7 +_,7 @@
+@@ -139,7 +173,8 @@
+         try {
+             newChunk = completeFuture.join();
+         } catch (final Throwable throwable) {
+-            this.complete(null, throwable);
++            this.complete(null, gpurContinuation != null && gpurContinuation.used()
++                && org.gpur.terrain.VanillaNoiseContinuation.isCancellation(throwable) ? null : throwable);
+             return;
+         }
+ 
+@@ -187,7 +222,7 @@
  
      @Override
      public Priority getPriority() {
@@ -70,7 +81,7 @@
      }
  
      @Override
-@@ -195,6 +_,11 @@
+@@ -195,6 +230,11 @@
          if (!Priority.isValidPriority(priority)) {
              throw new IllegalArgumentException("Invalid priority " + priority);
          }
@@ -82,7 +93,7 @@
          this.generateTask.lowerPriority(priority);
      }
  
-@@ -203,6 +_,11 @@
+@@ -203,6 +243,11 @@
          if (!Priority.isValidPriority(priority)) {
              throw new IllegalArgumentException("Invalid priority " + priority);
          }
@@ -94,7 +105,7 @@
          this.generateTask.setPriority(priority);
      }
  
-@@ -211,6 +_,11 @@
+@@ -211,6 +256,11 @@
          if (!Priority.isValidPriority(priority)) {
              throw new IllegalArgumentException("Invalid priority " + priority);
          }

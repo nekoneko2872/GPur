@@ -1,0 +1,24 @@
+--- a/net/minecraft/world/level/levelgen/synth/NormalNoise.java
++++ b/net/minecraft/world/level/levelgen/synth/NormalNoise.java
+@@ -21,6 +21,10 @@
+     private final PerlinNoise second;
+     private final double maxValue;
+     private final NormalNoise.NoiseParameters parameters;
++
++    public org.gpur.compute.VanillaNoiseBatch.NormalNoiseProfile gpurSnapshot() {
++        return new org.gpur.compute.VanillaNoiseBatch.NormalNoiseProfile(this.first.gpurSnapshot(), this.second.gpurSnapshot(), this.valueFactor);
++    }
+ 
+     @Deprecated
+     public static NormalNoise createLegacyNetherBiome(final RandomSource random, final NormalNoise.NoiseParameters parameters) {
+@@ -73,6 +77,10 @@
+     }
+ 
+     public double getValue(final double x, final double y, final double z) {
++        if (org.gpur.GPurConfig.vanillaNoiseGpuEnabled) {
++            double cached = org.gpur.terrain.VanillaNoiseCache.lookup(this, x, y, z);
++            if (!Double.isNaN(cached)) return cached;
++        }
+         double x2 = x * 1.0181268882175227;
+         double y2 = y * 1.0181268882175227;
+         double z2 = z * 1.0181268882175227;

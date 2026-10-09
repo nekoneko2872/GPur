@@ -20,6 +20,7 @@ public final class VanillaSlabPipeline<R> {
     private final CompletableFuture<R> result = new CompletableFuture<>();
     private int next;
     private boolean cleaned;
+    private CompletableFuture<VanillaTerrainSlab> pending;
 
     private VanillaSlabPipeline(Stages<R> stages, Executor executor) {
         this.stages = stages;
@@ -28,14 +29,19 @@ public final class VanillaSlabPipeline<R> {
 
     public static <R> CompletableFuture<R> start(Stages<R> stages, Executor executor) {
         VanillaSlabPipeline<R> pipeline = new VanillaSlabPipeline<>(stages, executor);
+        pipeline.result.whenComplete((value, failure) -> {
+            if (pipeline.result.isCancelled()) pipeline.cancel();
+        });
         pipeline.advance();
         return pipeline.result;
     }
 
-    private void advance() {
+    private synchronized void advance() {
+        if (this.cleaned) return;
         try {
             while (!this.result.isCancelled() && this.next < this.stages.slabCount()) {
                 CompletableFuture<VanillaTerrainSlab> pending = this.stages.prepare(this.next);
+                this.pending = pending;
                 if (!pending.isDone()) {
                     pending.whenComplete((values, failure) -> this.resume(values, failure));
                     return;
@@ -43,6 +49,11 @@ public final class VanillaSlabPipeline<R> {
                 VanillaTerrainSlab values;
                 try { values = pending.join(); }
                 catch (CompletionException | java.util.concurrent.CancellationException failure) { values = null; }
+                this.pending = null;
+                if (this.result.isCancelled()) {
+                    if (values != null) values.close();
+                    break;
+                }
                 try { this.stages.consume(this.next++, values); }
                 finally { if (values != null) values.close(); }
             }
@@ -54,15 +65,22 @@ public final class VanillaSlabPipeline<R> {
         }
     }
 
-    private void resume(VanillaTerrainSlab values, Throwable failure) {
+    private synchronized void resume(VanillaTerrainSlab values, Throwable failure) {
+        if (this.cleaned || this.result.isCancelled()) {
+            if (values != null) values.close();
+            return;
+        }
         try {
             this.executor.execute(() -> {
-                try {
+                synchronized (this) {
                     try {
-                        if (!this.result.isCancelled()) this.stages.consume(this.next++, failure == null ? values : null);
-                    } finally { if (values != null) values.close(); }
-                    this.advance();
-                } catch (Throwable cpuFailure) { this.fail(cpuFailure); }
+                        this.pending = null;
+                        try {
+                            if (!this.result.isCancelled() && !this.cleaned) this.stages.consume(this.next++, failure == null ? values : null);
+                        } finally { if (values != null) values.close(); }
+                        this.advance();
+                    } catch (Throwable cpuFailure) { this.fail(cpuFailure); }
+                }
             });
         } catch (Throwable rejected) {
             if (values != null) values.close();
@@ -76,14 +94,25 @@ public final class VanillaSlabPipeline<R> {
         }
     }
 
-    private void cleanup() {
+    /** Serializes cleanup with mutation even when an executor drops an already accepted resume. */
+    private synchronized void cancel() {
+        CompletableFuture<VanillaTerrainSlab> current = this.pending;
+        this.pending = null;
+        if (current != null && !current.cancel(false) && !current.isCompletedExceptionally()) {
+            VanillaTerrainSlab values = current.getNow(null);
+            if (values != null) values.close();
+        }
+        this.cleanup();
+    }
+
+    private synchronized void cleanup() {
         if (!this.cleaned) {
             this.cleaned = true;
             this.stages.cleanup();
         }
     }
 
-    private void fail(Throwable failure) {
+    private synchronized void fail(Throwable failure) {
         try { this.cleanup(); }
         catch (Throwable cleanupFailure) { failure.addSuppressed(cleanupFailure); }
         this.result.completeExceptionally(failure);

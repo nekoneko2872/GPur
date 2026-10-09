@@ -11,6 +11,7 @@ public final class GPurServices {
     private static final GPurSharedPreloadService PRELOAD = new GPurSharedPreloadService();
     private static volatile ComputeService compute;
     private static volatile TerrainScheduler terrain;
+    private static final java.util.Set<ComputeService> RETIRED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private GPurServices() {}
 
@@ -25,7 +26,11 @@ public final class GPurServices {
         terrain = null;
         compute = null;
         if (previousTerrain != null) previousTerrain.close();
-        if (previous != null) previous.close();
+        if (previous != null) {
+            RETIRED.add(previous);
+            previous.retireForReload();
+            previous.retirementCompletion().whenComplete((ignored, failure) -> RETIRED.remove(previous));
+        }
         ComputeService replacement = new ComputeService(Logger.getLogger("GPur"));
         TerrainScheduler replacementTerrain = new TerrainScheduler(replacement);
         compute = replacement;
@@ -40,6 +45,8 @@ public final class GPurServices {
         terrain = null;
         if (previousTerrain != null) previousTerrain.close();
         if (previous != null) previous.close();
+        RETIRED.forEach(ComputeService::close);
+        RETIRED.clear();
         PRELOAD.reset();
     }
 }

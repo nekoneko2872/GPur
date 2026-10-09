@@ -1,0 +1,369 @@
+--- a/net/minecraft/world/level/levelgen/Aquifer.java
++++ b/net/minecraft/world/level/levelgen/Aquifer.java
+@@ -1,6 +1,8 @@
+ package net.minecraft.world.level.levelgen;
+ 
+ import java.util.Arrays;
++import java.util.concurrent.CompletableFuture;
++import java.util.concurrent.Executor;
+ import net.minecraft.SharedConstants;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.SectionPos;
+@@ -12,6 +14,10 @@ import net.minecraft.world.level.block.Blocks;
+ import net.minecraft.world.level.block.state.BlockState;
+ import net.minecraft.world.level.dimension.DimensionType;
+ import org.apache.commons.lang3.mutable.MutableDouble;
++import org.gpur.GPurConfig;
++import org.gpur.compute.ComputeService;
++import org.gpur.compute.VanillaAquiferBatch;
++import org.gpur.compute.WorldgenResult;
+ import org.jspecify.annotations.Nullable;
+ 
+ public interface Aquifer {
+@@ -45,6 +51,23 @@ public interface Aquifer {
+ 
+     boolean shouldScheduleFluidUpdate();
+ 
++    default CompletableFuture<WorldgenResult> gpurPrepareRanking(
++        final ComputeService service,
++        final int chunkMinBlockX,
++        final int chunkMinBlockZ,
++        final int minBlockY,
++        final int height,
++        final Executor continuation
++    ) {
++        return CompletableFuture.completedFuture(null);
++    }
++
++    default void gpurInstallRanking(final WorldgenResult result) {
++        if (result != null) result.close();
++    }
++
++    default void gpurClearRanking() {}
++
+     interface FluidPicker {
+         Aquifer.FluidStatus computeFluid(final int blockX, final int blockY, final int blockZ);
+     }
+@@ -96,6 +119,12 @@ public interface Aquifer {
+         private final int minGridZ;
+         private final int gridSizeX;
+         private final int gridSizeZ;
++        private final int chunkMinBlockX;
++        private final int chunkMinBlockZ;
++        private final int minBlockY;
++        private final int height;
++        private @Nullable WorldgenResult gpurRanking;
++        private int gpurRankingHeight;
+         private static final int[][] SURFACE_SAMPLING_OFFSETS_IN_CHUNKS = new int[][]{
+             {0, 0}, {-2, -1}, {-1, -1}, {0, -1}, {1, -1}, {-3, 0}, {-2, 0}, {-1, 0}, {1, 0}, {-2, 1}, {-1, 1}, {0, 1}, {1, 1}
+         };
+@@ -110,6 +139,10 @@ public interface Aquifer {
+             final Aquifer.FluidPicker globalFluidPicker
+         ) {
+             this.noiseChunk = noiseChunk;
++            this.chunkMinBlockX = pos.getMinBlockX();
++            this.chunkMinBlockZ = pos.getMinBlockZ();
++            this.minBlockY = minBlockY;
++            this.height = yBlockSize;
+             this.barrierNoise = router.barrierNoise();
+             this.fluidLevelFloodednessNoise = router.fluidLevelFloodednessNoise();
+             this.fluidLevelSpreadNoise = router.fluidLevelSpreadNoise();
+@@ -138,6 +171,152 @@ public interface Aquifer {
+             this.skipSamplingAboveY = fromGridY(skipSamplingAboveGridY, 11) - 1;
+         }
+ 
++        @Override
++        public CompletableFuture<WorldgenResult> gpurPrepareRanking(
++            final ComputeService service,
++            final int chunkMinBlockX,
++            final int chunkMinBlockZ,
++            final int minBlockY,
++            final int height,
++            final Executor continuation
++        ) {
++            this.gpurClearRanking();
++            if (!GPurConfig.vanillaAquiferGpuEnabled
++                || chunkMinBlockX != this.chunkMinBlockX
++                || chunkMinBlockZ != this.chunkMinBlockZ
++                || minBlockY != this.minBlockY
++                || height > this.height
++                || height < 1
++                || (long)height * 256L > VanillaAquiferBatch.MAX_QUERIES) {
++                return CompletableFuture.completedFuture(null);
++            }
++
++            try {
++                this.gpurRankingHeight = height;
++                int queryCount = Math.multiplyExact(height, 256);
++                int[] queries = new int[queryCount * 3];
++                int queryIndex = 0;
++                for (int y = 0; y < height; y++) {
++                    int blockY = minBlockY + y;
++                    for (int z = 0; z < 16; z++) {
++                        for (int x = 0; x < 16; x++) {
++                            int offset = queryIndex++ * 3;
++                            queries[offset] = chunkMinBlockX + x;
++                            queries[offset + 1] = blockY;
++                            queries[offset + 2] = chunkMinBlockZ + z;
++                        }
++                    }
++                }
++
++                int gridSizeY = this.aquiferLocationCache.length / (this.gridSizeX * this.gridSizeZ);
++                int[] centers = new int[Math.multiplyExact(this.aquiferLocationCache.length, 3)];
++                for (int cellIndex = 0; cellIndex < this.aquiferLocationCache.length; cellIndex++) {
++                    long location = this.aquiferLocationCache[cellIndex];
++                    if (location == Long.MAX_VALUE) {
++                        int xIndex = cellIndex % this.gridSizeX;
++                        int zIndex = cellIndex / this.gridSizeX % this.gridSizeZ;
++                        int yIndex = cellIndex / (this.gridSizeX * this.gridSizeZ);
++                        int gridX = this.minGridX + xIndex;
++                        int gridY = this.minGridY + yIndex;
++                        int gridZ = this.minGridZ + zIndex;
++                        RandomSource random = this.positionalRandomFactory.at(gridX, gridY, gridZ);
++                        location = BlockPos.asLong(
++                            fromGridX(gridX, random.nextInt(10)),
++                            fromGridY(gridY, random.nextInt(9)),
++                            fromGridZ(gridZ, random.nextInt(10))
++                        );
++                        this.aquiferLocationCache[cellIndex] = location;
++                    }
++                    int offset = cellIndex * 3;
++                    centers[offset] = BlockPos.getX(location);
++                    centers[offset + 1] = BlockPos.getY(location);
++                    centers[offset + 2] = BlockPos.getZ(location);
++                }
++
++                if (gridSizeY * this.gridSizeX * this.gridSizeZ != this.aquiferLocationCache.length) {
++                    return CompletableFuture.completedFuture(null);
++                }
++                int[] input = VanillaAquiferBatch.input(
++                    this.minGridX, this.minGridY, this.minGridZ,
++                    this.gridSizeX, gridSizeY, this.gridSizeZ,
++                    queries, centers
++                );
++                return service.prepareWorldgenAsync(input, continuation).exceptionally(failure -> null);
++            } catch (RuntimeException rejected) {
++                return CompletableFuture.completedFuture(null);
++            }
++        }
++
++        @Override
++        public void gpurInstallRanking(final WorldgenResult result) {
++            int rankingHeight = this.gpurRankingHeight;
++            this.gpurClearRanking();
++            if (result == null) return;
++            this.gpurRankingHeight = rankingHeight;
++            long expectedWords = (long)rankingHeight * 256L * VanillaAquiferBatch.RANK_COUNT;
++            int[] ranks = result.readWords();
++            if (rankingHeight < 1 || expectedWords > Integer.MAX_VALUE || ranks == null || ranks.length != expectedWords) {
++                result.close();
++                this.gpurClearRanking();
++                return;
++            }
++
++            int cellCount = this.aquiferLocationCache.length;
++            try {
++                for (int query = 0; query < expectedWords; query += VanillaAquiferBatch.RANK_COUNT) {
++                    for (int rank = 0; rank < VanillaAquiferBatch.RANK_COUNT; rank++) {
++                        int index = ranks[query + rank];
++                        if (index < 0 || index >= cellCount) {
++                            result.close();
++                            this.gpurClearRanking();
++                            return;
++                        }
++                        for (int prior = 0; prior < rank; prior++) {
++                            if (index == ranks[query + prior]) {
++                                result.close();
++                                this.gpurClearRanking();
++                                return;
++                            }
++                        }
++                    }
++                }
++            } catch (IllegalStateException stale) {
++                result.close();
++                this.gpurClearRanking();
++                return;
++            }
++            if (result.readWords() == null) {
++                result.close();
++                this.gpurClearRanking();
++                return;
++            }
++            this.gpurRanking = result;
++        }
++
++        @Override
++        public void gpurClearRanking() {
++            WorldgenResult result = this.gpurRanking;
++            this.gpurRanking = null;
++            this.gpurRankingHeight = 0;
++            if (result != null) result.close();
++        }
++
++        private int gpurQueryIndex(final int posX, final int posY, final int posZ) {
++            long y = (long)posY - this.minBlockY;
++            int x = posX - this.chunkMinBlockX;
++            int z = posZ - this.chunkMinBlockZ;
++            if (y < 0L || y >= this.gpurRankingHeight || x < 0 || x >= 16 || z < 0 || z >= 16) return -1;
++            return ((int)y * 16 + z) * 16 + x;
++        }
++
++        private int gpurDistanceSqr(final int index, final int posX, final int posY, final int posZ) {
++            long location = this.aquiferLocationCache[index];
++            int dx = BlockPos.getX(location) - posX;
++            int dy = BlockPos.getY(location) - posY;
++            int dz = BlockPos.getZ(location) - posZ;
++            return dx * dx + dy * dy + dz * dz;
++        }
++
+         private int getIndex(final int gridX, final int gridY, final int gridZ) {
+             int x = gridX - this.minGridX;
+             int y = gridY - this.minGridY;
+@@ -178,60 +357,98 @@ public interface Aquifer {
+             int closestIndex3 = 0;
+             int closestIndex4 = 0;
+ 
+-            for (int x1 = 0; x1 <= 1; x1++) {
+-                for (int y1 = -1; y1 <= 1; y1++) {
+-                    for (int z1 = 0; z1 <= 1; z1++) {
+-                        int spacedGridX = xAnchor + x1;
+-                        int spacedGridY = yAnchor + y1;
+-                        int spacedGridZ = zAnchor + z1;
+-                        int index = this.getIndex(spacedGridX, spacedGridY, spacedGridZ);
+-                        long existingLocation = this.aquiferLocationCache[index];
+-                        long location;
+-                        if (existingLocation != Long.MAX_VALUE) {
+-                            location = existingLocation;
++            WorldgenResult ranking = this.gpurRanking;
++            int queryIndex = this.gpurQueryIndex(posX, posY, posZ);
++            boolean usedRanking = false;
++            if (ranking != null && queryIndex >= 0) {
++                int[] ranks = ranking.readWords();
++                if (ranks == null) {
++                    this.gpurClearRanking();
++                } else {
++                    try {
++                        int outputOffset = queryIndex * VanillaAquiferBatch.RANK_COUNT;
++                        if (outputOffset >= 0 && outputOffset + 3 < ranks.length) {
++                            closestIndex1 = ranks[outputOffset];
++                            closestIndex2 = ranks[outputOffset + 1];
++                            closestIndex3 = ranks[outputOffset + 2];
++                            closestIndex4 = ranks[outputOffset + 3];
++                            if (closestIndex1 < 0 || closestIndex1 >= this.aquiferLocationCache.length
++                                || closestIndex2 < 0 || closestIndex2 >= this.aquiferLocationCache.length
++                                || closestIndex3 < 0 || closestIndex3 >= this.aquiferLocationCache.length
++                                || closestIndex4 < 0 || closestIndex4 >= this.aquiferLocationCache.length) {
++                                this.gpurClearRanking();
++                            } else {
++                                distanceSqr1 = this.gpurDistanceSqr(closestIndex1, posX, posY, posZ);
++                                distanceSqr2 = this.gpurDistanceSqr(closestIndex2, posX, posY, posZ);
++                                distanceSqr3 = this.gpurDistanceSqr(closestIndex3, posX, posY, posZ);
++                                distanceSqr4 = this.gpurDistanceSqr(closestIndex4, posX, posY, posZ);
++                                ranking.recordConsumption(1L);
++                                usedRanking = true;
++                            }
+                         } else {
+-                            RandomSource random = this.positionalRandomFactory.at(spacedGridX, spacedGridY, spacedGridZ);
+-                            location = BlockPos.asLong(
+-                                fromGridX(spacedGridX, random.nextInt(10)),
+-                                fromGridY(spacedGridY, random.nextInt(9)),
+-                                fromGridZ(spacedGridZ, random.nextInt(10))
+-                            );
+-                            this.aquiferLocationCache[index] = location;
++                            this.gpurClearRanking();
+                         }
++                    } catch (IllegalStateException stale) {
++                        this.gpurClearRanking();
++                    }
++                }
++            }
+ 
+-                        int dx = BlockPos.getX(location) - posX;
+-                        int dy = BlockPos.getY(location) - posY;
+-                        int dz = BlockPos.getZ(location) - posZ;
+-                        int newDistance = dx * dx + dy * dy + dz * dz;
+-                        if (distanceSqr1 >= newDistance) {
+-                            closestIndex4 = closestIndex3;
+-                            closestIndex3 = closestIndex2;
+-                            closestIndex2 = closestIndex1;
+-                            closestIndex1 = index;
+-                            distanceSqr4 = distanceSqr3;
+-                            distanceSqr3 = distanceSqr2;
+-                            distanceSqr2 = distanceSqr1;
+-                            distanceSqr1 = newDistance;
+-                        } else if (distanceSqr2 >= newDistance) {
+-                            closestIndex4 = closestIndex3;
+-                            closestIndex3 = closestIndex2;
+-                            closestIndex2 = index;
+-                            distanceSqr4 = distanceSqr3;
+-                            distanceSqr3 = distanceSqr2;
+-                            distanceSqr2 = newDistance;
+-                        } else if (distanceSqr3 >= newDistance) {
+-                            closestIndex4 = closestIndex3;
+-                            closestIndex3 = index;
+-                            distanceSqr4 = distanceSqr3;
+-                            distanceSqr3 = newDistance;
+-                        } else if (distanceSqr4 >= newDistance) {
+-                            closestIndex4 = index;
+-                            distanceSqr4 = newDistance;
++            if (!usedRanking) {
++                for (int x1 = 0; x1 <= 1; x1++) {
++                    for (int y1 = -1; y1 <= 1; y1++) {
++                        for (int z1 = 0; z1 <= 1; z1++) {
++                            int spacedGridX = xAnchor + x1;
++                            int spacedGridY = yAnchor + y1;
++                            int spacedGridZ = zAnchor + z1;
++                            int index = this.getIndex(spacedGridX, spacedGridY, spacedGridZ);
++                            long existingLocation = this.aquiferLocationCache[index];
++                            long location;
++                            if (existingLocation != Long.MAX_VALUE) {
++                                location = existingLocation;
++                            } else {
++                                RandomSource random = this.positionalRandomFactory.at(spacedGridX, spacedGridY, spacedGridZ);
++                                location = BlockPos.asLong(
++                                    fromGridX(spacedGridX, random.nextInt(10)),
++                                    fromGridY(spacedGridY, random.nextInt(9)),
++                                    fromGridZ(spacedGridZ, random.nextInt(10))
++                                );
++                                this.aquiferLocationCache[index] = location;
++                            }
++
++                            int dx = BlockPos.getX(location) - posX;
++                            int dy = BlockPos.getY(location) - posY;
++                            int dz = BlockPos.getZ(location) - posZ;
++                            int newDistance = dx * dx + dy * dy + dz * dz;
++                            if (distanceSqr1 >= newDistance) {
++                                closestIndex4 = closestIndex3;
++                                closestIndex3 = closestIndex2;
++                                closestIndex2 = closestIndex1;
++                                closestIndex1 = index;
++                                distanceSqr4 = distanceSqr3;
++                                distanceSqr3 = distanceSqr2;
++                                distanceSqr2 = distanceSqr1;
++                                distanceSqr1 = newDistance;
++                            } else if (distanceSqr2 >= newDistance) {
++                                closestIndex4 = closestIndex3;
++                                closestIndex3 = closestIndex2;
++                                closestIndex2 = index;
++                                distanceSqr4 = distanceSqr3;
++                                distanceSqr3 = distanceSqr2;
++                                distanceSqr2 = newDistance;
++                            } else if (distanceSqr3 >= newDistance) {
++                                closestIndex4 = closestIndex3;
++                                closestIndex3 = index;
++                                distanceSqr4 = distanceSqr3;
++                                distanceSqr3 = newDistance;
++                            } else if (distanceSqr4 >= newDistance) {
++                                closestIndex4 = index;
++                                distanceSqr4 = newDistance;
++                            }
+                         }
+                     }
+                 }
+             }
+-
+             Aquifer.FluidStatus closestStatus1 = this.getAquiferStatus(closestIndex1);
+             double similarity12 = similarity(distanceSqr1, distanceSqr2);
+             BlockState fluidState = closestStatus1.at(posY);

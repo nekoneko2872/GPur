@@ -69,6 +69,7 @@ public class NoiseBasedAsyncFillParityTest {
         assertSame(vanillaChunk, vanillaGenerator.fillFromNoise(Blender.empty(), vanillaRandomState, structureManager, vanillaChunk).join());
 
         ComputeService service = mock(ComputeService.class);
+        when(service.tryAcquireVanillaContinuation()).thenReturn(true);
         ManualExecutor cpuExecutor = new ManualExecutor();
         List<PendingSlab> pendingSlabs = new ArrayList<>();
         AtomicInteger slabIndex = new AtomicInteger();
@@ -99,8 +100,12 @@ public class NoiseBasedAsyncFillParityTest {
         }
 
         assertFalse(fillFuture.isDone(), "the status future must remain pending while the first slab is pending");
-        assertEquals(1, pendingSlabs.size(), "only the first X slab should be submitted before a CPU continuation runs");
+        assertEquals(0, pendingSlabs.size(), "the fill first waits for its numeric ranking/static-noise preflight");
+        assertEquals(1, cpuExecutor.size(), "preflight installation should be serialized on the CPU continuation executor");
         assertAllAir(asyncChunk, chunkX, chunkZ, "before the first simulated GPU completion");
+        cpuExecutor.runNext();
+        assertEquals(1, pendingSlabs.size(), "only the first X slab should be submitted before a slab CPU continuation runs");
+        assertAllAir(asyncChunk, chunkX, chunkZ, "after preflight and before the first simulated GPU completion");
 
         int nextSlab = 0;
         while (!fillFuture.isDone()) {

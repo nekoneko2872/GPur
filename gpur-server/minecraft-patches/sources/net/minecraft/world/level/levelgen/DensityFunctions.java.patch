@@ -1,0 +1,64 @@
+--- a/net/minecraft/world/level/levelgen/DensityFunctions.java
++++ b/net/minecraft/world/level/levelgen/DensityFunctions.java
+@@ -43,6 +43,61 @@
+             function -> function instanceof DensityFunctions.Constant constant ? Either.left(constant.value()) : Either.right(function)
+         );
+ 
++    /** GPur: visit only known vanilla nodes, without evaluating or replacing the live graph. */
++    public static void gpurCollectStaticNoise(
++        List<DensityFunction> roots, int[] coordinates, org.gpur.terrain.VanillaNoiseCache.Builder builder
++    ) {
++        if (coordinates.length % 3 != 0) throw new IllegalArgumentException("Noise coordinates must be XYZ tuples");
++        java.util.Set<DensityFunction> visited = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
++        java.util.IdentityHashMap<Object, org.gpur.compute.VanillaNoiseBatch.NoiseProfile> profiles = new java.util.IdentityHashMap<>();
++        DensityFunction.Visitor collector = new DensityFunction.Visitor() {
++            @Override public DensityFunction apply(DensityFunction function) {
++                Class<?> nodeClass = function.getClass();
++                if (nodeClass.getNestHost() != DensityFunctions.class && nodeClass.getNestHost() != NoiseChunk.class
++                    && nodeClass != BlendedNoise.class) return function;
++                if (!visited.add(function) || visited.size() > 4096) return function;
++                if (nodeClass == BlendedNoise.class) {
++                    BlendedNoise blended = (BlendedNoise)function;
++                    var profile = profiles.computeIfAbsent(blended, ignored -> blended.gpurSnapshot());
++                    for (int offset = 0; offset < coordinates.length; offset += 3) {
++                        builder.add(blended, profile, coordinates[offset], coordinates[offset + 1], coordinates[offset + 2]);
++                    }
++                } else {
++                    NormalNoise normal = null;
++                    int transform = 0;
++                    double xzScale = 0.25;
++                    double yScale = 0.25;
++                    if (function instanceof Noise noise) {
++                        normal = noise.noise().noise(); xzScale = noise.xzScale(); yScale = noise.yScale();
++                    } else if (function instanceof Shift shift) {
++                        normal = shift.offsetNoise().noise();
++                    } else if (function instanceof ShiftA shift) {
++                        normal = shift.offsetNoise().noise(); transform = 1;
++                    } else if (function instanceof ShiftB shift) {
++                        normal = shift.offsetNoise().noise(); transform = 2;
++                    }
++                    if (normal != null && normal.getClass() == NormalNoise.class) {
++                        NormalNoise sampler = normal;
++                        var profile = profiles.computeIfAbsent(sampler, ignored -> sampler.gpurSnapshot());
++                        for (int offset = 0; offset < coordinates.length; offset += 3) {
++                            double x = coordinates[offset];
++                            double y = coordinates[offset + 1];
++                            double z = coordinates[offset + 2];
++                            if (transform == 1) y = 0.0;
++                            else if (transform == 2) { y = x; x = z; z = 0.0; }
++                            builder.add(sampler, profile, x * xzScale, y * yScale, z * xzScale);
++                        }
++                    }
++                }
++                // Do not invoke NoiseChunk.wrap/mapAll's replacing visitor: it registers caches.
++                // Dynamic ShiftedNoise terminal coordinates remain CPU; its static children may be visited.
++                function.mapChildren(this);
++                return function;
++            }
++        };
++        for (DensityFunction root : roots) collector.apply(root);
++    }
++
+     public static MapCodec<? extends DensityFunction> bootstrap(final Registry<MapCodec<? extends DensityFunction>> registry) {
+         register(registry, "blend_alpha", DensityFunctions.BlendAlpha.CODEC);
+         register(registry, "blend_offset", DensityFunctions.BlendOffset.CODEC);

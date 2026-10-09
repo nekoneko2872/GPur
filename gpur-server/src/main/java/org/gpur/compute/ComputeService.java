@@ -23,11 +23,24 @@ public final class ComputeService implements AutoCloseable {
     private final AtomicLong vanillaParityFailures = new AtomicLong();
     private final AtomicLong vanillaResultEpoch = new AtomicLong();
     private final AtomicLong vanillaSnapshotBytes = new AtomicLong();
+    private final AtomicLongArray worldgenFallbacks = new AtomicLongArray(7);
+    private final java.util.Set<WorldgenResult> worldgenFrames = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<CompletableFuture<WorldgenResult>> pendingWorldgen = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<CompletableFuture<int[]>> pendingVanilla = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<CompletableFuture<?>> pendingGenerations = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Object generationLifecycle = new Object();
+    private final CompletableFuture<Void> retirementCompletion = new CompletableFuture<>();
+    private int continuationScopes;
+    private boolean generationsClosed;
+    private boolean retiring;
+    private boolean devicesClosed;
     private final long vanillaSnapshotByteLimit = (long)GPurConfig.gpuBufferBudgetMiB * 1024 * 1024;
     private final boolean vanillaEnabled = GPurConfig.vanillaTerrainEnabled && GPurConfig.gpuAccelerationEnabled && GPurConfig.terrainGpuEnabled;
     private final boolean vanillaVerifyEveryBatch = GPurConfig.vanillaTerrainVerifyEveryBatch;
     private final VanillaVerificationPolicy.Mode vanillaMode = GPurConfig.vanillaTerrainMode;
     private final boolean vanillaAsync = GPurConfig.gpuAsyncSubmit;
+    private final boolean noiseEnabled = GPurConfig.vanillaNoiseGpuEnabled;
+    private final boolean aquiferEnabled = GPurConfig.vanillaAquiferGpuEnabled;
     private final int vanillaMaxInterpolators = GPurConfig.vanillaTerrainMaxInterpolators;
     private final int vanillaMaxValues = GPurConfig.vanillaTerrainMaxSlabValues;
     private final int vanillaMinimumValues = GPurConfig.vanillaTerrainMinValues;
@@ -51,9 +64,11 @@ public final class ComputeService implements AutoCloseable {
                     VulkanDevice device = null;
                     try {
                         device = VulkanDevice.create(info.uuid());
+                        if (this.vanillaEnabled) device.prepareWorldgenPipelines(this.noiseEnabled, this.aquiferEnabled);
                         selfTest(device);
                         if (this.vanillaEnabled) {
                             for (int[] corpus : ExactStartupCorpus.workloads()) check(device, corpus);
+                            for (int[] corpus : WorldgenStartupCorpus.workloads(this.noiseEnabled, this.aquiferEnabled)) check(device, corpus);
                         }
                         // The former custom terrain generator is retired. Do not calibrate its kernel.
                         int terrainBatchSize = 1;
@@ -83,6 +98,53 @@ public final class ComputeService implements AutoCloseable {
         return selector.equalsIgnoreCase("auto") || selector.equalsIgnoreCase(info.uuid()) || selector.equalsIgnoreCase(info.name());
     }
 
+    /**
+     * Keeps the enclosing chunk operation cancellable even if its CPU continuation was accepted
+     * and subsequently discarded by a halted executor. The owner installs its cancellation
+     * cleanup before registration; cancellation must serialize cleanup with block mutation.
+     */
+    public <T> CompletableFuture<T> trackVanillaGeneration(CompletableFuture<T> result) {
+        java.util.Objects.requireNonNull(result, "result");
+        boolean tracked;
+        synchronized (this.generationLifecycle) {
+            tracked = !this.generationsClosed && (!this.retiring || this.continuationScopes > 0);
+            if (tracked) this.pendingGenerations.add(result);
+        }
+        result.whenComplete((value, failure) -> {
+            synchronized (this.generationLifecycle) {
+                this.pendingGenerations.remove(result);
+                this.completeRetirementIfDrained();
+            }
+        });
+        if (!tracked) result.cancel(false);
+        return result;
+    }
+
+    /** Pins a generator setup until it has registered its asynchronous owner. */
+    public boolean tryAcquireVanillaContinuation() {
+        synchronized (this.generationLifecycle) {
+            if (this.generationsClosed || this.retiring) return false;
+            ++this.continuationScopes;
+            return true;
+        }
+    }
+
+    public void releaseVanillaContinuation() {
+        synchronized (this.generationLifecycle) {
+            if (this.continuationScopes <= 0) throw new IllegalStateException("Unbalanced vanilla continuation");
+            --this.continuationScopes;
+            this.completeRetirementIfDrained();
+        }
+    }
+
+    public CompletableFuture<Void> retirementCompletion() { return this.retirementCompletion; }
+
+    private void completeRetirementIfDrained() {
+        if (this.retiring && this.devicesClosed && this.continuationScopes == 0 && this.pendingGenerations.isEmpty()) {
+            this.retirementCompletion.complete(null);
+        }
+    }
+
     public boolean eligible(int workload) {
         if (workload < 1 || workload > 2) return false;
         if (this.resultGate.allows(workload)) {
@@ -100,7 +162,7 @@ public final class ComputeService implements AutoCloseable {
     /** Returns null without mutation when the caller should run its original CPU implementation. */
     public int[] tryCompute(int[] input) {
         ExactCompute.validate(input);
-        if (input[0] == 3 || input[0] == 4) throw new IllegalArgumentException("Terrain jobs require their dedicated bounded compute path");
+        if (input[0] >= 3) throw new IllegalArgumentException("Terrain jobs require their dedicated bounded compute path");
         if (input[1] == 0) return new int[0];
         int workload = input[0];
         if (!this.eligible(workload)) {
@@ -221,6 +283,171 @@ public final class ComputeService implements AutoCloseable {
         return this.vanillaAsync && this.vanillaTerrainEligible();
     }
 
+    public boolean worldgenEligible(int workload) {
+        return this.vanillaTerrainAsyncEligible() && switch (workload) {
+            case VanillaNoiseBatch.WORKLOAD -> this.noiseEnabled;
+            case VanillaAquiferBatch.WORKLOAD -> this.aquiferEnabled;
+            default -> false;
+        };
+    }
+
+    public CompletableFuture<WorldgenResult> prepareWorldgenAsync(int[] input, Executor continuation) {
+        return this.prepareWorldgenAsync(input, continuation, 0L);
+    }
+
+    /** The optional owner charge includes lookup tables retained alongside the numeric frame. */
+    public CompletableFuture<WorldgenResult> prepareWorldgenAsync(int[] input, Executor continuation, long ownerBytes) {
+        ExactCompute.validate(input);
+        int workload = input[0];
+        if (workload != VanillaNoiseBatch.WORKLOAD && workload != VanillaAquiferBatch.WORKLOAD) {
+            throw new IllegalArgumentException("Not a noise or aquifer workload");
+        }
+        java.util.Objects.requireNonNull(continuation, "continuation");
+        if (ownerBytes < 0) throw new IllegalArgumentException("Negative owner byte reservation");
+        if (!this.worldgenEligible(workload) || input[1] < this.vanillaMinimumValues || input[1] > this.vanillaMaxValues) {
+            this.worldgenFallbacks.incrementAndGet(workload);
+            return CompletableFuture.completedFuture(null);
+        }
+        int outputWords = ExactCompute.outputWords(input);
+        long retained;
+        try { retained = Math.addExact(ownerBytes, ((long)input.length + outputWords) * Integer.BYTES); }
+        catch (ArithmeticException overflow) { throw new IllegalArgumentException("Worldgen owner byte reservation overflow", overflow); }
+        if (!VulkanMemoryPolicy.tryReserve(this.vanillaSnapshotBytes, this.vanillaSnapshotByteLimit, retained)) {
+            this.worldgenFallbacks.incrementAndGet(workload);
+            return CompletableFuture.completedFuture(null);
+        }
+        java.util.concurrent.atomic.AtomicBoolean released = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicReference<WorldgenResult> owned = new java.util.concurrent.atomic.AtomicReference<>();
+        Runnable release = () -> {
+            if (released.compareAndSet(false, true)) {
+                this.vanillaSnapshotBytes.addAndGet(-retained);
+            }
+            WorldgenResult frame = owned.get();
+            if (frame != null) this.worldgenFrames.remove(frame);
+        };
+        final int[] snapshot;
+        try { snapshot = input.clone(); }
+        catch (RuntimeException | Error failedCopy) { release.run(); throw failedCopy; }
+        DeviceState selected = this.selectWorldgenDevice(workload, input[1]);
+        if (selected == null) {
+            release.run();
+            this.worldgenFallbacks.incrementAndGet(workload);
+            return CompletableFuture.completedFuture(null);
+        }
+        WorldgenState metrics = selected.worldgen[workload];
+        metrics.load.reserve(snapshot[1]);
+        long started = System.nanoTime();
+        long epoch = this.vanillaResultEpoch.get();
+        final CompletableFuture<int[]> raw;
+        try { raw = selected.device.computeAsync(snapshot, outputWords, snapshot[1]); }
+        catch (RuntimeException | Error failure) {
+            metrics.load.complete(snapshot[1], 0, false);
+            release.run();
+            throw failure;
+        }
+        CompletableFuture<WorldgenResult> result = new CompletableFuture<>();
+        raw.whenComplete((words, failure) -> metrics.load.complete(snapshot[1], System.nanoTime() - started, words != null));
+        if (!this.resultGate.accept(workload, selected.device::available, () -> this.pendingWorldgen.add(result))) {
+            raw.cancel(false);
+            release.run();
+            return CompletableFuture.completedFuture(null);
+        }
+        result.whenComplete((frame, failure) -> {
+            this.pendingWorldgen.remove(result);
+            if (frame == null || failure != null) { raw.cancel(false); release.run(); }
+        });
+        try {
+            raw.handleAsync((words, failure) -> {
+                try {
+                    if (failure != null || !this.acceptWorldgenResult(selected, metrics, snapshot, words, epoch, System.nanoTime() - started)) {
+                        this.worldgenFallbacks.incrementAndGet(workload);
+                        release.run();
+                        result.complete(null);
+                        return null;
+                    }
+                    WorldgenResult frame = new WorldgenResult(words,
+                        () -> this.resultGate.allows(workload) && selected.device.available() && this.vanillaResultEpoch.get() == epoch,
+                        release, metrics.consumedValues::addAndGet);
+                    owned.set(frame);
+                    if (!this.resultGate.accept(workload, selected.device::available, () -> this.worldgenFrames.add(frame))
+                        || released.get() || !result.complete(frame)) frame.close();
+                } catch (RuntimeException | Error failedVerification) {
+                    release.run();
+                    result.completeExceptionally(failedVerification);
+                }
+                return null;
+            }, continuation).whenComplete((ignored, failure) -> {
+                if (failure != null) { release.run(); result.completeExceptionally(failure); }
+            });
+        } catch (RuntimeException | Error rejectedContinuation) {
+            raw.cancel(false);
+            release.run();
+            result.completeExceptionally(rejectedContinuation);
+        }
+        return result;
+    }
+
+    private DeviceState selectWorldgenDevice(int workload, int values) {
+        if (!this.resultGate.allows(workload) || this.devices.isEmpty()) return null;
+        int first = (int)Math.floorMod(this.selection.getAndIncrement(), (long)this.devices.size());
+        DeviceState selected = null;
+        double earliest = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < this.devices.size(); i++) {
+            DeviceState candidate = this.devices.get((first + i) % this.devices.size());
+            if (!candidate.device.available()) continue;
+            double estimate = candidate.worldgen[workload].load.predictedNanos(values) * (1.0 + candidate.device.busy());
+            if (estimate < earliest) { earliest = estimate; selected = candidate; }
+        }
+        return selected;
+    }
+
+    private boolean acceptWorldgenResult(DeviceState device, WorldgenState metrics, int[] input, int[] words, long epoch, long elapsed) {
+        int workload = input[0];
+        if (words == null || !this.resultGate.allows(workload) || !device.device.available() || this.vanillaResultEpoch.get() != epoch) return false;
+        metrics.dispatches.incrementAndGet();
+        metrics.dispatchNanos.addAndGet(elapsed);
+        if (words.length != ExactCompute.outputWords(input)) {
+            this.quarantineVanilla(device);
+            return false;
+        }
+        if (metrics.verification.nextVerificationRequired()) {
+            metrics.paritySamples.incrementAndGet();
+            if (!ExactCompute.equal(ExactCompute.reference(input), words, workload)) {
+                this.quarantineVanilla(device);
+                return false;
+            }
+            metrics.verification.recordVerificationSuccess();
+        }
+        if (!metrics.verification.adoptsResults()) return false;
+        return this.resultGate.accept(workload, device.device::available, () -> {
+            metrics.accepted.incrementAndGet();
+            metrics.values.addAndGet(input[1]);
+        });
+    }
+
+    public record WorldgenDeviceStatus(String uuid, String name, int workload, long dispatches,
+                                      long acceptedBatches, long computedValues, long consumedValues,
+                                      long paritySamples, long averageDispatchNanos) {}
+
+    public List<WorldgenDeviceStatus> worldgenDevices() {
+        List<WorldgenDeviceStatus> status = new ArrayList<>(this.devices.size() * 2);
+        for (DeviceState state : this.devices) {
+            for (int workload = 5; workload <= 6; workload++) {
+                WorldgenState metrics = state.worldgen[workload];
+                long dispatches = metrics.dispatches.get();
+                status.add(new WorldgenDeviceStatus(state.device.uuid(), state.device.name(), workload, dispatches,
+                    metrics.accepted.get(), metrics.values.get(), metrics.consumedValues.get(), metrics.paritySamples.get(),
+                    dispatches == 0 ? 0 : metrics.dispatchNanos.get() / dispatches));
+            }
+        }
+        return List.copyOf(status);
+    }
+
+    public long worldgenFallbacks(int workload) {
+        if (workload != 5 && workload != 6) throw new IllegalArgumentException("Unknown worldgen workload");
+        return this.worldgenFallbacks.get(workload);
+    }
+
     /** Called after vanilla has sampled both density slices, before it starts the current cell slab. */
     public VanillaTerrainSlab prepareVanillaSlab(int width, int height, int cellsY, double[][][] slice0, double[][][] slice1) {
         if (!this.vanillaTerrainEligible()) return null;
@@ -314,11 +541,29 @@ public final class ComputeService implements AutoCloseable {
         }
         // Release scheduling accounting even if the continuation queue halts during shutdown.
         raw.whenComplete((result, failure) -> selected.load.complete(input[1], System.nanoTime() - started, result != null));
-        return raw.handleAsync((result, failure) -> {
-            int[] accepted = failure == null ? this.acceptVanillaResult(selected, input, result, System.nanoTime() - started) : null;
-            if (accepted == null && this.vanillaMode != VanillaVerificationPolicy.Mode.OBSERVE) this.vanillaFallbacks.incrementAndGet();
-            return accepted;
-        }, continuation);
+        CompletableFuture<int[]> result = new CompletableFuture<>();
+        if (!this.resultGate.accept(4, selected.device::available, () -> this.pendingVanilla.add(result))) {
+            raw.cancel(false);
+            this.vanillaFallbacks.incrementAndGet();
+            return CompletableFuture.completedFuture(null);
+        }
+        result.whenComplete((accepted, failure) -> {
+            this.pendingVanilla.remove(result);
+            if (failure != null || accepted == null) raw.cancel(false);
+        });
+        try {
+            raw.handleAsync((words, failure) -> {
+                int[] accepted = failure == null ? this.acceptVanillaResult(selected, input, words, System.nanoTime() - started) : null;
+                if (accepted == null && this.vanillaMode != VanillaVerificationPolicy.Mode.OBSERVE) this.vanillaFallbacks.incrementAndGet();
+                return accepted;
+            }, continuation).whenComplete((accepted, failure) -> {
+                if (failure == null) result.complete(accepted);
+                else result.completeExceptionally(failure);
+            });
+        } catch (RuntimeException | Error rejectedContinuation) {
+            result.completeExceptionally(rejectedContinuation);
+        }
+        return result;
     }
 
     private DeviceState selectVanillaDevice(int values) {
@@ -374,7 +619,7 @@ public final class ComputeService implements AutoCloseable {
             this.vanillaResultEpoch.incrementAndGet();
             state.device.disable();
         });
-        this.logger.warning("Vanilla terrain interpolation parity failed; retaining original CPU terrain on " + state.device.name());
+        this.logger.warning("Vanilla worldgen parity failed; retaining original CPU terrain on " + state.device.name());
     }
 
     /** Exact FP64 interpolation only. Density graphs, aquifers, biome/ore/surface rules remain vanilla. */
@@ -555,8 +800,31 @@ public final class ComputeService implements AutoCloseable {
 
     @Override
     public void close() {
+        this.close(true);
+    }
+
+    /** Retires GPU results on a live reload; existing chunk owners finish on their CPU queue. */
+    public void retireForReload() {
+        this.close(false);
+    }
+
+    private void close(boolean cancelGenerations) {
+        synchronized (this.generationLifecycle) {
+            this.retiring = true;
+            if (cancelGenerations) this.generationsClosed = true;
+        }
         this.resultGate.close();
+        // Cancel owners before completing numeric fallback futures: no halted CPU queue can
+        // strand a chunk's section leases, and closing the service cannot resume block mutation.
+        if (cancelGenerations) this.pendingGenerations.forEach(result -> result.cancel(false));
+        this.pendingVanilla.forEach(result -> result.complete(null));
+        this.pendingWorldgen.forEach(result -> result.complete(null));
+        this.worldgenFrames.forEach(WorldgenResult::close);
         for (DeviceState state : this.devices) state.device.close();
+        synchronized (this.generationLifecycle) {
+            this.devicesClosed = true;
+            this.completeRetirementIfDrained();
+        }
     }
 
     private static final class DeviceState {
@@ -578,6 +846,7 @@ public final class ComputeService implements AutoCloseable {
         private final AtomicLong vanillaObservedSlabs = new AtomicLong();
         private final AtomicLong vanillaVerificationNanos = new AtomicLong();
         private final DeviceLoadEstimator load = new DeviceLoadEstimator();
+        private final WorldgenState[] worldgen = {null, null, null, null, null, new WorldgenState(), new WorldgenState()};
         private final VanillaVerificationPolicy verification = new VanillaVerificationPolicy(GPurConfig.vanillaTerrainMode,
             GPurConfig.gpuFullFirstBatches, GPurConfig.gpuVerificationSampleOneIn);
 
@@ -601,5 +870,17 @@ public final class ComputeService implements AutoCloseable {
         private final AtomicLong referenceSamples = new AtomicLong();
         private final AtomicLong referenceNanos = new AtomicLong();
         private final AtomicLong backoffs = new AtomicLong();
+    }
+
+    private static final class WorldgenState {
+        private final AtomicLong dispatches = new AtomicLong();
+        private final AtomicLong dispatchNanos = new AtomicLong();
+        private final AtomicLong accepted = new AtomicLong();
+        private final AtomicLong values = new AtomicLong();
+        private final AtomicLong consumedValues = new AtomicLong();
+        private final AtomicLong paritySamples = new AtomicLong();
+        private final DeviceLoadEstimator load = new DeviceLoadEstimator();
+        private final VanillaVerificationPolicy verification = new VanillaVerificationPolicy(GPurConfig.vanillaTerrainMode,
+            GPurConfig.gpuFullFirstBatches, GPurConfig.gpuVerificationSampleOneIn);
     }
 }

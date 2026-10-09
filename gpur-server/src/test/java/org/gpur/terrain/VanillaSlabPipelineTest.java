@@ -39,8 +39,8 @@ class VanillaSlabPipelineTest {
         ArrayDeque<Runnable> cpu = new ArrayDeque<>();
         CompletableFuture<Integer> result = VanillaSlabPipeline.start(stages, cpu::add);
         result.cancel(false);
-        stages.pending.complete(null);
-        cpu.remove().run();
+        assertTrue(stages.pending.isCancelled(), "owner cancellation reaches the pending numeric future");
+        assertTrue(cpu.isEmpty(), "cancellation cleans up immediately without queueing CPU mutation");
         assertEquals(List.of("prepare0", "cleanup"), stages.events);
     }
 

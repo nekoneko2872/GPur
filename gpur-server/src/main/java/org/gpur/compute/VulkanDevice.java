@@ -100,8 +100,6 @@ import static org.lwjgl.vulkan.VK10.vkUpdateDescriptorSets;
 import static org.lwjgl.vulkan.VK10.vkWaitForFences;
 import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
@@ -181,6 +179,8 @@ public final class VulkanDevice implements AutoCloseable {
     private final long descriptorSetLayout;
     private final long pipelineLayout;
     private final long pipeline;
+    // Startup prepares optional entries before admission; later entries belong to the native worker.
+    private final java.util.Map<Integer, Long> worldgenPipelines = new java.util.HashMap<>();
     private final long pipelineCache;
     private final boolean persistentCacheEnabled;
     private final Path cacheDirectory;
@@ -581,8 +581,9 @@ public final class VulkanDevice implements AutoCloseable {
         }
     }
 
-    private void recordDispatch(final ExecutionContext context, final int totalInvocations,
+    private void recordDispatch(final ExecutionContext context, final int workload, final int totalInvocations,
                                 final long inputBytes, final long outputBytes) {
+        final long selectedPipeline = this.pipelineFor(workload);
         try (MemoryStack stack = MemoryStack.stackPush()) {
             checkVk(vkResetCommandPool(this.device, context.commandPool(), 0), "reset Vulkan command pool");
 
@@ -608,7 +609,7 @@ public final class VulkanDevice implements AutoCloseable {
                 vkCmdResetQueryPool(context.commandBuffer(), context.queryPool(), 0, 2);
             }
 
-            vkCmdBindPipeline(context.commandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, this.pipeline);
+            vkCmdBindPipeline(context.commandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, selectedPipeline);
             vkCmdBindDescriptorSets(context.commandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE, this.pipelineLayout, 0, stack.longs(context.descriptorSet()), null);
             if (context.queryPool() != VK_NULL_HANDLE) {
                 vkCmdWriteTimestamp(context.commandBuffer(), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, context.queryPool(), 0);
@@ -761,12 +762,13 @@ public final class VulkanDevice implements AutoCloseable {
                     long outputSize = (long) job.outputWords() * Integer.BYTES;
                     this.ensureContextBuffers(context, inputSize, outputSize);
                     BufferAllocation hostInput = context.deviceLocal() ? context.inputStaging() : context.inputBuffer();
+                    int workload = job.input()[0];
                     hostInput.intView().put(job.input());
                     this.flushMappedBuffer(hostInput);
                     job.releaseInput();
                     this.hostWriteNanos.addAndGet(System.nanoTime() - writeStart);
                     this.updateDescriptorSet(context, context.inputBuffer(), context.outputBuffer());
-                    this.recordDispatch(context, job.invocations(), inputSize, outputSize);
+                    this.recordDispatch(context, workload, job.invocations(), inputSize, outputSize);
                 } catch (RuntimeException | OutOfMemoryError allocationFailure) {
                     if (!isAllocationFailure(allocationFailure)) throw allocationFailure;
                     prepared.remove(preparedJob);
@@ -1353,6 +1355,10 @@ public final class VulkanDevice implements AutoCloseable {
                 }
                 destroyExecutionContexts(this.executionContexts);
                 vkDestroyPipeline(this.device, this.pipeline, null);
+                for (long worldgenPipeline : this.worldgenPipelines.values()) {
+                    vkDestroyPipeline(this.device, worldgenPipeline, null);
+                }
+                this.worldgenPipelines.clear();
                 if (this.persistentCacheEnabled && this.pipelineCache != VK_NULL_HANDLE) this.savePipelineCache();
                 if (this.pipelineCache != VK_NULL_HANDLE) vkDestroyPipelineCache(this.device, this.pipelineCache, null);
                 vkDestroyPipelineLayout(this.device, this.pipelineLayout, null);
@@ -1618,22 +1624,18 @@ public final class VulkanDevice implements AutoCloseable {
     }
 
     private static ByteBuffer compileShader() {
-        final String source;
-        try (InputStream inputStream = VulkanDevice.class.getClassLoader().getResourceAsStream(SHADER_RESOURCE)) {
-            if (inputStream == null) {
-                throw new IllegalStateException("Missing shader resource: " + SHADER_RESOURCE);
-            }
-            source = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (final IOException ex) {
-            throw new IllegalStateException("Failed to read Vulkan compute shader resource", ex);
-        }
+        return compileShader(SHADER_RESOURCE);
+    }
+
+    private static ByteBuffer compileShader(String resource) {
+        final String source = VulkanShaderSources.source(resource);
 
         final long compiler = shaderc_compiler_initialize();
         if (compiler == NULL) {
             throw new IllegalStateException("Unable to initialize shaderc compiler");
         }
 
-        final long result = shaderc_compile_into_spv(compiler, source, shaderc_compute_shader, SHADER_RESOURCE, "main", NULL);
+        final long result = shaderc_compile_into_spv(compiler, source, shaderc_compute_shader, resource, "main", NULL);
         if (result == NULL) {
             shaderc_compiler_release(compiler);
             throw new IllegalStateException("shaderc failed to compile the GPur compute shader");
@@ -1657,11 +1659,72 @@ public final class VulkanDevice implements AutoCloseable {
     }
 
     private static String shaderSha256() {
-        try (InputStream inputStream = VulkanDevice.class.getClassLoader().getResourceAsStream(SHADER_RESOURCE)) {
-            if (inputStream == null) throw new IllegalStateException("Missing shader resource: " + SHADER_RESOURCE);
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(inputStream.readAllBytes()));
-        } catch (IOException | NoSuchAlgorithmException failure) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            for (String entryPoint : VulkanShaderSources.ENTRY_POINTS) {
+                digest.update(entryPoint.getBytes(StandardCharsets.UTF_8));
+                digest.update((byte)0);
+                digest.update(VulkanShaderSources.source(entryPoint).getBytes(StandardCharsets.UTF_8));
+                digest.update((byte)0);
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException failure) {
             throw new IllegalStateException("Failed to fingerprint Vulkan compute shader", failure);
+        }
+    }
+
+    /** Startup only: compile optional kernels before dispatch deadlines or chunk futures exist. */
+    void prepareWorldgenPipelines(boolean noise, boolean aquifer) {
+        this.lifecycle.writeLock().lock();
+        try {
+            synchronized (this.admissionLock) {
+                if (!this.available() || this.admittedJobs.get() != 0) {
+                    throw new IllegalStateException("Worldgen pipelines must be prepared before admitting GPU jobs");
+                }
+                if (noise) this.pipelineFor(VanillaNoiseBatch.WORKLOAD);
+                if (aquifer) this.pipelineFor(VanillaAquiferBatch.WORKLOAD);
+            }
+        } finally {
+            this.lifecycle.writeLock().unlock();
+        }
+    }
+
+    /** Separate pipelines keep noise register/loop costs out of distance and interpolation shaders. */
+    private long pipelineFor(int workload) {
+        if (workload >= 1 && workload <= 4) return this.pipeline;
+        Long existing = this.worldgenPipelines.get(workload);
+        if (existing != null) return existing;
+        String resource = switch (workload) {
+            case 5 -> VulkanShaderSources.NOISE;
+            case 6 -> VulkanShaderSources.AQUIFER;
+            default -> throw new IllegalArgumentException("Unknown compute workload: " + workload);
+        };
+        ByteBuffer spirv = compileShader(resource);
+        long module = VK_NULL_HANDLE;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            module = createShaderModule(this.device, spirv, stack);
+            VkPipelineShaderStageCreateInfo stage = VkPipelineShaderStageCreateInfo.calloc(stack)
+                .sType(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO)
+                .stage(VK_SHADER_STAGE_COMPUTE_BIT).module(module).pName(stack.UTF8("main"));
+            VkComputePipelineCreateInfo.Buffer info = VkComputePipelineCreateInfo.calloc(1, stack);
+            info.get(0).sType(VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO).stage(stage).layout(this.pipelineLayout);
+            LongBuffer handle = stack.callocLong(1);
+            int status = vkCreateComputePipelines(this.device, this.pipelineCache, info, null, handle);
+            if (status != VK_SUCCESS) {
+                if (handle.get(0) != VK_NULL_HANDLE) vkDestroyPipeline(this.device, handle.get(0), null);
+                checkVk(status, "create exact worldgen pipeline");
+            }
+            long created = handle.get(0);
+            try {
+                this.worldgenPipelines.put(workload, created);
+            } catch (RuntimeException | Error failedRegistration) {
+                vkDestroyPipeline(this.device, created, null);
+                throw failedRegistration;
+            }
+            return created;
+        } finally {
+            if (module != VK_NULL_HANDLE) vkDestroyShaderModule(this.device, module, null);
+            org.lwjgl.system.MemoryUtil.memFree(spirv);
         }
     }
 

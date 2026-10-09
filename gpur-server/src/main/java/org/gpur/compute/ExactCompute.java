@@ -41,6 +41,14 @@ public final class ExactCompute {
             VanillaTerrainInterpolation.validate(input);
             return;
         }
+        if (input[0] == VanillaNoiseBatch.WORKLOAD) {
+            VanillaNoiseBatch.validate(input);
+            return;
+        }
+        if (input[0] == VanillaAquiferBatch.WORKLOAD) {
+            VanillaAquiferBatch.validate(input);
+            return;
+        }
         throw new IllegalArgumentException("Invalid GPur workload dimensions");
     }
 
@@ -48,6 +56,8 @@ public final class ExactCompute {
         validate(input);
         if (input[0] == 3) return org.gpur.terrain.TerrainRules.outputWords(input);
         if (input[0] == VanillaTerrainInterpolation.WORKLOAD) return VanillaTerrainInterpolation.outputWords(input);
+        if (input[0] == VanillaNoiseBatch.WORKLOAD) return VanillaNoiseBatch.outputWords(input);
+        if (input[0] == VanillaAquiferBatch.WORKLOAD) return VanillaAquiferBatch.outputWords(input);
         return Math.multiplyExact(input[1], input[0] == 1 ? 2 : 1);
     }
 
@@ -55,6 +65,8 @@ public final class ExactCompute {
         validate(input);
         if (input[0] == 3) return org.gpur.terrain.TerrainRules.reference(input);
         if (input[0] == VanillaTerrainInterpolation.WORKLOAD) return VanillaTerrainInterpolation.reference(input);
+        if (input[0] == VanillaNoiseBatch.WORKLOAD) return VanillaNoiseBatch.reference(input);
+        if (input[0] == VanillaAquiferBatch.WORKLOAD) return VanillaAquiferBatch.reference(input);
         if (input.length < 2 || input[1] < 0) throw new IllegalArgumentException("Invalid compute header");
         int count = input[1];
         if (input[0] == 1) {

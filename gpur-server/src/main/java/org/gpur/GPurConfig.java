@@ -119,6 +119,8 @@ public final class GPurConfig {
     public static int terrainRequestTimeoutMillis = 250;
     public static int terrainParityInterval = 128;
     public static boolean vanillaTerrainEnabled = false;
+    public static boolean vanillaNoiseGpuEnabled = false;
+    public static boolean vanillaAquiferGpuEnabled = false;
     public static boolean vanillaTerrainVerifyEveryBatch = true;
     public static int vanillaTerrainMaxInterpolators = 16;
     public static int vanillaTerrainMaxSlabValues = 1_048_576;
@@ -284,6 +286,9 @@ public final class GPurConfig {
 
     private static void readVanillaTerrain() {
         vanillaTerrainEnabled = getBoolean("chunk-generation.vanilla-terrain.enabled", false);
+        // New boundaries are independently opt-in until whole-world parity and throughput pass.
+        vanillaNoiseGpuEnabled = getBoolean("chunk-generation.vanilla-terrain.noise-batches", false);
+        vanillaAquiferGpuEnabled = getBoolean("chunk-generation.vanilla-terrain.aquifer-ranking", false);
         vanillaTerrainVerifyEveryBatch = getBoolean("chunk-generation.vanilla-terrain.verify-every-batch", true);
         vanillaTerrainMaxInterpolators = clamp(getInt("chunk-generation.vanilla-terrain.max-interpolators", 16),
             1, 16, "chunk-generation.vanilla-terrain.max-interpolators");
