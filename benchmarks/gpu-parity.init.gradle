@@ -1,0 +1,14 @@
+import org.gradle.api.tasks.testing.Test
+
+// Hardware tests are opt-in and must execute again when checking a new driver/device.
+// Project build scripts set the default false property; apply opt-in after those actions.
+gradle.projectsEvaluated {
+    allprojects { project ->
+        if (project.findProperty("gpurGpuTests")?.toString()?.equalsIgnoreCase("true")) {
+            project.tasks.withType(Test).configureEach {
+                systemProperty("gpur.gpu-tests", "true")
+                outputs.upToDateWhen { false }
+            }
+        }
+    }
+}

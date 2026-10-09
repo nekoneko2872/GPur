@@ -1,0 +1,1303 @@
+{
+  "schemaVersion": 1,
+  "validationDate": "2026-10-09",
+  "timezone": "Asia/Tokyo",
+  "generatedAtUtc": "2026-10-09T11:15:18.274027+00:00",
+  "version": "GPur 26.2 SNAPSHOT1.1.0",
+  "branch": "ver/26.2",
+  "agents": {
+    "runnerModel": "gpt-6-luna",
+    "auditModel": "gpt-6-luna",
+    "reasoningEffort": "xhigh",
+    "parentReview": "test assertions, raw JSON/XML, artifact provenance and publication"
+  },
+  "provenance": {
+    "testedProductionCommit": "f7ec32f2b65c0d86010058552fd6f011d5cd854a",
+    "artifactRuntimeCommit": "f7ec32f",
+    "productionCodeChangedDuringThisValidation": false,
+    "artifact": {
+      "path": "gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.1.0.jar",
+      "bytes": 92066088,
+      "sha256": "7bdeb2afcb985c03c5f793ff049d76977720c5755836c42dced574c26641c8b7"
+    },
+    "sourceAndHarnessFingerprints": {
+      "gpur-server/src/test/java/org/gpur/compute/VulkanTerrainHardwareTest.java": {
+        "gitBlobSha1": "77f3205cac4b00e8fe89c9ac2fbc99f7ed391203",
+        "workingFileSha256": "60a6e6c72dffde3c2275814a92c287d97202e5becaf30c51c9e872139aafd7bf"
+      },
+      "gpur-server/src/test/java/org/gpur/compute/VulkanParityTest.java": {
+        "gitBlobSha1": "d8c85de34443e5fd69f925d1131d6eb6e875c0a6",
+        "workingFileSha256": "81415eb542703351ca3462643c1d3e76aaa25de62c275194dfd232581b57f7a8"
+      },
+      "gpur-server/src/test/java/org/gpur/compute/VulkanDispatchMicrobenchmarkTest.java": {
+        "gitBlobSha1": "3223c7efe3fde90bc0e0b31ba66cf1fab8065ef3",
+        "workingFileSha256": "216fc117aa987fe18a3953e80628e4d644d1207ce997944bc3a90a141df43e1d"
+      },
+      "benchmarks/gpu-parity.init.gradle": {
+        "gitBlobSha1": "835b85ab6301d94d33d22380e6d1380b6504c384",
+        "workingFileSha256": "8d4868c59ad1ed3995d63e5129cb54918ca74d1b364585e6277bb6b28dda5b5a"
+      },
+      "benchmarks/terrain-micro.init.gradle": {
+        "gitBlobSha1": "897dfc7214a5534d041e4f4585a37208f989915a",
+        "workingFileSha256": "28adab5e3870dfad86d089088fae64fd0e07f26c919a2714489f00f13e23d139"
+      }
+    },
+    "note": "The publication commit adds tests and records. The measured production implementation and frozen artifact remain f7ec32f. Hardware tests execute compiled test classes; the server JAR was not launched."
+  },
+  "environment": {
+    "os": "Microsoft Windows 11 Pro",
+    "osVersion": "10.0.26200",
+    "cpu": "11th Gen Intel Core i9-11900KF @ 3.50GHz",
+    "cpuCores": 8,
+    "cpuLogicalProcessors": 16,
+    "hostPhysicalMemoryBytes": 102963552256,
+    "java": "OpenJDK 25.0.2",
+    "vulkanApplicationApi": "1.1",
+    "devices": [
+      {
+        "name": "NVIDIA GeForce RTX 3070",
+        "uuid": "GPU-543d9738-1f7f-3348-a4b0-b255385e36f0",
+        "driver": "581.57",
+        "memoryMiB": 8192
+      },
+      {
+        "name": "NVIDIA GeForce GTX 1080",
+        "uuid": "GPU-eefb2822-94d5-f892-00f4-c2f5f582b223",
+        "driver": "581.57",
+        "memoryMiB": 8192
+      }
+    ]
+  },
+  "cpu": {
+    "initialRerun": {
+      "xmlFiles": 141,
+      "tests": 9379,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 27,
+      "xmlSetSha256": "89d3f3aa344ee02f31f21a687d74d77eab3d27ad1e1c0ab1eba12e9e37d2c0e5",
+      "xmlSetDigestFormat": "SHA-256 of UTF-8 sorted filename + space + XML SHA-256 + LF entries",
+      "localEvidenceFolder": "validation/1.1.0-luna-20261009/cpu",
+      "buildLogSha256": "caf189a64b287f6bc02c8224596fc18021b5ab0c1580fe4bc060a8c73488be8c",
+      "selectedClasses": {
+        "net.minecraft.world.level.levelgen.NoiseBasedAsyncFillParityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "69ab17abc22cd5a11f0e541f385eb94733e5008e08381c19742ef063ef2a978d"
+        },
+        "net.minecraft.world.level.levelgen.NoiseChunkVanillaSlabParityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "802b70edf4d53892e54b34303445e2528743d071cf69ef306b2c6c4dab710cee"
+        },
+        "org.gpur.antixray.AntiXrayParityTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "ac76c72f6e8dae7f943be7686bdda2d53c3b6e1de235e4dd000b1e6da7d4927e"
+        },
+        "org.gpur.command.GPurStatusDisplayTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "629a04da49c31783517385f1c9f6579e14c1beaf49cd371a967d3a8340a70a4f"
+        },
+        "org.gpur.compute.AsyncVanillaComputeTest": {
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "6246b248187c3658957b2c3b80d27288e3f06736c8ab39e240ea0574693a52f2"
+        },
+        "org.gpur.compute.BrandCompatibilityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "3a0313d43575ac5859daa79d77c2a3870a1339eb3f1ca364d9860b00eef6f7c0"
+        },
+        "org.gpur.compute.ComputeResultGateTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "beaad3cd16b2a9c3866b497a26293504abf2184385d1daa015ae5de71a5fe7e0"
+        },
+        "org.gpur.compute.DeviceLoadEstimatorTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "e588ae575f3137b0da5722ef1089d6032092602bd1c5ee94b603bbfdb249ec11"
+        },
+        "org.gpur.compute.DispatchBackoffTest": {
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "39d8dfcf4c008cb4a35d0ab652c2a0f04f9eabf90c67366090ac462d02d1b4e1"
+        },
+        "org.gpur.compute.ExactComputeTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "d1a16ff135a5a04993dbddc229b9de5206d1f5b6f2892efb6aeeac484e0210a8"
+        },
+        "org.gpur.compute.ExactStartupCorpusTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "c6c76c9dda50f2239eb4fa200da8afce241ba23f028dd0a4b409c4039d65707f"
+        },
+        "org.gpur.compute.GpuPipelineCacheTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "b2625f15114de07df6f744daf015c8284f680f1efeee8b3724716248899dd6a7"
+        },
+        "org.gpur.compute.ShaderCompilationTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "a7dbf2dfc23c6df1f7ba6e04862fe547ceb9b4bbcbb978bc8aefd82d7958f551"
+        },
+        "org.gpur.compute.TerrainTuningProfileTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "06c819d98a87355c7ac3acd41ed9f74a1d8ad615396f6de78be75414147432ce"
+        },
+        "org.gpur.compute.VanillaTerrainInterpolationTest": {
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "b32e594f3dbbada2423cfd110322c622a19421ac12adef59d8806cc61332ad6b"
+        },
+        "org.gpur.compute.VanillaVerificationPolicyTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "ccb7f5797e8036f295f27059c130695f639fed3f029b79167a71b4f14cb9a031"
+        },
+        "org.gpur.compute.VulkanAsyncLifecycleTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "eef3a3d0928f53b3f31e28b3609df679618bec91139cc83001c0875c713b7d18"
+        },
+        "org.gpur.compute.VulkanDispatchMicrobenchmarkTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1,
+          "xmlSha256": "81da51e84e85449c5e3dcf0a2df3823de195d416f1c3758a9cc825507d4d2bde"
+        },
+        "org.gpur.compute.VulkanMemoryPolicyTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "7207c76b0f422b6265d23d8f3ba1acee25838ae61cd098deac29341621552b14"
+        },
+        "org.gpur.compute.VulkanParityTest": {
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 4,
+          "xmlSha256": "a511f8fde244ff54b333bfd1f2900f5e9a6e751bdecda19e811f3f4c33a7da23"
+        },
+        "org.gpur.GPurConfigTest": {
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "70751f1e7c908d6a738561f2467cd8db7e7dd461a6599f28d0f5355b042df05d"
+        },
+        "org.gpur.preload.GPurElytraPreloadMathTest": {
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "08b4b6fea8b5490b8ba90ea6df1b357533795de466f447f78d4a1ad135dbd22d"
+        },
+        "org.gpur.preload.GPurGenerationConcurrencyTest": {
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "e045d00409147e0740d2484205d2a1e0901c1d693032a2b4cfc0e8d0b4de3097"
+        },
+        "org.gpur.preload.GPurSharedPreloadSelectorTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "fe109c86e2eb32d75be504c3134b93e0d7192081c5948ed13be25bf849f17cc1"
+        },
+        "org.gpur.preload.GPurSharedPreloadServiceTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "46a01b09af57d7ce0e3608c5c0051899954d466e7e57f9f9c748cfbbd6f5c972"
+        },
+        "org.gpur.terrain.TerrainRulesTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "d82c628e4639e4aa460960353c85c4da8e870c5a20828dfce034113c5a815c04"
+        },
+        "org.gpur.terrain.TerrainSchedulerTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "77b95a0afeabbf89e6ef403b6790363a9ad170f5df1a3a682611484811f55a93"
+        },
+        "org.gpur.terrain.TerrainWorldRegistryTest": {
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "16dbb17304781a27c445c24750bc3add75a82138b977358a0b5e7314fe51a1dc"
+        },
+        "org.gpur.terrain.VanillaSlabPipelineTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "3ff544517cc2b426217845c7f721238566290441c8c216539f326693ba7397da"
+        },
+        "org.gpur.waypoints.WaypointEntrySnapshotTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "22e568974cb802d3e22841b48357d316e5a4979d640e7efb85157ee79a6aef45"
+        }
+      }
+    },
+    "finalRerunWithAddedOptInTest": {
+      "xmlFiles": 142,
+      "tests": 9380,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 28,
+      "xmlSetSha256": "596d1bba51b5412cd6958d35002eb769a933f373b9b4caac3e3d015135dd311a",
+      "xmlSetDigestFormat": "SHA-256 of UTF-8 sorted filename + space + XML SHA-256 + LF entries",
+      "localEvidenceFolder": "validation/1.1.0-luna-20261009/cpu-final",
+      "buildLogSha256": "b0232a3ee0f05da3feb54d63cbbd67bdc1cfad4aae43a9a288772509951dcc0b",
+      "selectedClasses": {
+        "net.minecraft.world.level.levelgen.NoiseBasedAsyncFillParityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "23720b6c29d62abfed810f4d61eaaf76b513e4ba97988d09c7d28e68811f20d4"
+        },
+        "net.minecraft.world.level.levelgen.NoiseChunkVanillaSlabParityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "2c323d5d6112ce3a097b7bce6017fb0fe233ebf5943a93f53e7c953ffd80c609"
+        },
+        "org.gpur.antixray.AntiXrayParityTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "0139dcbfcc93dac631404d47c7ef3f965a7afc90374157e3a62206fe2add8e4c"
+        },
+        "org.gpur.command.GPurStatusDisplayTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "0ae4af1e61a71c71b325e39c6961a9d0abdb8d4ce080e7e19b62e3c4e02be651"
+        },
+        "org.gpur.compute.AsyncVanillaComputeTest": {
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "5541abb49fc62bf938ef1eda91531662180d0b25bf16713983d9963667ed797e"
+        },
+        "org.gpur.compute.BrandCompatibilityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "aba258caabbd80365a60ed237afdc818f9b21fabdc511f309d7a12463ed39bff"
+        },
+        "org.gpur.compute.ComputeResultGateTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "75148fef137edd19e5a17f44e32511a713f5a25adcf5a3b5a6185ad014ba50e2"
+        },
+        "org.gpur.compute.DeviceLoadEstimatorTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "91b737fe20cee32896406ff7829b596b488f44bf9b5f79bbd229037aeae2f0a8"
+        },
+        "org.gpur.compute.DispatchBackoffTest": {
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "9a3e5ff9f03d591ed46a06c8eb0af0ce626ebdfcc6e111e52720dcff464e550f"
+        },
+        "org.gpur.compute.ExactComputeTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "1c99a95806f61bbcba03c1a70ecdc2431f958308fd9098de7cebc174f5fae4c2"
+        },
+        "org.gpur.compute.ExactStartupCorpusTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "31c7c531d7d832782baeb2364ce68acf2974acd204876ddb670712d2b587f818"
+        },
+        "org.gpur.compute.GpuPipelineCacheTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "37104b4cbf810cbbe19a0fae6c28cf16bb6c739a438244cbb73cdf4142e4cebe"
+        },
+        "org.gpur.compute.ShaderCompilationTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "b512236392be2e8c772f8fc5ebf58f5dc9c5c335165c7ed713e36d6a93879f38"
+        },
+        "org.gpur.compute.TerrainTuningProfileTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "a7726dff3ccfe4c7cc2b7754da5ebbb4695a109a32b8b1b3926c0cb9a19d7684"
+        },
+        "org.gpur.compute.VanillaTerrainInterpolationTest": {
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "9488553f2e75dfb03be6911c3f58ffb12d7a77af88c862f67e0980cea1f48be2"
+        },
+        "org.gpur.compute.VanillaVerificationPolicyTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "09dd0415e829b3e7dd46a8ce236416e6c92994a615c8896318e83815e2805e97"
+        },
+        "org.gpur.compute.VulkanAsyncLifecycleTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "7bbc2d63c13df35d2d041181a25e829b94e6d0d551159d03b0f50924dc1b2e0e"
+        },
+        "org.gpur.compute.VulkanDispatchMicrobenchmarkTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1,
+          "xmlSha256": "ff9976adf467107c6e800d09f6191bd48144d70dd337430b0576dd17dd0aeba4"
+        },
+        "org.gpur.compute.VulkanMemoryPolicyTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "76e73a1a88188bbec8caa965fad6da014e7f349844982ec7d1fc56f089dce590"
+        },
+        "org.gpur.compute.VulkanParityTest": {
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 4,
+          "xmlSha256": "7662695729df2bcf323e07cc12f001667aad675d346ef807b7c18e9b7428055c"
+        },
+        "org.gpur.compute.VulkanTerrainHardwareTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1,
+          "xmlSha256": "8c757faf097f9cb7735a6880269499f53540123ad3bb7cd58f4d94b6d101e5d8"
+        },
+        "org.gpur.GPurConfigTest": {
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "06fbf11e92aebe8eb82579dca56933c95f79755fe3038092e70bc823d0e6e693"
+        },
+        "org.gpur.preload.GPurElytraPreloadMathTest": {
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "89942389fb2eff6cd43f68924ed7b14a6b8063f6584008bb3f9934a544b49ab7"
+        },
+        "org.gpur.preload.GPurGenerationConcurrencyTest": {
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "de7ba622740ca6ebc89d52cab3d1b57dfd65c504fc6d4f2c6ad683d4517f418c"
+        },
+        "org.gpur.preload.GPurSharedPreloadSelectorTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "532026952778d65b36e6669ef3ffcab3b96025fccb39133aa6ee62532fa6f333"
+        },
+        "org.gpur.preload.GPurSharedPreloadServiceTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "b902c4d38dcd95e63eded66207b7a9df4b81d3dd8e83b117da84fec270bff071"
+        },
+        "org.gpur.terrain.TerrainRulesTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "4812155fc0fcd68d1a4729c5624cc2498c34671f5a9c4d3ab9b908d6619344d5"
+        },
+        "org.gpur.terrain.TerrainSchedulerTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "e85a82e7b8f728b1fabf8354772ebeb9ca7060977fb681367dd83f4479317cba"
+        },
+        "org.gpur.terrain.TerrainWorldRegistryTest": {
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "49dab1f8ac40337bfde83bcab3515b91edaec6b488c41acd589c2db3e8b503fa"
+        },
+        "org.gpur.terrain.VanillaSlabPipelineTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "8416c1d6fb52a11ae160c03e1f4cb9651620f2d130ad9f08f874e6f2e25882bd"
+        },
+        "org.gpur.waypoints.WaypointEntrySnapshotTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "551e051d6ad90f1bd20021b52f4e8d07a26fe5035b48eeb69b048e438a92cbf4"
+        }
+      }
+    },
+    "physicalGpuTestsEnabled": false,
+    "note": "The final default suite skips the new physical-GPU test by design. Simulated vanilla noise-fill integration coverage is two fixtures, four X slabs per fixture, 128-block height, fixed plains biome and empty structures."
+  },
+  "physicalHardwareSuite": {
+    "execution": {
+      "xmlFiles": 27,
+      "tests": 90,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "xmlSetSha256": "1ad3dac52e1beb519f937fa5ddfa5fc924691bc3b7f669edbb9132a9c55981fd",
+      "xmlSetDigestFormat": "SHA-256 of UTF-8 sorted filename + space + XML SHA-256 + LF entries",
+      "localEvidenceFolder": "validation/1.1.0-luna-20261009/gpu-parity-final",
+      "buildLogSha256": "7bbb92b0ecf139eebf60d8bc49ee1fcafb3797840f876a3c92620742414ba9b0",
+      "selectedClasses": {
+        "net.minecraft.world.level.levelgen.NoiseBasedAsyncFillParityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "199cb987bc22e3d476dee260325a2a83845bbd3fa945cf7b4170d70fafc18ae7"
+        },
+        "net.minecraft.world.level.levelgen.NoiseChunkVanillaSlabParityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "f87d00bb9a522fc189b045a527c9a538d2f5d7fca6ac3f23106330e97f1e091a"
+        },
+        "org.gpur.antixray.AntiXrayParityTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "5aec9a5d308fb40bd6d067874f2034f0191307b8e77d3a07d299ce6883516b9b"
+        },
+        "org.gpur.command.GPurStatusDisplayTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "c4b796bea34d514dff0e1abeae04c38fff307c33175db6768cbe7efbac5417fc"
+        },
+        "org.gpur.compute.AsyncVanillaComputeTest": {
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "2f888ef4393e64076c54dc0d48257ce591b9d33040f8878c6b90ac79da0d1987"
+        },
+        "org.gpur.compute.BrandCompatibilityTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "8ea56a906b4b20fb3a8f9880656095263894610501f854820d4029ce6fb37480"
+        },
+        "org.gpur.compute.ComputeResultGateTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "7338432b1dbd941fde1f653acc4f2f81b42ce9a653f6f516e9cd1b58cf9b94bd"
+        },
+        "org.gpur.compute.DeviceLoadEstimatorTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "da76a4111c74a863cebe5bca1cb1ce7e681a012a5dd6bbb684d08e39177d3e12"
+        },
+        "org.gpur.compute.DispatchBackoffTest": {
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "8355b7899b2498be0c153167e8d7d78d90a9cc3bd303231ee2676eb5cc920ff5"
+        },
+        "org.gpur.compute.ExactComputeTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "f44365c74907790d1cf83fa8a3d3b34f3e78832b07642f6aec3d2b83275fedf6"
+        },
+        "org.gpur.compute.ExactStartupCorpusTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "b6e9986fdb3934caf4105a37701a3c469a95b31a791114aacb16062ae15fdcaf"
+        },
+        "org.gpur.compute.GpuPipelineCacheTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "7c26d0365c6e06bacfe24f2f587aaed3c1cba7cd286c384bbeb473bd3a88d838"
+        },
+        "org.gpur.compute.ShaderCompilationTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "085ac152bd995b8be7da084f540a3f437293bddcba5aaf3d49f16c527507820a"
+        },
+        "org.gpur.compute.TerrainTuningProfileTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "5daf8b3f909574fd2c5754ed005695e72fa66b255e6b5082eae28db536c88a35"
+        },
+        "org.gpur.compute.VanillaTerrainInterpolationTest": {
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "6502f538fd4570cbaf5a509eb57ec10331a98d6de7d828679a75312cfc004586"
+        },
+        "org.gpur.compute.VanillaVerificationPolicyTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "ec9effd2904ce91b9d01f269f6aed19a0f24d2a0f78c7db5903f71dcf6497938"
+        },
+        "org.gpur.compute.VulkanAsyncLifecycleTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "c74ad0e182647d52be248012b399fe488181c6785847de188ff6ec67b576f740"
+        },
+        "org.gpur.compute.VulkanDispatchMicrobenchmarkTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1,
+          "xmlSha256": "4b8857277a268d71b07ec01a65ea551fcd7da3c69037d6d25ad98004f2a94743"
+        },
+        "org.gpur.compute.VulkanMemoryPolicyTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "86c96655b535a8bc861f6fae7a49287b7b3fe2f951c997629f08588f8bd5ea3d"
+        },
+        "org.gpur.compute.VulkanParityTest": {
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "0e424a4705c075aa925d3d7d8d3b4b7edcacd5b278489de800ebf9a4cfa9d160"
+        },
+        "org.gpur.compute.VulkanTerrainHardwareTest": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "bd22bd13f57e5377c3363946737140864eafe5e942133abe7c5d93acffacc20d"
+        },
+        "org.gpur.GPurConfigTest": {
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "62ecbb2dbfc63772282db0a262d8d230a3fed35309045c5d091ce548a000448a"
+        },
+        "org.gpur.terrain.TerrainRulesTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "49c3ce9eb5533ed568244a20f64eb5d63bab8c0f8c6715b1141e711d8f7cc528"
+        },
+        "org.gpur.terrain.TerrainSchedulerTest": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "b2faaa58c9a8d68cea4187ec9014d761459b35116495d3cb28cf81741277aab0"
+        },
+        "org.gpur.terrain.TerrainWorldRegistryTest": {
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "861846c29bac9f313a72ce080bec6bba18ccf25de6d7e5d3ff29ff88932746fe"
+        },
+        "org.gpur.terrain.VanillaSlabPipelineTest": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "38907b29f317dacbfb9278bc057cbc859cc05d0f375b9c0a33e278cf09de5e6f"
+        },
+        "org.gpur.waypoints.WaypointEntrySnapshotTest": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xmlSha256": "7dd4cd5cc9d1d5c28407fba926a3cca36d862261c3f0740397955f0b1b558834"
+        }
+      }
+    },
+    "physicalTestMethods": 5,
+    "cpuMockAntiXrayTestMethods": 2,
+    "dispatchBenchmarkSkippedInThisRun": true,
+    "diagnosticSettings": {
+      "gpuForce": true,
+      "terrainVerificationMode": "strict",
+      "everyMixedTerrainResultCpuVerified": true,
+      "note": "Forced diagnostic parity coverage does not prove normal-runtime admission rates or server speedup."
+    },
+    "nativeAsyncMemoryPaths": [
+      {
+        "deviceName": "NVIDIA GeForce RTX 3070",
+        "memoryPath": "direct",
+        "outputBytes": 65536,
+        "startupCorpusCases": 8,
+        "submittedJobs": 9,
+        "completedJobs": 9,
+        "rejectedJobs": 0,
+        "timedOutJobs": 0,
+        "failedJobs": 0,
+        "residentBytes": 868352
+      },
+      {
+        "deviceName": "NVIDIA GeForce RTX 3070",
+        "memoryPath": "staging",
+        "outputBytes": 65536,
+        "startupCorpusCases": 8,
+        "submittedJobs": 9,
+        "completedJobs": 9,
+        "rejectedJobs": 0,
+        "timedOutJobs": 0,
+        "failedJobs": 0,
+        "residentBytes": 1736704
+      },
+      {
+        "deviceName": "NVIDIA GeForce GTX 1080",
+        "memoryPath": "direct",
+        "outputBytes": 65536,
+        "startupCorpusCases": 8,
+        "submittedJobs": 9,
+        "completedJobs": 9,
+        "rejectedJobs": 0,
+        "timedOutJobs": 0,
+        "failedJobs": 0,
+        "residentBytes": 868352
+      },
+      {
+        "deviceName": "NVIDIA GeForce GTX 1080",
+        "memoryPath": "staging",
+        "outputBytes": 65536,
+        "startupCorpusCases": 8,
+        "submittedJobs": 9,
+        "completedJobs": 9,
+        "rejectedJobs": 0,
+        "timedOutJobs": 0,
+        "failedJobs": 0,
+        "residentBytes": 1736704
+      }
+    ],
+    "mixedStrictVanillaInterpolation": {
+      "requests": 33,
+      "cpuFallbacks": 0,
+      "mismatches": 0,
+      "devices": [
+        {
+          "deviceName": "NVIDIA GeForce RTX 3070",
+          "vulkanUuid": "543d97381f7f3348a4b0b255385e36f0",
+          "acceptedGpuResults": 17,
+          "submittedJobs": 17,
+          "completedJobs": 17,
+          "cpuParitySamples": 17,
+          "rejectedJobs": 0,
+          "timedOutJobs": 0,
+          "failedJobs": 0
+        },
+        {
+          "deviceName": "NVIDIA GeForce GTX 1080",
+          "vulkanUuid": "eefb282294d5f89200f4c2f5f582b223",
+          "acceptedGpuResults": 16,
+          "submittedJobs": 16,
+          "completedJobs": 16,
+          "cpuParitySamples": 16,
+          "rejectedJobs": 0,
+          "timedOutJobs": 0,
+          "failedJobs": 0
+        }
+      ]
+    },
+    "closeAfterNativeCompletionBeforeCpuVerification": {
+      "requests": 4,
+      "bothVerificationExecutorWorkersBlocked": true,
+      "nativeJobsCompletedBeforeClose": 4,
+      "futuresIncompleteBeforeClose": true,
+      "lateResultsRejectedAfterClose": 4,
+      "newWorkRejectedAfterClose": true
+    },
+    "genericMixedDistanceAndAntiXray": {
+      "setupSequentialRequests": 32,
+      "concurrentRequests": 128,
+      "totalRequests": 160,
+      "gpuResults": 114,
+      "cpuFallbacks": 46,
+      "returnedGpuMismatches": 0,
+      "note": "Busy/admission limits allow CPU fallback; this is exact-parity and scheduling coverage, not a no-fallback performance test."
+    }
+  },
+  "terrainDispatchMicrobenchmarks": [
+    {
+      "deviceName": "NVIDIA GeForce RTX 3070",
+      "vulkanUuid": "543d97381f7f3348a4b0b255385e36f0",
+      "report": "docs/results/1.1.0-terrain-micro-rtx3070.json",
+      "sha256": "46f3cb99afee33b63d4848da244c231a687f176c83617937622bb593b814c570",
+      "testExecution": {
+        "xmlFiles": 26,
+        "tests": 89,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 4,
+        "xmlSetSha256": "22fc0480288663e63fadf096df1882a873dee95cb503d0823eb12e0a83c0d2f5",
+        "xmlSetDigestFormat": "SHA-256 of UTF-8 sorted filename + space + XML SHA-256 + LF entries",
+        "localEvidenceFolder": "validation/1.1.0-luna-20261009/terrain-rtx3070",
+        "buildLogSha256": "abe4046b6848b10fe36cd558c3d5279c1c89e57acc7e5d86f0fd11bc9775ae24",
+        "selectedClasses": {
+          "net.minecraft.world.level.levelgen.NoiseBasedAsyncFillParityTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "d9deb854c9508d4e24b66bd5b18ef093a944379b05204b02a1192ba646fd1e0a"
+          },
+          "net.minecraft.world.level.levelgen.NoiseChunkVanillaSlabParityTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "3f3f7ca27e161c2711bbb9fea050470175aaa0ab5ecc82fbc3037706b481e839"
+          },
+          "org.gpur.antixray.AntiXrayParityTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "9489cf24e42f5f900941d00a4b65a63c65ae916c01d86ddfcae7efae5bfffb21"
+          },
+          "org.gpur.command.GPurStatusDisplayTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "2dd47b7a0790e8308625b94d823f824c947e934d64d698881b85a90f6450d1f4"
+          },
+          "org.gpur.compute.AsyncVanillaComputeTest": {
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "de61939e1cfaf9aa0e94b6e41e88ff2f3654b5780046d70e3a46acdc3b4e5dde"
+          },
+          "org.gpur.compute.BrandCompatibilityTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "d931ce331527e0b2c031746c1a3acc0cbf2b9795abc29a45463882a727cde839"
+          },
+          "org.gpur.compute.ComputeResultGateTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "2f8d150c8f8308bcde6e1ec417eb7891cf547b49d37c5fb16e8b04215d9e52e5"
+          },
+          "org.gpur.compute.DeviceLoadEstimatorTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "9edbda59c03430e74d357c27deff9f82adcef305699e378319173e44f8b74155"
+          },
+          "org.gpur.compute.DispatchBackoffTest": {
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "e358bcdda5f940fd73c5e955ed16600e174072a494fa55421f1d9532a449c128"
+          },
+          "org.gpur.compute.ExactComputeTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "1f690a8628eab124720dc061ce89a44092b873f4c0cdc255bb44fbe48e3c0653"
+          },
+          "org.gpur.compute.ExactStartupCorpusTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "3fbc4da79a5e503938de2773d786c5923b4896f8c432c6116bdf37806506cb68"
+          },
+          "org.gpur.compute.GpuPipelineCacheTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "2c1bfc1764bc82b4c2f485d8f12d050733b7ac7010e4ecc9ac8a275311913322"
+          },
+          "org.gpur.compute.ShaderCompilationTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "91eb30b501f390b048b28e1460b10424033371c136d22377a5e353e114395099"
+          },
+          "org.gpur.compute.TerrainTuningProfileTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "4b817c75498103e5146326a444c871cf6b3c3dc1849e3e5cf112b1c189849e1c"
+          },
+          "org.gpur.compute.VanillaTerrainInterpolationTest": {
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "8c9d52544d5b697fdc0b2b07ba0fab0d345684d65cb54741cfa61ed59e9a7eb6"
+          },
+          "org.gpur.compute.VanillaVerificationPolicyTest": {
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "664cbe657b64f43f56f16f3ac004f67fceea9a593b82e660a196a72647b9002d"
+          },
+          "org.gpur.compute.VulkanAsyncLifecycleTest": {
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "302d1619c4c03a545c2b222750a6c123d8896c3ec1c5096ae8805e3856763f57"
+          },
+          "org.gpur.compute.VulkanDispatchMicrobenchmarkTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "6f5c3bddd03aa91ee6b8ac7fb9cfacd34aab9cfe302e254830e37eeaecdcffbe"
+          },
+          "org.gpur.compute.VulkanMemoryPolicyTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "c5e7521c83f5f1d7c45416b9335914cfd2e5555cc143cbde965ff89c5f48f936"
+          },
+          "org.gpur.compute.VulkanParityTest": {
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 4,
+            "xmlSha256": "b4e529b5430b2761066412213191d4f1338635ba6926e4eaf35de4e1a9f85ebe"
+          },
+          "org.gpur.GPurConfigTest": {
+            "tests": 8,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "8a7023f3bf56deaf2c4bb98bd1c41b88f1618daf29fc8e1a65c04d7fc45ec6f1"
+          },
+          "org.gpur.terrain.TerrainRulesTest": {
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "59cb9e3d08d556542bcadda012fc02a4d3874c47cbf3db4f5c5b8225b151f130"
+          },
+          "org.gpur.terrain.TerrainSchedulerTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "b854361742d8c5ee19ff012eeaa02c4d9159ccf99285026335175931f7947d78"
+          },
+          "org.gpur.terrain.TerrainWorldRegistryTest": {
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "d18d7bc022cc91c3ecd011ab2b43f8cc313c4559ba8f420686629fe0365579ad"
+          },
+          "org.gpur.terrain.VanillaSlabPipelineTest": {
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "2a9817b034ead9f4ccf671002a3e8d989b53d0547c2d18153837bba16335e485"
+          },
+          "org.gpur.waypoints.WaypointEntrySnapshotTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "ad753f0e090b4a4d5bb0e706e7b7c6d77869723147d0bba154f16ec6f2e56eba"
+          }
+        }
+      },
+      "measuredGpuResults": 600,
+      "measuredMismatchCount": 0,
+      "warmupPerSize": 16,
+      "measuredPerSize": 100,
+      "sizes": [
+        1024,
+        4096,
+        16384,
+        65536,
+        262144,
+        1048576
+      ]
+    },
+    {
+      "deviceName": "NVIDIA GeForce GTX 1080",
+      "vulkanUuid": "eefb282294d5f89200f4c2f5f582b223",
+      "report": "docs/results/1.1.0-terrain-micro-gtx1080.json",
+      "sha256": "52bf06a725c8b33b313394572f7395dae25b2006c835b63bab7c6654e0069625",
+      "testExecution": {
+        "xmlFiles": 26,
+        "tests": 89,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 4,
+        "xmlSetSha256": "f2aa8b51b7943798edd212052bc0095caf5863be3a6668b9338c09c3455d3033",
+        "xmlSetDigestFormat": "SHA-256 of UTF-8 sorted filename + space + XML SHA-256 + LF entries",
+        "localEvidenceFolder": "validation/1.1.0-luna-20261009/terrain-gtx1080",
+        "buildLogSha256": "ed6cc0bfcc97e8f23825e9dd6891ee2d4cf132b6840a19f52ef575a533e03139",
+        "selectedClasses": {
+          "net.minecraft.world.level.levelgen.NoiseBasedAsyncFillParityTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "d87aa8ba6153c163d06e168e9daa3b6e53f519ea893c68fbe1252cdcab05e277"
+          },
+          "net.minecraft.world.level.levelgen.NoiseChunkVanillaSlabParityTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "646ebacb90e1891bc584c745b034910c90538b4c40b30d2766549bc1b1ce3450"
+          },
+          "org.gpur.antixray.AntiXrayParityTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "4f1652faf1df4ebb5cc5ba036723868810db04d33eec8204e42668dff00ec705"
+          },
+          "org.gpur.command.GPurStatusDisplayTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "60ae7aebb470dc923f8e793e87941a3cdddfe1f10f5dcbf2bfdf3919f5179720"
+          },
+          "org.gpur.compute.AsyncVanillaComputeTest": {
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "6d60be22dc2812f58fe69d2760b44c9ea83dad09919152a31465609830c46dc4"
+          },
+          "org.gpur.compute.BrandCompatibilityTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "fead8b6dc4d1d13fc27c10c1c22ce86756abebf5a64987945a45310fad3a2523"
+          },
+          "org.gpur.compute.ComputeResultGateTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "1253672ffa4066512d723f3d4d3f0c6ead276d4bb47f78303740cd766b998311"
+          },
+          "org.gpur.compute.DeviceLoadEstimatorTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "780c7f628b843f259bc7dde6ed7f833aba3a4a709a881ba63c91668f314d25d9"
+          },
+          "org.gpur.compute.DispatchBackoffTest": {
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "5fe815c0c0fe964c0048bfdb13c44dd3f84bc54c4a6269b2d0345f110a3cecb7"
+          },
+          "org.gpur.compute.ExactComputeTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "72375fbd4c2eac9d95069a62bc14f62bdb657a5b900be4077ffa3d6bdbbbe2ec"
+          },
+          "org.gpur.compute.ExactStartupCorpusTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "53fc72c9c584855e97ab4959b775a1c6a7cd26b8729d3b0b280e34291ecc56cf"
+          },
+          "org.gpur.compute.GpuPipelineCacheTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "97d3b646d24d5a0b2db20ee05d20552fb64dc15f3dcadc86b649ca0a806ab1fc"
+          },
+          "org.gpur.compute.ShaderCompilationTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "99876c2471d046e95b125de9db97a58435c8f025724691c26234bc92589525c4"
+          },
+          "org.gpur.compute.TerrainTuningProfileTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "602553671fa2c0651c8595f03da0b7ce2bbba86effb534d3d82a9739d2e69cee"
+          },
+          "org.gpur.compute.VanillaTerrainInterpolationTest": {
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "65aa3a4557f0b34bd0c5eb6bba1b51260d524b291e1be762ca395ed69cbd6103"
+          },
+          "org.gpur.compute.VanillaVerificationPolicyTest": {
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "5d47ccc08f8b7c9a0ce723508c13d80407c302ec4b08c438ed2aa79add899c89"
+          },
+          "org.gpur.compute.VulkanAsyncLifecycleTest": {
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "5d45b81b68404edd94e63790703d9df67aa24d4655f489fcae6ebc691e9129a1"
+          },
+          "org.gpur.compute.VulkanDispatchMicrobenchmarkTest": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "68ab855eeb1ce02ebbaa29a333d03a11ed06168238b8247252af543b3b6f61eb"
+          },
+          "org.gpur.compute.VulkanMemoryPolicyTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "b72b41585ef553e06e97d2ae525cb3b09be1c5f6a145a704d17978f71719f5cd"
+          },
+          "org.gpur.compute.VulkanParityTest": {
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 4,
+            "xmlSha256": "4b18b887f4fec3917bb34c2c73d6344f7779276c06af877ceb945a5713f6f0bb"
+          },
+          "org.gpur.GPurConfigTest": {
+            "tests": 8,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "b44e4bbe723f403230f9641c31572bde3845bd7c8629de1328d8dd20bc9ca0de"
+          },
+          "org.gpur.terrain.TerrainRulesTest": {
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "0fc3ce3a7cef0dd92e68b8da08492518db40d183c0ead73e8574f8f4b50a329a"
+          },
+          "org.gpur.terrain.TerrainSchedulerTest": {
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "87c8dcbed81a79ae6054063d98ce9d0a840f0e72f37691358d79e6372889a42d"
+          },
+          "org.gpur.terrain.TerrainWorldRegistryTest": {
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "d1725803087c7b248a11ae7fbb21c7339057d55539b50365c6795647e4a36eaa"
+          },
+          "org.gpur.terrain.VanillaSlabPipelineTest": {
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "c8bfbc52458838f7a78116d595a29098b43242a7d3750522766732427baffd24"
+          },
+          "org.gpur.waypoints.WaypointEntrySnapshotTest": {
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xmlSha256": "f79e07e893c1c5a0f5ac8877a9105c198e70929029a74b174a977ff35c180155"
+          }
+        }
+      },
+      "measuredGpuResults": 600,
+      "measuredMismatchCount": 0,
+      "warmupPerSize": 16,
+      "measuredPerSize": 100,
+      "sizes": [
+        1024,
+        4096,
+        16384,
+        65536,
+        262144,
+        1048576
+      ]
+    }
+  ],
+  "measurementLimits": {
+    "apiLatency": "Measured from computeAsync invocation through future completion, including queueing, transfer, dispatch and readback. Exact comparisons are outside the timed interval.",
+    "cpuWireReference": "One untuned standalone reference calculation per size before GPU warmup, not a repeated warmed CPU baseline or chunk-generation timing.",
+    "payloadCounters": "Logical input/output payload bytes, not measured PCIe traffic; host phase counters can overlap.",
+    "hostConditions": "Standalone tests on the user machine; background applications, power state and PCIe topology were not controlled. These are short runs, not repeated isolated performance experiments.",
+    "notMeasured": [
+      "live server TPS/MSPT",
+      "full vanilla world-generation throughput",
+      "Paper/Purpur end-to-end performance baseline",
+      "decorated/saved-world parity",
+      "long-duration stability",
+      "AMD or GTX 960 hardware",
+      "real forced GPU timeout/device loss",
+      "actual non-coherent memory-path behavior"
+    ],
+    "serverSpeedupEstablished": false,
+    "fullTerrainDensityAquiferGpuOffloadImplemented": false,
+    "quantizationUsed": false,
+    "liveServerOrUserWorldModified": false
+  },
+  "reproduction": {
+    "cpu": ".\\gradlew.bat :purpur-server:test --rerun-tasks --no-configuration-cache",
+    "hardware": ".\\gradlew.bat -I benchmarks/gpu-parity.init.gradle :purpur-server:test --tests org.gpur.GPurRuntimeTestSuite -PgpurGpuTests=true --no-configuration-cache",
+    "microRtx3070": ".\\gradlew.bat -I benchmarks/terrain-micro.init.gradle :purpur-server:test --tests org.gpur.GPurRuntimeTestSuite -PgpurGpuBenchmark=true -PgpurGpuDevice=543d97381f7f3348a4b0b255385e36f0 -PgpurGpuIterations=100 --rerun-tasks --no-configuration-cache",
+    "microGtx1080": ".\\gradlew.bat -I benchmarks/terrain-micro.init.gradle :purpur-server:test --tests org.gpur.GPurRuntimeTestSuite -PgpurGpuBenchmark=true -PgpurGpuDevice=eefb282294d5f89200f4c2f5f582b223 -PgpurGpuIterations=100 --rerun-tasks --no-configuration-cache"
+  },
+  "executionNotes": [
+    "Initial local Gradle init file had a UTF-8 BOM and failed before tasks; fixed before the successful CPU run.",
+    "A type mismatch in the added test helper was fixed before physical execution; no production code changed.",
+    "An early init-script opt-in was overridden by project defaults; skipped XML was detected and excluded. The final canonical property run executed all five physical test methods.",
+    "The pending-verification close test was tightened to block both CPU executor workers and assert late results are rejected."
+  ],
+  "verdict": {
+    "cpuSuite": "passed",
+    "testedPhysicalGpuExactParity": "passed",
+    "mixedAsyncStrictParity": "passed",
+    "endToEndServerPerformance": "not measured"
+  }
+}

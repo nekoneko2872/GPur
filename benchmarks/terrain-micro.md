@@ -7,7 +7,7 @@ The test is skipped unless `gpurGpuBenchmark=true` is passed through the init sc
 From the repository root, run:
 
 ```powershell
-.\gradlew.bat -I benchmarks/terrain-micro.init.gradle :purpur-server:test --tests org.gpur.GPurRuntimeTestSuite -PgpurGpuBenchmark=true --rerun-tasks
+.\gradlew.bat -I benchmarks/terrain-micro.init.gradle :purpur-server:test --tests org.gpur.GPurRuntimeTestSuite -PgpurGpuBenchmark=true --rerun-tasks --no-configuration-cache
 ```
 
 Use `-PgpurGpuDevice=<uuid-or-name>` to choose a device; the default is `auto`, which picks the first discovered FP64 device. Use `-PgpurGpuIterations=<count>` to set measured requests per workload; the default is 100 and values are clamped to 1 to 1000. The init script forwards these project properties to the JUnit system properties. It does not enable the separate `gpur.gpu-tests` hardware parity suite.
@@ -25,6 +25,6 @@ The deterministic matrix uses finite random density corners in `[-1,000,000, 1,0
 
 Each case warms up with 16 requests, then measures the configured number of requests in waves of up to four. The recorded median, p95, and p99 include the Java API call through future completion, with exact result comparison outside that timed interval. Null GPU results are counted as CPU-fallback outcomes; each workload must produce at least one GPU result. The separately recorded CPU reference time covers one standalone wire-reference calculation per workload.
 
-Gson writes the report to `gpur-server/build/reports/gpur-terrain-micro/<device-uuid>.json`. Per-workload JSON contains input/output payload sizes, measured request and fallback counts, API latency percentiles, and cumulative device metrics before, after, and across the timed phase. Vulkan timestamp counters are reported when the selected device exposes them. The benchmark uses Vulkan 1.1 fence-based dispatch; it does not require timeline semaphores. This is not a 2 GB or 16 GB Minecraft server benchmark, and no GPU run is performed during normal test runs. This harness was not run on a GPU as part of this change.
+Gson writes the report to `gpur-server/build/reports/gpur-terrain-micro/<device-uuid>.json`. Per-workload JSON contains input/output payload sizes, measured request and fallback counts, API latency percentiles, and cumulative device metrics before, after, and across the timed phase. Vulkan timestamp counters are reported when the selected device exposes them. The benchmark uses Vulkan 1.1 fence-based dispatch; it does not require timeline semaphores. This is not a 2 GB or 16 GB Minecraft server benchmark, and no GPU run is performed during normal test runs. On 2026-10-09, this harness completed on an RTX 3070 and GTX 1080 with 100 exact GPU results for each of six sizes per device; median and tail latencies are summarized in the [1.1.0 validation record](../docs/1.1.0-validation.en.md). These results do not benchmark vanilla chunk generation or establish production speedup.
 
 Relevant Vulkan references: [NVIDIA Vulkan Dos and Don'ts](https://developer.nvidia.com/blog/vulkan-dos-donts/), [Khronos command-buffer usage sample](https://docs.vulkan.org/samples/latest/samples/performance/command_buffer_usage/README.html), and [`vkGetFenceStatus`](https://docs.vulkan.org/refpages/latest/refpages/source/vkGetFenceStatus.html).
