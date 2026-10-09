@@ -1,17 +1,37 @@
 package org.gpur.compute;
 
 /** Immutable interpolated values for one vanilla X cell slab. No world state crosses devices. */
-public final class VanillaTerrainSlab {
+public final class VanillaTerrainSlab implements AutoCloseable {
     private final int[] values;
     private final int width;
     private final int height;
     private final int cellsY;
+    private final java.util.function.BooleanSupplier usable;
+    private final Runnable release;
+    private final java.util.concurrent.atomic.AtomicBoolean released = new java.util.concurrent.atomic.AtomicBoolean();
 
     VanillaTerrainSlab(int[] values, int width, int height, int cellsY) {
+        this(values, width, height, cellsY, () -> true);
+    }
+
+    VanillaTerrainSlab(int[] values, int width, int height, int cellsY, java.util.function.BooleanSupplier usable) {
+        this(values, width, height, cellsY, usable, () -> {});
+    }
+
+    VanillaTerrainSlab(int[] values, int width, int height, int cellsY, java.util.function.BooleanSupplier usable, Runnable release) {
         this.values = values;
         this.width = width;
         this.height = height;
         this.cellsY = cellsY;
+        this.usable = usable;
+        this.release = release;
+    }
+
+    public boolean usable() { return !this.released.get() && this.usable.getAsBoolean(); }
+
+    /** Releases CPU snapshot admission after consumption; it never releases native GPU resources. */
+    @Override public void close() {
+        if (this.released.compareAndSet(false, true)) this.release.run();
     }
 
     public double value(int interpolator, int cellY, int cellZ, int y, int x, int z, boolean fillingCell) {

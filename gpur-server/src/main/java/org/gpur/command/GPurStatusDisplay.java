@@ -75,6 +75,7 @@ final class GPurStatusDisplay {
                     if (!workload.uuid().equals(device.uuid())) continue;
                     String stateText = !vanilla.enabled() ? "CPU (disabled in config)"
                         : !device.available() || snapshot.stopped() ? "CPU (GPU unavailable)"
+                        : vanilla.mode().equals("observe") ? "Observe (results discarded)"
                         : workload.slabs() == 0 ? "Ready (no slabs yet)" : "GPU enabled";
                     lines.add(row("  Vanilla interpolation: ", stateText,
                         vanilla.enabled() && device.available() ? NamedTextColor.GREEN : NamedTextColor.GRAY)
@@ -85,8 +86,26 @@ final class GPurStatusDisplay {
                     if (detail) {
                         lines.add(row("    Values / full parity checks: ", count(workload.values()) + " / "
                             + count(workload.paritySamples()), NamedTextColor.WHITE));
-                        lines.add(row("    Interpolation dispatch avg / max: ", millis(workload.averageDispatchNanos()) + " / "
+                        lines.add(row("    Submit-to-CPU-resume avg / max: ", millis(workload.averageDispatchNanos()) + " / "
                             + millis(workload.maxDispatchNanos()) + " ms", NamedTextColor.WHITE));
+                        lines.add(row("    Observed slabs / verification CPU total: ", count(workload.observedSlabs()) + " / "
+                            + millis(workload.verificationNanos()) + " ms", NamedTextColor.WHITE));
+                        var nativeMetrics = workload.backend();
+                        if (nativeMetrics != null) {
+                            lines.add(row("    Device queue / in-flight batches: ", nativeMetrics.queueDepth() + " / "
+                                + nativeMetrics.inFlightBatches(), NamedTextColor.WHITE));
+                            lines.add(row("    Device jobs / native submits: ", count(nativeMetrics.submittedJobs()) + " / "
+                                + count(nativeMetrics.batchesSubmitted()), NamedTextColor.WHITE));
+                            lines.add(row("    GPU timestamp average: ", nativeMetrics.gpuSamples() == 0 ? "Unavailable"
+                                : millis(nativeMetrics.gpuNanos() / nativeMetrics.gpuSamples()) + " ms (" + count(nativeMetrics.gpuSamples()) + " samples)", NamedTextColor.WHITE));
+                            lines.add(row("    Device payload in / out: ", count(nativeMetrics.inputBytes()) + " / "
+                                + count(nativeMetrics.outputBytes()) + " bytes", NamedTextColor.WHITE)
+                                .hoverEvent(Component.text("Submitted payload sizes across all workloads. These are not measured PCIe traffic.")));
+                            lines.add(row("    Buffer allocations / retained bytes: ", count(nativeMetrics.allocations()) + " / "
+                                + count(nativeMetrics.residentBytes()), NamedTextColor.WHITE));
+                            lines.add(row("    Device timeouts / rejected jobs: ", count(nativeMetrics.timedOutJobs()) + " / "
+                                + count(nativeMetrics.rejectedJobs()), NamedTextColor.WHITE));
+                        }
                     }
                 }
             }
@@ -99,8 +118,9 @@ final class GPurStatusDisplay {
             lines.add(row("Vanilla interpolation CPU attempts: ", count(vanilla.cpuFallbacks())
                 + " | parity failures: " + count(vanilla.parityFailures()), NamedTextColor.WHITE)
                 .hoverEvent(Component.text("Submitted or bounded interpolation attempts that retained vanilla CPU math. Not all CPU terrain work.")));
-            lines.add(row("Vanilla CPU parity: ", vanilla.verifyEveryBatch() ? "Every returned GPU slab (strict)"
-                : "First and periodic slabs", vanilla.verifyEveryBatch() ? NamedTextColor.GREEN : NamedTextColor.YELLOW)
+            lines.add(row("Vanilla mode: ", vanilla.mode() + " | " + (vanilla.asyncSubmit() ? "Async noise stage" : "Blocking noise stage"), NamedTextColor.WHITE));
+            lines.add(row("Vanilla CPU parity: ", vanilla.verifyEveryBatch() ? "Every returned GPU slab"
+                : "Warmup and randomized samples", vanilla.verifyEveryBatch() ? NamedTextColor.GREEN : NamedTextColor.YELLOW)
                 .hoverEvent(Component.text("Strict mode computes all reference values on CPU before accepting a GPU slab. It adds CPU work and does not establish speedup.")));
         }
         if (terrain != null && terrain.worlds() > 0) {

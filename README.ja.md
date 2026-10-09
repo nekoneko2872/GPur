@@ -14,6 +14,7 @@ Paper/Purpurプラグインは通常のサーバースレッド上で動作し�
 | 実機・負荷検証 | [日本語](docs/26.2-validation.md) | [English](docs/26.2-validation.en.md) |
 | 状態表示・エリトラ先読みの更新 | [日本語](docs/26.2-runtime-updates.md) | [English](docs/26.2-runtime-updates.en.md) |
 | バニラ地形ノイズ補間 | [日本語](docs/26.2-vanilla-terrain.md) | [English](docs/26.2-vanilla-terrain.en.md) |
+| 非同期地形処理・照合設定 | [日本語](docs/26.2-async-terrain.md) | [English](docs/26.2-async-terrain.en.md) |
 | 廃止したカスタム地形設計の記録 | [日本語](docs/26.2-custom-terrain.md) | [English](docs/26.2-custom-terrain.en.md) |
 
 ## ビルド

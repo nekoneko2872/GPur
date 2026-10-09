@@ -9,6 +9,39 @@ import org.junit.jupiter.api.io.TempDir;
 class GPurConfigTest {
     @TempDir Path directory;
 
+    @Test void asyncTerrainModesOverrideLegacyFlagsAndClampMemoryAndQueueControls() throws Exception {
+        Path config = directory.resolve("gpur.yml");
+        Files.writeString(config, """
+            chunk-generation:
+              vanilla-terrain:
+                enabled: false
+                mode: verified-exact
+            gpu:
+              scheduler:
+                batch-max-jobs: 100
+                queue-capacity: 0
+                batch-window-us: -1
+                buffer-budget-mib: 1000000
+              verification:
+                full-first-batches: 0
+                sample-one-in: 0
+            """);
+        GPurConfig.init(config.toFile());
+        assertTrue(GPurConfig.vanillaTerrainEnabled);
+        assertFalse(GPurConfig.vanillaTerrainVerifyEveryBatch);
+        assertEquals(org.gpur.compute.VanillaVerificationPolicy.Mode.VERIFIED_EXACT, GPurConfig.vanillaTerrainMode);
+        assertEquals(16, GPurConfig.gpuBatchMaxJobs);
+        assertEquals(1, GPurConfig.gpuAsyncQueueCapacity);
+        assertEquals(0, GPurConfig.gpuBatchWaitMicros);
+        assertEquals(512, GPurConfig.gpuBufferBudgetMiB);
+        assertEquals(1, GPurConfig.gpuFullFirstBatches);
+        assertEquals(1, GPurConfig.gpuVerificationSampleOneIn);
+        Files.writeString(config, "chunk-generation:\n  vanilla-terrain:\n    mode: approximate\n    enabled: true\n");
+        GPurConfig.init(config.toFile());
+        assertFalse(GPurConfig.vanillaTerrainEnabled);
+        assertEquals(org.gpur.compute.VanillaVerificationPolicy.Mode.DISABLED, GPurConfig.vanillaTerrainMode);
+    }
+
     @Test void vanillaTerrainRequiresOptInAndKeepsStrictParityAndBoundedFlightDefaults() throws Exception {
         Path config = directory.resolve("gpur.yml");
         Files.writeString(config, "config-version: 2\n");

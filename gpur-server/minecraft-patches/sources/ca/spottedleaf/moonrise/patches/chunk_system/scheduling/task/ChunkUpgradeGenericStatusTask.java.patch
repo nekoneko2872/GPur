@@ -1,0 +1,108 @@
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/task/ChunkUpgradeGenericStatusTask.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/task/ChunkUpgradeGenericStatusTask.java
+@@ -32,6 +_,10 @@
+     private final StaticCache2D<GenerationChunkHolder> neighbours;
+ 
+     private final PrioritisedExecutor.PrioritisedTask generateTask;
++    private final java.util.concurrent.atomic.AtomicReference<Priority> gpurContinuationPriority = new java.util.concurrent.atomic.AtomicReference<>();
++    private final Object gpurResumeLock = new Object();
++    private volatile PrioritisedExecutor.PrioritisedTask gpurResumeTask;
++    private volatile boolean gpurSuspended;
+ 
+     public ChunkUpgradeGenericStatusTask(final ChunkTaskScheduler scheduler, final ServerLevel world, final int chunkX,
+                                          final int chunkZ, final ChunkAccess chunk, final StaticCache2D<GenerationChunkHolder> neighbours,
+@@ -40,6 +_,7 @@
+         if (!Priority.isValidPriority(priority)) {
+             throw new IllegalArgumentException("Invalid priority " + priority);
+         }
++        this.gpurContinuationPriority.set(priority);
+         this.fromChunk = chunk;
+         this.fromStatus = chunk.getPersistedStatus();
+         this.toStatus = toStatus;
+@@ -83,6 +_,20 @@
+         // schedule() calls this synchronously if it will run through that path
+ 
+         final WorldGenContext ctx = chunkMap.worldGenContext;
++        org.gpur.compute.ComputeService gpurService = org.gpur.GPurServices.compute();
++        final org.gpur.terrain.VanillaNoiseContinuation gpurContinuation =
++            this.toStatus == ChunkStatus.NOISE && ((ChunkSystemChunkStatus)this.toStatus).moonrise$isParallelCapable()
++            && !chunk.getPersistedStatus().isOrAfter(this.toStatus)
++            && ctx.generator().getClass() == net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator.class
++            && gpurService != null && gpurService.vanillaTerrainAsyncEligible() && !org.bukkit.Bukkit.isPrimaryThread()
++                ? org.gpur.terrain.VanillaNoiseContinuation.enter(gpurService,
++                    runnable -> {
++                        synchronized (this.gpurResumeLock) {
++                            PrioritisedExecutor.PrioritisedTask resume = this.scheduler.parallelGenExecutor.createTask(runnable, this.gpurContinuationPriority.get());
++                            this.gpurResumeTask = resume;
++                            resume.queue();
++                        }
++                    }) : null;
+         try {
+             generation = !chunk.getPersistedStatus().isOrAfter(this.toStatus);
+             if (generation) {
+@@ -128,6 +_,20 @@
+             );
+ 
+             return;
++        } finally {
++            if (gpurContinuation != null) gpurContinuation.close();
++        }
++
++        if (gpurContinuation != null && gpurContinuation.used() && !completeFuture.isDone()) {
++            // Only GPur's standard, parallel NOISE stage may yield. Dependencies remain pending.
++            this.gpurSuspended = true;
++            completeFuture.whenComplete((newChunk, failure) -> {
++                this.gpurSuspended = false;
++                if (failure != null) this.complete(null, failure);
++                else if (newChunk == null) this.complete(null, new IllegalStateException("GPur NOISE returned a null chunk"));
++                else this.complete(newChunk, null);
++            });
++            return;
+         }
+ 
+         if (!completeFuture.isDone() && !((ChunkSystemChunkStatus)this.toStatus).moonrise$getWarnedAboutNoImmediateComplete().getAndSet(true)) {
+@@ -187,7 +_,7 @@
+ 
+     @Override
+     public Priority getPriority() {
+-        return this.generateTask.getPriority();
++        return this.gpurSuspended ? this.gpurContinuationPriority.get() : this.generateTask.getPriority();
+     }
+ 
+     @Override
+@@ -195,6 +_,11 @@
+         if (!Priority.isValidPriority(priority)) {
+             throw new IllegalArgumentException("Invalid priority " + priority);
+         }
++        synchronized (this.gpurResumeLock) {
++            this.gpurContinuationPriority.updateAndGet(current -> priority.isLowerPriority(current) ? priority : current);
++            PrioritisedExecutor.PrioritisedTask resume = this.gpurResumeTask;
++            if (resume != null) resume.lowerPriority(priority);
++        }
+         this.generateTask.lowerPriority(priority);
+     }
+ 
+@@ -203,6 +_,11 @@
+         if (!Priority.isValidPriority(priority)) {
+             throw new IllegalArgumentException("Invalid priority " + priority);
+         }
++        synchronized (this.gpurResumeLock) {
++            this.gpurContinuationPriority.set(priority);
++            PrioritisedExecutor.PrioritisedTask resume = this.gpurResumeTask;
++            if (resume != null) resume.setPriority(priority);
++        }
+         this.generateTask.setPriority(priority);
+     }
+ 
+@@ -211,6 +_,11 @@
+         if (!Priority.isValidPriority(priority)) {
+             throw new IllegalArgumentException("Invalid priority " + priority);
+         }
++        synchronized (this.gpurResumeLock) {
++            this.gpurContinuationPriority.updateAndGet(current -> priority.isHigherPriority(current) ? priority : current);
++            PrioritisedExecutor.PrioritisedTask resume = this.gpurResumeTask;
++            if (resume != null) resume.raisePriority(priority);
++        }
+         this.generateTask.raisePriority(priority);
+     }
+ }

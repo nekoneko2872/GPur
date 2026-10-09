@@ -12,7 +12,7 @@
      private final DensityFunction.ContextProvider sliceFillingContextProvider = new DensityFunction.ContextProvider() {
          @Override
          public DensityFunction.FunctionContext forIndex(final int cellYIndex) {
-@@ -247,6 +_,32 @@
+@@ -247,6 +_,53 @@
          this.arrayInterpolationCounter++;
      }
  
@@ -40,6 +40,27 @@
 +        }
 +        // The codec copies primitive values. No NoiseChunk/world/cache object crosses threads.
 +        this.gpurSlab = service.prepareVanillaSlab(this.cellWidth, this.cellHeight, this.cellCountY, lower, upper);
++    }
++
++    public java.util.concurrent.CompletableFuture<org.gpur.compute.VanillaTerrainSlab> gpurPrepareVanillaSlabAsync(
++        org.gpur.compute.ComputeService service, java.util.concurrent.Executor continuation
++    ) {
++        this.gpurSlab = null;
++        int count = this.interpolators.size();
++        if (this.cellCountXZ * this.cellWidth != 16 || count == 0) {
++            return java.util.concurrent.CompletableFuture.completedFuture(null);
++        }
++        double[][][] lower = new double[count][][];
++        double[][][] upper = new double[count][][];
++        for (int i = 0; i < count; i++) {
++            lower[i] = this.interpolators.get(i).slice0;
++            upper[i] = this.interpolators.get(i).slice1;
++        }
++        return service.prepareVanillaSlabAsync(this.cellWidth, this.cellHeight, this.cellCountY, lower, upper, continuation);
++    }
++
++    public void gpurInstallVanillaSlab(org.gpur.compute.VanillaTerrainSlab slab) {
++        this.gpurSlab = slab != null && slab.usable() ? slab : null;
 +    }
 +
      public void initializeForFirstCellX() {

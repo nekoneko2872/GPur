@@ -38,7 +38,8 @@ class GPurStatusDisplayTest {
         assertTrue(output.contains("Vanilla interpolation: GPU enabled | 8 slabs"));
         assertTrue(output.contains("Values / full parity checks: 393,216 / 8"));
         assertTrue(output.contains("Original world generator | vanilla rules preserved"));
-        assertTrue(output.contains("Every returned GPU slab (strict)"));
+        assertTrue(output.contains("Vanilla CPU parity: Every returned GPU slab"));
+        assertTrue(output.contains("Vanilla mode: strict"));
         assertFalse(output.contains("Waiting for a custom world"));
         assertFalse(output.contains("8 chunks"));
     }

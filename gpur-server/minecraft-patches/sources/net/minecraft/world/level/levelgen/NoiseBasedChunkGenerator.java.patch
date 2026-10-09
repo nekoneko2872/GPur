@@ -1,6 +1,18 @@
 --- a/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
 +++ b/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
-@@ -371,9 +_,13 @@
+@@ -360,6 +_,11 @@
+         int minY = noiseSettings.minY();
+         int cellYMin = Mth.floorDiv(minY, noiseSettings.getCellHeight());
+         int cellCountY = Mth.floorDiv(noiseSettings.height(), noiseSettings.getCellHeight());
++        org.gpur.terrain.VanillaNoiseContinuation continuation = org.gpur.terrain.VanillaNoiseContinuation.current();
++        if (cellCountY > 0 && continuation != null) {
++            continuation.markUsed();
++            return this.gpurFillFromNoiseAsync(blender, randomState, structureManager, centerChunk, minY, cellYMin, cellCountY, continuation);
++        }
+         return cellCountY <= 0 ? CompletableFuture.completedFuture(centerChunk) : CompletableFuture.supplyAsync(() -> {
+             int topSectionIndex = centerChunk.getSectionIndex(cellCountY * noiseSettings.getCellHeight() - 1 + minY);
+             int bottomSectionIndex = centerChunk.getSectionIndex(minY);
+@@ -371,14 +_,129 @@
                  sections.add(section);
              }
  
@@ -14,3 +26,119 @@
                  for (LevelChunkSection section : sections) {
                      section.release();
                  }
+             }
+         }, Runnable::run); // Paper - rewrite chunk system
++    }
++
++    private CompletableFuture<ChunkAccess> gpurFillFromNoiseAsync(
++        Blender blender, RandomState randomState, StructureManager structureManager, ChunkAccess centerChunk,
++        int minY, int cellMinY, int cellCountY, org.gpur.terrain.VanillaNoiseContinuation continuation
++    ) {
++        Set<LevelChunkSection> sections = Sets.newHashSet();
++        NoiseChunk acquiredNoise = null;
++        try {
++            int cellHeightForSections = this.settings.value().noiseSettings().getCellHeight();
++            int topSectionIndex = centerChunk.getSectionIndex(cellCountY * cellHeightForSections - 1 + minY);
++            int bottomSectionIndex = centerChunk.getSectionIndex(minY);
++            for (int index = topSectionIndex; index >= bottomSectionIndex; index--) {
++                LevelChunkSection section = centerChunk.getSection(index);
++                section.acquire();
++                sections.add(section);
++            }
++            NoiseChunk noiseChunk = centerChunk.getOrCreateNoiseChunk(chunk -> this.createNoiseChunk(chunk, structureManager, blender, randomState));
++            acquiredNoise = noiseChunk;
++            // Each NoiseChunk is owned by this serial continuation until the NOISE future completes.
++            noiseChunk.gpurClearVanillaInterpolation();
++            Heightmap oceanFloor = centerChunk.getOrCreateHeightmapUnprimed(Heightmap.Types.OCEAN_FLOOR_WG);
++            Heightmap worldSurface = centerChunk.getOrCreateHeightmapUnprimed(Heightmap.Types.WORLD_SURFACE_WG);
++            int chunkStartBlockX = centerChunk.getPos().getMinBlockX();
++            int chunkStartBlockZ = centerChunk.getPos().getMinBlockZ();
++            Aquifer aquifer = noiseChunk.aquifer();
++            noiseChunk.initializeForFirstCellX();
++            BlockPos.MutableBlockPos blockPos = new BlockPos.MutableBlockPos();
++            int cellWidth = noiseChunk.cellWidth();
++            int cellHeight = noiseChunk.cellHeight();
++            int cellCountX = 16 / cellWidth;
++            int cellCountZ = 16 / cellWidth;
++            return org.gpur.terrain.VanillaSlabPipeline.start(new org.gpur.terrain.VanillaSlabPipeline.Stages<ChunkAccess>() {
++                public int slabCount() { return cellCountX; }
++
++                public CompletableFuture<org.gpur.compute.VanillaTerrainSlab> prepare(int cellXIndex) {
++                    noiseChunk.advanceCellX(cellXIndex);
++                    return noiseChunk.gpurPrepareVanillaSlabAsync(continuation.service(), continuation.executor());
++                }
++
++                public void consume(int cellXIndex, org.gpur.compute.VanillaTerrainSlab slab) {
++                    noiseChunk.gpurInstallVanillaSlab(slab);
++                    for (int cellZIndex = 0; cellZIndex < cellCountZ; cellZIndex++) {
++                        int lastSectionIndex = centerChunk.getSectionsCount() - 1;
++                        LevelChunkSection section = centerChunk.getSection(lastSectionIndex);
++
++                        for (int cellYIndex = cellCountY - 1; cellYIndex >= 0; cellYIndex--) {
++                            noiseChunk.selectCellYZ(cellYIndex, cellZIndex);
++
++                            for (int yInCell = cellHeight - 1; yInCell >= 0; yInCell--) {
++                                int posY = (cellMinY + cellYIndex) * cellHeight + yInCell;
++                                int yInSection = posY & 15;
++                                int sectionIndex = centerChunk.getSectionIndex(posY);
++                                if (lastSectionIndex != sectionIndex) {
++                                    lastSectionIndex = sectionIndex;
++                                    section = centerChunk.getSection(sectionIndex);
++                                }
++
++                                double factorY = (double)yInCell / cellHeight;
++                                noiseChunk.updateForY(posY, factorY);
++
++                                for (int xInCell = 0; xInCell < cellWidth; xInCell++) {
++                                    int posX = chunkStartBlockX + cellXIndex * cellWidth + xInCell;
++                                    int xInSection = posX & 15;
++                                    double factorX = (double)xInCell / cellWidth;
++                                    noiseChunk.updateForX(posX, factorX);
++
++                                    for (int zInCell = 0; zInCell < cellWidth; zInCell++) {
++                                        int posZ = chunkStartBlockZ + cellZIndex * cellWidth + zInCell;
++                                        int zInSection = posZ & 15;
++                                        double factorZ = (double)zInCell / cellWidth;
++                                        noiseChunk.updateForZ(posZ, factorZ);
++                                        BlockState state = noiseChunk.getInterpolatedState();
++                                        if (state == null) {
++                                            state = NoiseBasedChunkGenerator.this.settings.value().defaultBlock();
++                                        }
++
++                                        state = NoiseBasedChunkGenerator.this.debugPreliminarySurfaceLevel(noiseChunk, posX, posY, posZ, state);
++                                        if (state != AIR && !SharedConstants.debugVoidTerrain(centerChunk.getPos())) {
++                                            section.setBlockState(xInSection, yInSection, zInSection, state, false);
++                                            oceanFloor.update(xInSection, posY, zInSection, state);
++                                            worldSurface.update(xInSection, posY, zInSection, state);
++                                            if (aquifer.shouldScheduleFluidUpdate() && !state.getFluidState().isEmpty()) {
++                                                blockPos.set(posX, posY, posZ);
++                                                centerChunk.markPosForPostProcessing(blockPos);
++                                            }
++                                        }
++                                    }
++                                }
++                            }
++                        }
++                    }
++
++                    noiseChunk.swapSlices();
++                }
++
++                public ChunkAccess finish() {
++                    noiseChunk.stopInterpolation();
++                    return centerChunk;
++                }
++
++                public void cleanup() {
++                    noiseChunk.gpurClearVanillaInterpolation();
++                    for (LevelChunkSection section : sections) section.release();
++                }
++            }, continuation.executor());
++        } catch (Throwable failure) {
++            if (acquiredNoise != null) acquiredNoise.gpurClearVanillaInterpolation();
++            for (LevelChunkSection section : sections) section.release();
++            return CompletableFuture.failedFuture(failure);
++        }
+     }
+ 
+     private ChunkAccess doFill(

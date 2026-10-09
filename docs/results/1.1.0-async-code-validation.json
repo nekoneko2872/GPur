@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-09",
+  "minecraft": "26.2",
+  "gpur": "SNAPSHOT1.1.0",
+  "branch": "ver/26.2",
+  "base_commit": "5d5410ee261d163e6967da2602e5f2f51dc1bbe0",
+  "scope": "bounded asynchronous exact vanilla interpolation, native batching/staging, verification and lifecycle controls",
+  "jdk": "OpenJDK 25.0.2",
+  "commands": [
+    "./gradlew applyAllPatches",
+    "./gradlew -I benchmarks/terrain-micro.init.gradle -PgpurGpuBenchmark=false :purpur-server:test :purpur-server:createPaperclipJar"
+  ],
+  "patches": "passed: 243 Minecraft and 43 Paper server file patches",
+  "build": "passed",
+  "tests": {
+    "source": "sum of 141 Gradle test-result XML files",
+    "total": 9379,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 27
+  },
+  "async_compute_tests": 7,
+  "async_compute_checked": [
+    "CPU-executor verification and device quarantine",
+    "observe mode never adopts GPU results",
+    "reload rejects old pending results",
+    "caller mutation cannot change the primitive snapshot",
+    "backend failure retains the CPU path",
+    "quarantine invalidates collected snapshots awaiting installation",
+    "CPU snapshots remain bounded through consumption and cancellation"
+  ],
+  "async_noise_fill_integration": {
+    "tests": 1,
+    "fixtures": 2,
+    "coordinates": "negative and mixed-sign near-world-border",
+    "vertical_extent": 128,
+    "x_slabs_per_fixture": 4,
+    "checked": [
+      "GPU completion does not mutate blocks before a CPU continuation runs",
+      "all block states match the ordinary vanilla fill",
+      "both worldgen heightmaps match",
+      "post-processing fluid-update marks match",
+      "one missing slab returns to original CPU interpolation",
+      "active slab is cleared after completion"
+    ],
+    "backend": "delayed CPU-reference slabs on a simulated GPU completion thread; no physical GPU",
+    "limitations": "fixed plains biome, empty structures, two seeds, noise-stage only; not complete decorated/saved worlds"
+  },
+  "slab_pipeline_tests": 5,
+  "native_lifecycle_policy_tests": 5,
+  "native_api_validation": "compiled and statically reviewed; native fence/staging/device-loss behavior not exercised on hardware",
+  "shader_compilation": "passed: existing FP64 shader compiled to SPIR-V on CPU; arithmetic unchanged",
+  "microbenchmark": "compiled; opt-in hardware test skipped; init script checked with GPU benchmark disabled",
+  "defaults": {
+    "vanilla_gpu_interpolation": false,
+    "legacy_full_verification": true,
+    "async_noise_stage": true,
+    "native_batch_max_jobs": 4,
+    "native_batch_window_us": 200,
+    "native_pending_queue_jobs_per_device": 32,
+    "native_buffer_budget_mib_per_device": 128,
+    "separate_cpu_snapshot_budget_mib_per_service": 128
+  },
+  "quantization_implemented": false,
+  "full_density_graph_gpu_offload_implemented": false,
+  "compact_block_classification_readback_implemented": false,
+  "gpu_hardware_tests_run": false,
+  "live_server_load_tests_run": false,
+  "soak_tests_run": false,
+  "gpu_hardware_parity_established": false,
+  "performance_improvement_established": false,
+  "artifact": "gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.1.0.jar"
+}

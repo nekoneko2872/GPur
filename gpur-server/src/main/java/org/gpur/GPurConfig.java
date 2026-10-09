@@ -124,6 +124,16 @@ public final class GPurConfig {
     public static int vanillaTerrainMaxSlabValues = 1_048_576;
     public static int vanillaTerrainMinValues = 1024;
     public static int vanillaTerrainParityInterval = 128;
+    public static org.gpur.compute.VanillaVerificationPolicy.Mode vanillaTerrainMode = org.gpur.compute.VanillaVerificationPolicy.Mode.DISABLED;
+    public static boolean gpuAsyncSubmit = true;
+    public static int gpuBatchMaxJobs = 4;
+    public static int gpuBatchWaitMicros = 200;
+    public static int gpuAsyncQueueCapacity = 32;
+    public static int gpuDeviceLocalThresholdBytes = 65536;
+    public static int gpuBufferBudgetMiB = 128;
+    public static boolean gpuTimestampEnabled = true;
+    public static int gpuFullFirstBatches = 16;
+    public static int gpuVerificationSampleOneIn = 128;
     public static int elytraMaxExtraConcurrentGenerates = 8;
 
     private GPurConfig() {
@@ -283,6 +293,34 @@ public final class GPurConfig {
             1, vanillaTerrainMaxSlabValues, "chunk-generation.vanilla-terrain.minimum-values");
         vanillaTerrainParityInterval = clamp(getInt("chunk-generation.vanilla-terrain.parity-interval", 128),
             1, 4096, "chunk-generation.vanilla-terrain.parity-interval");
+        // An explicit mode takes precedence; absent mode retains the previous boolean contract.
+        String mode = config.getString("chunk-generation.vanilla-terrain.mode");
+        try {
+            vanillaTerrainMode = mode == null
+                ? !vanillaTerrainEnabled ? org.gpur.compute.VanillaVerificationPolicy.Mode.DISABLED
+                    : vanillaTerrainVerifyEveryBatch ? org.gpur.compute.VanillaVerificationPolicy.Mode.STRICT
+                    : org.gpur.compute.VanillaVerificationPolicy.Mode.VERIFIED_EXACT
+                : org.gpur.compute.VanillaVerificationPolicy.Mode.parse(mode);
+        } catch (IllegalArgumentException invalidMode) {
+            Logger.getLogger("GPur").warning("Unknown vanilla terrain mode '" + mode + "'; retaining CPU terrain. Supported: disabled, observe, verified-exact, strict.");
+            vanillaTerrainMode = org.gpur.compute.VanillaVerificationPolicy.Mode.DISABLED;
+        }
+        vanillaTerrainEnabled = vanillaTerrainMode != org.gpur.compute.VanillaVerificationPolicy.Mode.DISABLED;
+        if (vanillaTerrainEnabled) {
+            vanillaTerrainVerifyEveryBatch = vanillaTerrainMode == org.gpur.compute.VanillaVerificationPolicy.Mode.STRICT
+                || vanillaTerrainMode == org.gpur.compute.VanillaVerificationPolicy.Mode.OBSERVE;
+        }
+        gpuAsyncSubmit = getBoolean("gpu.scheduler.async-submit", true);
+        gpuBatchMaxJobs = clamp(getInt("gpu.scheduler.batch-max-jobs", 4), 1, 16, "gpu.scheduler.batch-max-jobs");
+        gpuBatchWaitMicros = clamp(getInt("gpu.scheduler.batch-window-us", 200), 0, 2000, "gpu.scheduler.batch-window-us");
+        gpuAsyncQueueCapacity = clamp(getInt("gpu.scheduler.queue-capacity", 32), 1, 256, "gpu.scheduler.queue-capacity");
+        gpuDeviceLocalThresholdBytes = clamp(getInt("gpu.scheduler.device-local-threshold-bytes", 65536), 4096, 16777216,
+            "gpu.scheduler.device-local-threshold-bytes");
+        gpuBufferBudgetMiB = clamp(getInt("gpu.scheduler.buffer-budget-mib", 128), 16, 512, "gpu.scheduler.buffer-budget-mib");
+        gpuTimestampEnabled = getBoolean("gpu.scheduler.timestamps", true);
+        gpuFullFirstBatches = clamp(getInt("gpu.verification.full-first-batches", 16), 1, 4096, "gpu.verification.full-first-batches");
+        gpuVerificationSampleOneIn = clamp(getInt("gpu.verification.sample-one-in", vanillaTerrainParityInterval), 1, 4096,
+            "gpu.verification.sample-one-in");
     }
 
     private static void readPreloading() {

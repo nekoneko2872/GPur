@@ -14,6 +14,7 @@ Paper/Purpur plugins execute on ordinary server threads. GPU kernels receive cop
 | Hardware and load validation | [English](docs/26.2-validation.en.md) | [日本語](docs/26.2-validation.md) |
 | Runtime status and elytra update | [English](docs/26.2-runtime-updates.en.md) | [日本語](docs/26.2-runtime-updates.md) |
 | Vanilla terrain noise interpolation | [English](docs/26.2-vanilla-terrain.en.md) | [日本語](docs/26.2-vanilla-terrain.md) |
+| Asynchronous vanilla terrain dispatch | [English](docs/26.2-async-terrain.en.md) | [日本語](docs/26.2-async-terrain.md) |
 | Retired custom terrain design archive | [English](docs/26.2-custom-terrain.en.md) | [日本語](docs/26.2-custom-terrain.md) |
 
 ## Build

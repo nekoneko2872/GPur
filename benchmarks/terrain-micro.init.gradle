@@ -1,0 +1,19 @@
+import org.gradle.api.tasks.testing.Test
+
+allprojects { project ->
+    project.tasks.withType(Test).configureEach {
+        if (project.findProperty("gpurGpuBenchmark")?.toString()?.equalsIgnoreCase("true")) {
+            systemProperty("gpur.gpu-benchmark", "true")
+
+            def selectedDevice = project.findProperty("gpurGpuDevice")
+            if (selectedDevice != null) {
+                systemProperty("gpur.benchmark.device", selectedDevice.toString())
+            }
+
+            def iterationCount = project.findProperty("gpurGpuIterations")
+            if (iterationCount != null) {
+                systemProperty("gpur.gpu-benchmark.iterations", iterationCount.toString())
+            }
+        }
+    }
+}
