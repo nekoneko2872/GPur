@@ -455,11 +455,12 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
     }
 
     private static boolean isFullyLit(org.bukkit.Chunk chunk) throws Exception {
-        Object handle = chunk.getClass().getMethod("getHandle").invoke(chunk);
-        boolean lightCorrect = (Boolean)invoke(handle, "isLightCorrect");
-        Object persistedStatus = invoke(handle, "getPersistedStatus");
         Class<?> statusClass = loadServerClass("net.minecraft.world.level.chunk.status.ChunkStatus");
         if (statusClass == null) throw new IllegalStateException("ChunkStatus class is unavailable");
+        Object fullStatus = statusClass.getField("FULL").get(null);
+        Object handle = chunk.getClass().getMethod("getHandle", statusClass).invoke(chunk, fullStatus);
+        boolean lightCorrect = (Boolean)invoke(handle, "isLightCorrect");
+        Object persistedStatus = invoke(handle, "getPersistedStatus");
         Object lightStatus = statusClass.getField("LIGHT").get(null);
         boolean statusLit = (Boolean)statusClass.getMethod("isOrAfter", statusClass)
             .invoke(persistedStatus, lightStatus);

@@ -12,19 +12,19 @@ Use the final candidate server JAR, the already accepted EULA file, Mojang cache
 python benchmarks/worldgen/build_plugin.py `
   --classpath validation/classpath.txt `
   --jdk C:\Users\caram\.jdks\openjdk-25.0.2 `
-  --output C:\GPur-validation-20261009\validation\worldgen-plugin-20261010-w6fix
+  --output C:\GPur-validation-20261009\validation\worldgen-plugin-20261010-paper-handlefix
 
 python benchmarks/worldgen/run_matrix.py `
   --jar C:\GPur-validation-20261009\validation\artifacts\b693a6a90\gpur-server-26.2-SNAPSHOT1.1.0.jar `
-  --probe C:\GPur-validation-20261009\validation\worldgen-plugin-20261010-w6fix\GPurWorldgenProbe.jar `
+  --probe C:\GPur-validation-20261009\validation\worldgen-plugin-20261010-paper-handlefix\GPurWorldgenProbe.jar `
   --mojang validation\smoke-gpu-final\cache\mojang_26.2.jar `
   --eula validation\eula.txt `
   --jdk C:\Users\caram\.jdks\openjdk-25.0.2 `
-  --output C:\GPur-validation-20261009\validation\worldgen-smoke-b693a6a90-xms4 `
+  --output C:\GPur-validation-20261009\validation\worldgen-smoke-b693a6a90-xms4-paper-handlefix `
   --radius 4 `
   --initial-heap-gib 4 `
   --continue-on-error `
-  --parity-dump-dir C:\GPur-validation-20261009\validation\worldgen-parity-b693a6a90-xms4
+  --parity-dump-dir C:\GPur-validation-20261009\validation\worldgen-parity-b693a6a90-xms4-paper-handlefix
 ```
 
 For an isolated diagnostic rerun, optionally pass `--parity-dump-dir C:\GPur-validation-20261009\validation\worldgen-parity-dumps`. The matrix creates a unique subdirectory per matrix and case, and the JVM writes a binary input/expected/actual snapshot only when strict parity fails. The option is disabled by default and its path must remain under the validation root.
