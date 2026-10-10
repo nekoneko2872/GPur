@@ -1,10 +1,13 @@
 import json
+import argparse
+import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 
-from run_matrix import Controller
+from run_matrix import (Controller, DEFAULT_INITIAL_HEAP_GIB, add_runtime_arguments,
+                        build_java_command, parse_initial_heap_gib, render_gpur_config)
 
 
 def telemetry_phase(target, percent):
@@ -97,6 +100,83 @@ class MovementValidationTests(unittest.TestCase):
             controller.validate_movement_evidence(summary)
         result = json.loads((controller.directory / 'movement-validation.json').read_text(encoding='utf-8'))
         self.assertTrue(any('configured bot selection' in failure['error'] for failure in result['failures']))
+
+
+class RunnerConfigurationTests(unittest.TestCase):
+    def test_initial_heap_defaults_to_sixteen_and_keeps_fixed_maximum(self):
+        parser = argparse.ArgumentParser()
+        add_runtime_arguments(parser)
+        defaults = parser.parse_args([])
+        self.assertEqual(DEFAULT_INITIAL_HEAP_GIB, 16)
+        self.assertEqual(defaults.initial_heap_gib, 16)
+        self.assertEqual(parse_initial_heap_gib('4'), 4)
+        command = build_java_command(Path('C:/jdk'), Path('C:/validation/server.jar'), 4)
+        self.assertIn('-Xms4G', command)
+        self.assertIn('-Xmx16G', command)
+
+    def test_initial_heap_validation_rejects_non_integer_and_out_of_range(self):
+        for invalid in ('zero', '0', '17', '-1'):
+            with self.subTest(value=invalid), self.assertRaises(argparse.ArgumentTypeError):
+                parse_initial_heap_gib(invalid)
+
+    def test_worldgen_mode_defaults_off_and_preserves_historical_gpu_config(self):
+        parser = argparse.ArgumentParser()
+        add_runtime_arguments(parser)
+        args = parser.parse_args([])
+        self.assertEqual(args.worldgen_mode, 'disabled')
+        cpu = render_gpur_config('cpu', False, args.worldgen_mode)
+        gpu = render_gpur_config('rtx3070', False, args.worldgen_mode)
+        self.assertIn('enabled: false', cpu)
+        self.assertIn('enabled: true', gpu)
+        self.assertNotIn('vanilla-terrain:', cpu)
+        self.assertNotIn('vanilla-terrain:', gpu)
+
+    def test_worldgen_modes_enable_both_boundaries_only_on_gpu_cases(self):
+        strict_gpu = render_gpur_config('rtx3070', False, 'strict')
+        exact_gpu = render_gpur_config('mixed', False, 'verified-exact')
+        strict_cpu = render_gpur_config('cpu', False, 'strict')
+        self.assertIn('enabled: true\n    mode: strict', strict_gpu)
+        self.assertIn('noise-batches: true', strict_gpu)
+        self.assertIn('aquifer-ranking: true', strict_gpu)
+        self.assertIn('verify-every-batch: true', strict_gpu)
+        self.assertIn('mode: verified-exact', exact_gpu)
+        self.assertIn('verify-every-batch: false', exact_gpu)
+        self.assertIn('enabled: false\n    mode: disabled', strict_cpu)
+        self.assertIn('noise-batches: false', strict_cpu)
+        self.assertIn('aquifer-ranking: false', strict_cpu)
+        self.assertIn('enabled: false', strict_cpu)
+
+    def test_case_metadata_records_heap_mode_and_unfrozen_runtime(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            paths = {key: root / f'{key}.bin'
+                     for key in ('jar', 'plugin', 'viaversion', 'viabackwards', 'eula', 'mojang')}
+            for key, path in paths.items():
+                path.write_bytes(f'fixture-{key}'.encode())
+            hashes = {}
+            for key, path in paths.items():
+                with path.open('rb') as stream:
+                    hashes[key] = hashlib.file_digest(stream, 'sha256').hexdigest()
+            args = SimpleNamespace(
+                output=root / 'output', _artifact_hashes=hashes, **paths,
+                seed=123, initial_heap_gib=4, worldgen_mode='strict',
+                view=6, simulation=4, force=False, targets=[50, 150, 300],
+                walking_percent=20, no_natural=False, natural_seconds=0,
+                seconds=90, travel_seconds=20, port=25620,
+            )
+            controller = Controller(args, 'gtx1080')
+            metadata = json.loads((controller.directory / 'run.json').read_text(encoding='utf-8'))
+            self.assertEqual(metadata['heap_gib'], 16)
+            self.assertEqual(metadata['initial_heap_gib'], 4)
+            self.assertIn('-Xms4G', metadata['jvm_options'])
+            self.assertIn('-Xmx16G', metadata['jvm_options'])
+            self.assertEqual(metadata['worldgen_mode_requested'], 'strict')
+            self.assertEqual(metadata['vanilla_terrain_mode'], 'strict')
+            self.assertEqual(metadata['simulation_mode'], 'normal-world-ticks')
+            self.assertFalse(metadata['freeze_simulation'])
+            config = (controller.directory / 'gpur.yml').read_text(encoding='utf-8')
+            self.assertIn('noise-batches: true', config)
+            self.assertIn('aquifer-ranking: true', config)
 
 
 if __name__ == '__main__':

@@ -75,7 +75,9 @@ def _pack_padded(values: list[int], bits: int) -> tuple[int, ...]:
 
 def make_chunk(*, alternate_palette_order=False, changed_block=False, light_on=True,
                structures=True, clock=10, nested_clock=77, region_timestamp=1, reverse_compounds=False,
-               reverse_structures=False, changed_biome=False, height_value=0, block_light_value=0x11,
+               reverse_structures=False, reverse_children=False, changed_biome=False,
+               reverse_nested_references=False, extra_nested_reference=False,
+               height_value=0, block_light_value=0x11,
                status="minecraft:full", section_y=0, omit_palettes=False, starlight_version=None):
     block_values = [0] * 4096
     block_values[123] = 1
@@ -126,10 +128,22 @@ def make_chunk(*, alternate_palette_order=False, changed_block=False, light_on=T
     starts = {}
     if structures:
         structure_children = [
-            tag(10, {"id": tag(8, "minecraft:house"), "BB": tag(3, 1)}),
-            tag(10, {"id": tag(8, "minecraft:well"), "BB": tag(3, 2)}),
+            tag(10, {"id": tag(8, "minecraft:house"), "BB": tag(3, 1),
+                     "custom": tag(10, {"References": tag(10, {"custom:trace": tag(12, (3, 7))})})}),
+            tag(10, {"id": tag(8, "minecraft:well"), "BB": tag(3, 2),
+                     "custom": tag(10, {"References": tag(10, {"custom:trace": tag(12, (3, 7))})})}),
         ]
-        if reverse_structures:
+        if reverse_nested_references or extra_nested_reference:
+            nested_references = [3, 7]
+            if reverse_nested_references:
+                nested_references.reverse()
+            if extra_nested_reference:
+                nested_references.append(9)
+            for child in structure_children:
+                child_fields = child[1]
+                custom = child_fields["custom"][1]
+                custom["References"][1]["custom:trace"] = tag(12, tuple(nested_references))
+        if reverse_children:
             structure_children.reverse()
         starts["minecraft:village"] = tag(10, {
             "id": tag(8, "minecraft:village"),
@@ -309,6 +323,18 @@ class SemanticSnapshotTests(unittest.TestCase):
         self.assertGreater(result["region_timestamp_difference_count"], 0)
         self.assertEqual(result["category_difference_counts"]["blocks"], 0)
         self.assertEqual(result["category_difference_counts"]["biomes"], 0)
+
+    def test_structure_piece_order_is_compared(self):
+        result = self.compare_pair({}, {"reverse_children": True})
+        self.assertFalse(result["pass"], json.dumps(result, indent=2))
+        self.assertGreater(result["category_difference_counts"]["structures"], 0)
+
+    def test_nested_piece_references_are_not_treated_as_a_set(self):
+        for options in ({"reverse_nested_references": True}, {"extra_nested_reference": True}):
+            with self.subTest(options=options):
+                result = self.compare_pair({}, options)
+                self.assertFalse(result["pass"], json.dumps(result, indent=2))
+                self.assertGreater(result["category_difference_counts"]["structures"], 0)
 
     def test_block_difference_fails_semantic_comparison(self):
         result = self.compare_pair({}, {"changed_block": True})

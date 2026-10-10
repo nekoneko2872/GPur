@@ -25,6 +25,8 @@ def invoke_case(args, output: Path, case: str) -> dict:
                "--radius", str(args.radius), "--initial-heap-gib", str(args.initial_heap_gib),
                "--startup-timeout", str(args.startup_timeout),
                "--phase-timeout", str(args.phase_timeout)]
+    if args.freeze_simulation:
+        command.append("--freeze-simulation")
     if args.parity_dump_dir is not None:
         case_dump_dir = safe_output(args.parity_dump_dir / output.name / case)
         command.extend(("--parity-dump-dir", str(case_dump_dir)))
@@ -59,7 +61,11 @@ def validate_strict_reference(path: Path, jar_sha256: str, cases: list[str], cor
     if report.get("corpus") != corpus:
         raise ValueError("strict reference seed/center/radius corpus does not match this matrix")
     if report.get("runtime") != runtime:
-        raise ValueError("strict reference JDK/JVM/worker settings do not match this matrix")
+        raise ValueError("strict reference JDK/JVM/worker/simulation settings do not match this matrix")
+    expected_simulation_mode = "frozen-worldgen" if runtime["freeze_simulation"] else "normal-world-ticks"
+    if (report.get("freeze_simulation") is not runtime["freeze_simulation"]
+            or report.get("simulation_mode") != expected_simulation_mode):
+        raise ValueError("strict reference frozen-simulation mode does not match this matrix")
     if set(report.get("cases", {})) != set(cases):
         raise ValueError("strict reference case set does not match this matrix")
     for case in cases:
@@ -67,8 +73,15 @@ def validate_strict_reference(path: Path, jar_sha256: str, cases: list[str], cor
         if row.get("jvm_options") != runtime["jvm_options"]:
             raise ValueError(f"strict reference case {case} JVM options do not match the matrix runtime")
         if (row.get("server_heap_gib") != runtime["heap_gib"]
-                or row.get("initial_heap_gib") != runtime["initial_heap_gib"]):
-            raise ValueError(f"strict reference case {case} heap metadata does not match the matrix runtime")
+                or row.get("initial_heap_gib") != runtime["initial_heap_gib"]
+                or row.get("freeze_simulation") is not runtime["freeze_simulation"]
+                or row.get("simulation_mode") != expected_simulation_mode):
+            raise ValueError(f"strict reference case {case} heap/simulation metadata does not match the matrix runtime")
+        expected_freeze_property = "-Dgpur.worldgen.freeze-simulation=true"
+        properties = row.get("jvm_system_properties")
+        if (not isinstance(properties, list)
+                or ((expected_freeze_property in properties) is not runtime["freeze_simulation"])):
+            raise ValueError(f"strict reference case {case} freeze JVM property does not match the matrix runtime")
         if (row.get("pass") is not True or row.get("exit_code") != 0 or row.get("jar_sha256") != jar_sha256
                 or row.get("case") != case or row.get("seed") != corpus["seed"]
                 or row.get("center_chunk") != corpus["center_chunk"]
@@ -101,6 +114,32 @@ def compare_snapshots(script: Path, left: Path, right: Path, report: Path, requi
     return json.loads(report.read_text(encoding="utf-8"))
 
 
+def throughput_entry(case_result: dict, cpu_rate: float | None, mode: str, freeze_simulation: bool) -> dict:
+    rate = case_result.get("chunks_per_second")
+    ratio = (round(rate / cpu_rate, 3)
+             if mode == "verified-exact" and rate is not None and cpu_rate else None)
+    return {
+        "chunks_per_second": rate,
+        "request_elapsed_ms": case_result.get("request_elapsed_ms"),
+        "server_measured_tps": (case_result.get("generation_tick_metrics") or {}).get("measured_tps"),
+        "tick_duration_ms": (case_result.get("generation_tick_metrics") or {}).get("tick_duration_ms"),
+        "tick_start_interval_ms": (case_result.get("generation_tick_metrics") or {}).get("tick_start_interval_ms"),
+        "ticks_over_50ms": (case_result.get("generation_tick_metrics") or {}).get("ticks_over_50ms"),
+        "ticks_over_100ms": (case_result.get("generation_tick_metrics") or {}).get("ticks_over_100ms"),
+        "generation_tick_metrics": (case_result.get("generation_tick_metrics") or {}).get("raw_csv"),
+        "worldgen_throughput_ratio_vs_cpu": ratio,
+        "speedup_vs_cpu": ratio if not freeze_simulation else None,
+        "worldgen_throughput_comparison_eligible": mode == "verified-exact" and ratio is not None,
+        "speedup_claim_eligible": mode == "verified-exact" and not freeze_simulation and ratio is not None,
+        "measurement_mode": mode,
+        "measurement_scope": "frozen-worldgen" if freeze_simulation else "normal-world-ticks",
+        "simulation_mode": case_result.get("simulation_mode"),
+        "tick_metrics_interpretation": case_result.get("tick_metrics_interpretation"),
+        "gpu_accepted_values": case_result.get("gpu_accepted_values", 0),
+        "gpu_full_parity_checks": case_result.get("gpu_full_parity_checks", 0),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=SAFE_ROOT / "worldgen")
@@ -120,6 +159,8 @@ def main() -> int:
     parser.add_argument("--jdk", type=Path, default=Path.home() / ".jdks" / "openjdk-25.0.2")
     parser.add_argument("--initial-heap-gib", type=parse_initial_heap_gib, default=16,
                         help="initial Java heap in GiB (1..16); maximum remains fixed at 16 GiB")
+    parser.add_argument("--freeze-simulation", action="store_true",
+                        help="freeze world/entity/block/fluid simulation during saved-world parity validation")
     parser.add_argument("--port", type=int, default=25620)
     parser.add_argument("--seed", type=int, default=1196459378)
     parser.add_argument("--center-x", type=int, default=128)
@@ -157,6 +198,7 @@ def main() -> int:
         runtime = {"jdk_home": str(args.jdk.resolve()), "java_sha256": file_sha256(java),
                    "worker_threads": 4, "io_threads": 2, "heap_gib": 16,
                    "initial_heap_gib": args.initial_heap_gib,
+                   "freeze_simulation": args.freeze_simulation,
                    "jvm_options": worldgen_jvm_options(args.initial_heap_gib)}
         strict_reference = None
         if args.mode == "verified-exact":
@@ -269,22 +311,8 @@ def main() -> int:
 
         cpu_rate = case_results["cpu"].get("chunks_per_second")
         result["throughput"] = {
-            case: {
-                "chunks_per_second": case_results[case].get("chunks_per_second"),
-                "request_elapsed_ms": case_results[case].get("request_elapsed_ms"),
-                "server_measured_tps": (case_results[case].get("generation_tick_metrics") or {}).get("measured_tps"),
-                "tick_duration_ms": (case_results[case].get("generation_tick_metrics") or {}).get("tick_duration_ms"),
-                "tick_start_interval_ms": (case_results[case].get("generation_tick_metrics") or {}).get("tick_start_interval_ms"),
-                "ticks_over_50ms": (case_results[case].get("generation_tick_metrics") or {}).get("ticks_over_50ms"),
-                "ticks_over_100ms": (case_results[case].get("generation_tick_metrics") or {}).get("ticks_over_100ms"),
-                "generation_tick_metrics": (case_results[case].get("generation_tick_metrics") or {}).get("raw_csv"),
-                "speedup_vs_cpu": round(case_results[case]["chunks_per_second"] / cpu_rate, 3)
-                if args.mode == "verified-exact" and cpu_rate and case_results[case].get("chunks_per_second") is not None else None,
-                "speedup_claim_eligible": args.mode == "verified-exact",
-                "measurement_mode": args.mode,
-                "gpu_accepted_values": case_results[case].get("gpu_accepted_values", 0),
-                "gpu_full_parity_checks": case_results[case].get("gpu_full_parity_checks", 0),
-            } for case in cases
+            case: throughput_entry(case_results[case], cpu_rate, args.mode, args.freeze_simulation)
+            for case in cases
         }
         result["cases"] = case_results
         result["source_jar_sha256"] = jar_sha256
@@ -293,10 +321,14 @@ def main() -> int:
         result["runtime"] = runtime
         if strict_reference is not None:
             result["strict_reference"] = strict_reference
+        result["freeze_simulation"] = args.freeze_simulation
+        result["simulation_mode"] = "frozen-worldgen" if args.freeze_simulation else "normal-world-ticks"
         result["throughput_interpretation"] = (
-            "verified-exact speedup is eligible only after same-JAR strict parity; strict timings include full CPU verification and are correctness diagnostics only. Server TPS/MSPT fields describe per-case tick quality, not a GPU speedup claim."
-            if args.mode == "verified-exact" else
-            "strict timings include full CPU verification and are correctness diagnostics only; speedup claims are disabled. Server TPS/MSPT fields describe per-case tick quality only."
+            "simulation was frozen for this matrix; strict timings are correctness diagnostics only, and any matching verified-exact ratio compares isolated frozen-worldgen numeric throughput. Frozen tick metrics are not normal SMP TPS/MSPT and the ratio is not a normal server-speedup claim."
+            if args.freeze_simulation else
+            ("verified-exact speedup is eligible only after same-JAR strict parity; strict timings include full CPU verification and are correctness diagnostics only. Server TPS/MSPT fields describe per-case tick quality, not a GPU speedup claim."
+             if args.mode == "verified-exact" else
+             "strict timings include full CPU verification and are correctness diagnostics only; speedup claims are disabled. Server TPS/MSPT fields describe per-case tick quality only.")
         )
         result["matrix_workspace"] = str(matrix)
         parity_failed = any(row.get("pass") is not True for row in result["semantic_parity"].values())

@@ -144,7 +144,7 @@ def snapshot(args: argparse.Namespace) -> dict:
             "entity_store": "root Entities sorted by UUID/canonical NBT; all typed NBT fields retained",
             "poi_store": "each POI Records list sorted by canonical typed NBT; all typed NBT fields retained",
             "structure_references": "reference long arrays sorted as sets",
-            "structure_children": "Children/Pieces lists sorted by canonical NBT representation",
+            "structure_children": "Children/Pieces lists preserved in stored order",
             "clock_tags": ["chunk-root LastUpdate", "chunk-root InhabitedTime"],
             "clock_tag_policy": "kept in clock_metadata and reported separately; excluded from generated-content comparison",
             "lighting_complete": "isLightOn tag present, Starlight light_version is 10, and Status is light/spawn/full; Paper/Starlight false isLightOn value is retained verbatim in other_nbt",

@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "updated_utc": "2026-10-09",
+  "updated_utc": "2026-10-10T13:53:16.506698Z",
   "current_version": "1.1.0",
   "proposed_version": "2.0.0",
   "release_decision": "BLOCKED",
   "release_rule": "Do not change the version to 2.0.0 until every blocking stage below passes on the same source and artifacts intended for release.",
-  "runtime_execution_this_plan": "not_run",
+  "runtime_execution_this_plan": "partial; the immutable b693 candidate radius-4 matrix and unfrozen normal-tick CPU lifecycle pilot both failed saved/reload semantics; frozen-simulation harness source now passes Python tests but is not yet compiled or run against the replacement candidate",
   "semantic_mismatch_policy": "Preserve every CPU-vs-GPU mismatch. Run a second fresh CPU world against the CPU reference as a repeatability control before attributing it. Do not normalize generated UUIDs or other semantic NBT fields to force equality.",
   "production_worldgen_gpu_integration": {
     "status": "incomplete",
@@ -16,20 +16,22 @@
       "id": "validation-harness-unit-tests",
       "status": "pass",
       "blocking": true,
-      "evidence": "Python standard-library semantic/worldgen tests 19/19 and movement-gate source tests 4/4 passed locally; no server or bots launched.",
+      "evidence": "python -m unittest discover -v -s benchmarks/worldgen -p 'test_*.py': 38/38 passed; python -m unittest discover -v -s benchmarks -p 'test_run_matrix_movement.py': 4/4 passed. Final logs/source hashes: C:\\GPur-validation-20261009\\validation\\harness-freeze-unit-tests-20261010; test-receipt.json SHA-256 f89f7f7ffdf9882ae6ec70773f86cd7cda6d4295d4f71162b3a7beb5efa78b5e. These are source-level checks; the freeze-enabled probe has not yet been compiled or run.",
       "acceptance": "Semantic decoding/comparison, strict-versus-verified-exact telemetry gates, immutable matrix references, and 20% server-observed movement gating pass their isolated source tests."
     },
     {
       "id": "production-build-and-plugin-compile",
-      "status": "not_run",
+      "status": "prior candidate built; replacement freeze-probe compile pending",
       "blocking": true,
-      "acceptance": "Finish production Gradle suites/build, compile the updated benchmark plugin and standalone worldgen probe against the immutable candidate, then record candidate SHA-256. Verify the probe writes raw per-tick CSV and generate/reload p50/p95/p99/max MSPT and start-interval statistics, >50/>100ms tick counts and measured TPS."
+      "acceptance": "Finish production Gradle suites/build, compile the updated benchmark plugin and standalone worldgen probe against the immutable candidate, then record candidate SHA-256. Verify the probe writes raw per-tick CSV and generate/reload p50/p95/p99/max MSPT and start-interval statistics, >50/>100ms tick counts and measured TPS.",
+      "evidence": "Prior immutable candidate b693a6a90193fa082703e2ba56d29850110483d3 remains SHA-256 32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c; its unfiltered physical suite passed 9417 tests, 0 failures/errors, 23 skipped, and the earlier probe/GPurBench javac-only builds are recorded below. Current source now includes the frozen-simulation property, status readback, and matching strict-reference checks; it still needs compilation against the replacement candidate before runtime use."
     },
     {
       "id": "async-shutdown-close-tests",
-      "status": "not_run",
+      "status": "prior candidate pass; replacement candidate rerun pending",
       "blocking": true,
-      "acceptance": "Verify pending worldgen futures, including a continuation accepted by an executor but dropped during shutdown, complete or cancel and release retained budgets/frames without hanging."
+      "acceptance": "Verify pending worldgen futures, including a continuation accepted by an executor but dropped during shutdown, complete or cancel and release retained budgets/frames without hanging.",
+      "evidence": "The frozen candidate physical suite includes WorldgenResultLifecycleTest and VanillaSlabPipelineCancellationTest, covering a queued continuation dropped during close and retained-result cancellation. The separate live in-flight /gpur reload retirement test remains not run. The current replacement candidate has not yet been built or retested."
     },
     {
       "id": "inflight-worldgen-reload-retirement",
@@ -38,10 +40,18 @@
       "acceptance": "On an isolated GPU server, prove a worldgen GPU request is pending, issue /gpur reload while the probe remains active, then prove generation resumes/completes, saves cleanly and matches its saved/reloaded semantic snapshot. A completed-consumption counter alone does not prove in-flight work."
     },
     {
-      "id": "isolated-radius4-four-case-smoke",
-      "status": "not_run",
+      "id": "frozen-simulation-cpu-pilot",
+      "status": "not_run; source tests pass, replacement candidate pending",
       "blocking": true,
-      "acceptance": "After build-done and immutable JAR freeze, run fresh radius-4 CPU, RTX 3070, GTX 1080 and mixed worlds on loopback port 25620 with a 16 GiB heap; preserve every report and fail closed on mismatch or zero consumed GPU work."
+      "acceptance": "Compile the freeze-enabled probe against the replacement immutable candidate. Run a fresh radius-4 CPU-only generate/save/shutdown/restart/reload with --freeze-simulation and require zero semantic differences. Then run a second fresh frozen CPU world as a CPU-vs-CPU repeatability control before the all-four strict GPU matrix. Require requested/actual freeze state to match through both savepoints; label all timing as frozen-worldgen.",
+      "evidence": "run_case.py/run_matrix.py and the standalone probe now carry the opt-in frozen-simulation property, readback, metadata and strict-reference checks. Worldgen Python suite 37/37 and movement suite 4/4 pass; test receipt is C:\\GPur-validation-20261009\\validation\\harness-freeze-unit-tests-20261010\\test-receipt.json. No compile or frozen runtime pilot has been run; await replacement candidate."
+    },
+    {
+      "id": "isolated-radius4-four-case-smoke",
+      "status": "fail; replacement-candidate rerun pending",
+      "blocking": true,
+      "acceptance": "After a passing fresh frozen-simulation CPU pilot and CPU repeatability control on the replacement immutable candidate, run fresh strict radius-4 CPU, RTX 3070, GTX 1080 and mixed worlds on loopback port 25620 with Xms4G/Xmx16G. Preserve every report and fail closed on mismatch or zero consumed GPU work.",
+      "evidence": "Historical all-four Xms4G/Xmx16G run on b693 JAR SHA-256 32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c and probe SHA-256 b0983b4f33b02d68e665817519f20cad7828ff3c27151ac8d7ed7e12c9235a14 is preserved at validation_runs[id=radius4-xms4-all-four-paper-handlefix]. All GPUs showed positive workload-5/6 consumed-value and strict parity deltas, but CPU restart semantics failed; RTX alone passed its own restart comparison and GPU-vs-CPU comparisons were blocked. Separate CPU-only postprocessing pilot also failed. A fresh frozen-simulation pilot is pending the replacement candidate/probe build."
     },
     {
       "id": "production-integration-and-build",
@@ -63,45 +73,49 @@
     },
     {
       "id": "isolated-rtx3070-worldgen",
-      "status": "not_run",
+      "status": "not_run as full radius-32 stages; radius-4 GPU counters recorded but semantic acceptance is incomplete",
       "blocking": true,
       "acceptance": "Fresh world with identical seed/corpus; RTX 3070 admitted and reports accepted vanilla interpolation values with strict CPU parity checks and zero parity failures."
     },
     {
       "id": "isolated-gtx1080-worldgen",
-      "status": "not_run",
+      "status": "not_run as full radius-32 stages; radius-4 GPU counters recorded but semantic acceptance is incomplete",
       "blocking": true,
       "acceptance": "Fresh world with identical seed/corpus; GTX 1080 admitted and reports accepted vanilla interpolation values with strict CPU parity checks and zero parity failures."
     },
     {
       "id": "isolated-mixed-worldgen",
-      "status": "not_run",
+      "status": "not_run as full radius-32 stages; radius-4 GPU counters recorded but semantic acceptance is incomplete",
       "blocking": true,
       "acceptance": "Fresh world with identical seed/corpus; both GPUs admitted and both report accepted strict-parity terrain values with zero parity failures."
     },
     {
       "id": "save-restart-and-reload",
-      "status": "not_run",
+      "status": "fail",
       "blocking": true,
-      "acceptance": "Each case saves, exits cleanly, restarts, loads every requested chunk with generation disabled, saves again, then matches its pre-restart snapshot."
+      "acceptance": "Each case saves, exits cleanly, restarts, loads every requested chunk with generation disabled, saves again, then matches its pre-restart snapshot.",
+      "evidence": "The all-four radius-4 matrix saved/reloaded every case, but CPU/GTX/mixed semantic comparisons failed and RTX alone passed. A separate CPU-only postprocessing-completion pilot still differed: 111 blocks, 29 light entries, 23 entities, one section-metadata item and 137 other-NBT entries. The pilot was unfrozen normal-world-ticks; differences included minecart tick state/position, fluid ticks, leaves and light. No fields were normalized. Frozen pilot pending."
     },
     {
       "id": "semantic-worldgen-parity",
-      "status": "not_run",
+      "status": "blocked; CPU reference failed its own save/reload gate",
       "blocking": true,
-      "acceptance": "Every chunk is Status=full and has complete saved-light metadata: isLightOn is present, Starlight light_version matches, and Status is at least LIGHT. Preserve and compare the original isLightOn value because Paper/Starlight may deliberately save false to trigger vanilla relighting. CPU versus every GPU case matches decoded blocks, biomes, all named heightmaps, light flags/arrays, structure starts/references, block entities, entity-store NBT, POI-store NBT and remaining chunk NBT. Require structure starts for the full radius-32 release corpus; a radius-4 smoke may contain zero starts."
+      "acceptance": "Every chunk is Status=full and has complete saved-light metadata: isLightOn is present, Starlight light_version matches, and Status is at least LIGHT. Preserve and compare the original isLightOn value because Paper/Starlight may deliberately save false to trigger vanilla relighting. CPU versus every GPU case matches decoded blocks, biomes, all named heightmaps, light flags/arrays, structure starts/references, block entities, entity-store NBT, POI-store NBT and remaining chunk NBT. Require structure starts for the full radius-32 release corpus; a radius-4 smoke may contain zero starts.",
+      "evidence": "The comparator preserves structure Children/Pieces order, generated minecart UUIDs and all semantic NBT. CPU-vs-GPU comparisons were blocked because the normal-tick CPU reference failed its own save/reload gate. The CPU lifecycle pilot still differed after light and postprocessing completion because simulation advanced. The opt-in frozen-worldgen harness has passed source tests only; no frozen runtime comparison exists yet."
     },
     {
       "id": "gpu-use-and-no-fallback-only-pass",
-      "status": "not_run",
+      "status": "partial; strict smoke GPU consumption and parity counters positive; matrix not accepted",
       "blocking": true,
-      "acceptance": "A GPU case cannot pass from world equality or CPU fallback. Strict mode requires positive per-device/per-workload deltas for dispatches, acceptedBatches, computedValues, consumedValues and paritySamples on workload boundaries noise 5 and aquifer 6. Verified-exact mode requires positive consumed-work deltas and nonzero absolute startup/periodic parity evidence per selected device/workload; its parity-sample delta may be zero after world-creation warmup. Both modes require accepted terrain interpolation values, zero parity failures and retained fallback-attempt telemetry."
+      "acceptance": "A GPU case cannot pass from world equality or CPU fallback. Strict mode requires positive per-device/per-workload deltas for dispatches, acceptedBatches, computedValues, consumedValues and paritySamples on workload boundaries noise 5 and aquifer 6. Verified-exact mode requires positive consumed-work deltas and nonzero absolute startup/periodic parity evidence per selected device/workload; its parity-sample delta may be zero after world-creation warmup. Both modes require accepted terrain interpolation values, zero parity failures and retained fallback-attempt telemetry.",
+      "evidence": "Each selected device in RTX 3070, GTX 1080 and mixed had positive workload-5 and workload-6 dispatch, accepted, computed, consumed and parity-sample deltas, with zero reported parity failures. Semantic matrix acceptance is blocked by restart/CPU-reference failure. Frozen-run source tests and metadata checks do not add new runtime evidence; the above counters belong only to the historical b693 candidate cohort."
     },
     {
       "id": "throughput-cpu-3070-1080-mixed",
-      "status": "not_run",
+      "status": "not_run; verified-exact performance gate",
       "blocking": true,
-      "acceptance": "First pass a strict semantic worldgen matrix. Then run separate fresh-world verified-exact matrices on the identical candidate JAR, seed, corpus and worker settings. Report chunks/second with raw per-phase tick-quality artifacts. Only verified-exact timings may report speedup; strict timings include full CPU recomputation and are correctness diagnostics only."
+      "acceptance": "First pass a strict semantic worldgen matrix. Then run separate fresh-world verified-exact matrices on the identical candidate JAR, seed, corpus and worker settings. Report chunks/second with raw per-phase tick-quality artifacts. Only verified-exact timings may report speedup; strict timings include full CPU recomputation and are correctness diagnostics only.",
+      "evidence": "No verified-exact matrix has run. Frozen verified-exact output may report an isolated worldgen chunks/second ratio against a matching frozen strict reference; its tick metrics are frozen-worldgen and cannot support normal SMP TPS/MSPT or a normal server-speedup claim. Normal-tick speedup requires a matching unfrozen strict reference."
     },
     {
       "id": "1.0.0-twenty-percent-walking-regression",
@@ -109,7 +123,8 @@
       "blocking": true,
       "artifact_sha256": "bfe87ccaf419065f49acc0b7cf1b24dbda93d6abe8680dc5d3073f7043e2c846",
       "artifact_note": "The archived exact 1.0.0 SHA is historical provenance only. Replay its documented scenarios on the new 1.1.0 candidate JAR; do not rebuild or rerun the old artifact as a release gate.",
-      "acceptance": "On the same immutable 1.1.0 candidate used by all release tests, replay 50/150/300 network-client targets with configured 20% walking (10/30/60 clients), 3,000 AI mobs, redstone fixtures, identical CPU/3070/1080/mixed settings, and retain raw client/server/tick evidence plus server-observed per-client UUID/name, phase sample counts, nonzero from/to displacement and distinct-mover validation."
+      "acceptance": "On the same immutable 1.1.0 candidate used by all release tests, replay 50/150/300 network-client targets with configured 20% walking (10/30/60 clients), 3,000 AI mobs, redstone fixtures, identical CPU/3070/1080/mixed settings, and retain raw client/server/tick evidence plus server-observed per-client UUID/name, phase sample counts, nonzero from/to displacement and distinct-mover validation.",
+      "evidence": "GPurBench current source compiled into JAR SHA-256 5280196a91191c5ca1faa9644f5e476c3bbce90d975f5135b4242abd966d89e1; movement unit gates 4/4 passed. No 1.0.0 regression runtime replay has been run on the candidate."
     },
     {
       "id": "1.0.0-all-walking-diagnostic",
@@ -128,7 +143,7 @@
   "historical_movement_limits": [
     "The bot clients implement login/control packets and consume many large world packets as opaque buffers; they are not complete Minecraft clients.",
     "Walkers send grounded position/look packets at 20 Hz around a bounded 2-block-radius route, capped near 2 blocks per second. This tests real network movement callbacks but not ordinary exploration, collision physics, block interaction, combat or inventory use.",
-    "movementPackets counts client serialization attempts. Archived 1.0.0 results have only configured walking selection; the fleet's final walking field is 0 because its sampled action is idle after the walking phase. The new candidate GPurBench source now records server-observed per-phase PlayerMoveEvent displacement, but that change is unbuilt and unrun until candidate testing finishes.",
+    "The new candidate GPurBench source records server-observed per-phase PlayerMoveEvent displacement and was compiled into the current benchmark plugin JAR (SHA-256 5280196a91191c5ca1faa9644f5e476c3bbce90d975f5135b4242abd966d89e1); four isolated movement gate tests pass. No runtime regression replay has yet exercised this evidence.",
     "The synthetic travel phase is server-directed teleport exploration, not client walking."
   ],
   "historical_workload_limits": [
@@ -140,6 +155,175 @@
     "worldgen_workspace": "C:\\GPur-validation-20261009\\validation\\worldgen",
     "archived_1_0_0_artifact": "C:\\GPur-validation-20261007\\artifacts\\result-gate-bfe87ccaf419065f49acc0b7cf1b24dbda93d6abe8680dc5d3073f7043e2c846.jar",
     "historical_20_percent_report": "docs/results/controlled-matrix.json",
-    "historical_all_walking_report": "docs/results/all-walking-before-retry-fix.json"
-  }
+    "historical_all_walking_report": "docs/results/all-walking-before-retry-fix.json",
+    "current_candidate_jar": "C:\\GPur-validation-20261009\\validation\\artifacts\\b693a6a90\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "current_radius4_matrix": "C:\\GPur-validation-20261009\\validation\\worldgen-smoke-b693a6a90-xms4-paper-handlefix\\matrices\\20261010T133250Z-8e6ae37b\\worldgen-matrix-report.json",
+    "current_cpu_lifecycle_pilot": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-postprocessingpilot-b693a6a90\\matrices\\20261010T133957Z-761e2665\\worldgen-matrix-report.json"
+  },
+  "candidate_artifact": {
+    "git_commit": "b693a6a90193fa082703e2ba56d29850110483d3",
+    "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\b693a6a90\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "bytes": 92140012,
+    "sha256": "32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c",
+    "main_class": "io.papermc.paperclip.Main",
+    "physical_test_command": ":purpur-server:test -PgpurGpuTests=true --no-daemon",
+    "physical_tests": {
+      "count": 9417,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 23,
+      "result": "BUILD SUCCESSFUL"
+    },
+    "physical_test_notes": "C:\\GPur-validation-20261009\\validation\\aquifer-final\\unfiltered-physical\\run-notes.txt",
+    "physical_test_notes_sha256": "f0d4249b1ca83db22bc004b8aa328707ee3663d1e03136376b699b7da06cedc3",
+    "paperclip_build_log": "C:\\GPur-validation-20261009\\validation\\artifacts\\b693a6a90\\paperclip-build.log",
+    "paperclip_build_log_sha256": "4132cda6fe06924f5a6468b9952132ad849a3b6b2019caf70b10073aa3ba06be"
+  },
+  "validation_runs": [
+    {
+      "id": "radius4-xms4-all-four-paper-handlefix",
+      "status": "failed",
+      "candidate_jar_sha256": "32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c",
+      "probe_jar_sha256": "b0983b4f33b02d68e665817519f20cad7828ff3c27151ac8d7ed7e12c9235a14",
+      "initial_heap_gib": 4,
+      "maximum_heap_gib": 16,
+      "cases": [
+        "cpu",
+        "rtx3070",
+        "gtx1080",
+        "mixed"
+      ],
+      "matrix_report": "C:\\GPur-validation-20261009\\validation\\worldgen-smoke-b693a6a90-xms4-paper-handlefix\\matrices\\20261010T133250Z-8e6ae37b\\worldgen-matrix-report.json",
+      "matrix_report_sha256": "f94e9173f506f3466e657fe59bbe0843209e9a893f2ad65b47164bc20dfa0ec3",
+      "runner_log": "C:\\GPur-validation-20261009\\validation\\worldgen-smoke-b693a6a90-xms4-paper-handlefix-run.log",
+      "runner_log_sha256": "ccfc8edc703ed54d33bdca262078504617a90eb88a1eee53ee9b5e3846a05bab",
+      "semantic_restart_differences": {
+        "cpu": {
+          "blocks": 854,
+          "light": 5,
+          "other_nbt": 16872
+        },
+        "rtx3070": {
+          "all_categories": 0,
+          "restart_parity_pass": true
+        },
+        "gtx1080": {
+          "blocks": 119,
+          "other_nbt": 1448
+        },
+        "mixed": {
+          "blocks": 1579,
+          "heightmaps": 4,
+          "light": 23,
+          "other_nbt": 27362
+        }
+      },
+      "gpu_cpu_comparison": "blocked because the CPU reference failed generated-to-reload semantics; CPU-vs-CPU repeatability control was not run",
+      "gpu_workload_counter_deltas_before_corpus_to_after_generate": {
+        "rtx3070": {
+          "5": {
+            "dispatches": 52,
+            "acceptedBatches": 52,
+            "computedValues": 2109900,
+            "consumedValues": 847564,
+            "paritySamples": 52
+          },
+          "6": {
+            "dispatches": 83,
+            "acceptedBatches": 83,
+            "computedValues": 8159232,
+            "consumedValues": 896737,
+            "paritySamples": 83
+          }
+        },
+        "gtx1080": {
+          "5": {
+            "dispatches": 53,
+            "acceptedBatches": 53,
+            "computedValues": 2150475,
+            "consumedValues": 818388,
+            "paritySamples": 53
+          },
+          "6": {
+            "dispatches": 82,
+            "acceptedBatches": 82,
+            "computedValues": 8060928,
+            "consumedValues": 763764,
+            "paritySamples": 82
+          }
+        },
+        "mixed": {
+          "rtx3070": {
+            "5": {
+              "dispatches": 15,
+              "acceptedBatches": 15,
+              "computedValues": 608625,
+              "consumedValues": 250366,
+              "paritySamples": 15
+            },
+            "6": {
+              "dispatches": 35,
+              "acceptedBatches": 35,
+              "computedValues": 3440640,
+              "consumedValues": 388317,
+              "paritySamples": 35
+            }
+          },
+          "gtx1080": {
+            "5": {
+              "dispatches": 33,
+              "acceptedBatches": 33,
+              "computedValues": 1338975,
+              "consumedValues": 550682,
+              "paritySamples": 33
+            },
+            "6": {
+              "dispatches": 42,
+              "acceptedBatches": 42,
+              "computedValues": 4128768,
+              "consumedValues": 406432,
+              "paritySamples": 42
+            }
+          }
+        }
+      },
+      "rtx3070_generation_and_reload_ms": [
+        5146,
+        1585
+      ],
+      "gtx1080_generation_and_reload_ms": [
+        5210,
+        1925
+      ],
+      "mixed_generation_and_reload_ms": [
+        5064,
+        2139
+      ],
+      "notes": "All four saved 81/81 chunks with complete saved-light/FULL coverage. RTX 3070 alone passed its per-case restart report. Overall semantic comparison and performance gates remain blocked."
+    },
+    {
+      "id": "radius4-cpu-only-postprocessing-pilot",
+      "status": "failed",
+      "candidate_jar_sha256": "32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c",
+      "probe_jar_sha256": "c8a098f99fe296010ee76b17d58ecd5cf94297b9ee4425ed18b61a50c514297d",
+      "initial_heap_gib": 4,
+      "maximum_heap_gib": 16,
+      "matrix_report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-postprocessingpilot-b693a6a90\\matrices\\20261010T133957Z-761e2665\\worldgen-matrix-report.json",
+      "matrix_report_sha256": "2a94e498aaf5141fb228c3f98e775ad69aeaed2c4e983b237bf0ed441fc81d34",
+      "runner_log": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-postprocessingpilot-b693a6a90-run.log",
+      "runner_log_sha256": "2f889f4d251df48a36e278cb63e225aa217ce8587840f0493542948aaa5403ad",
+      "restart_parity_report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-postprocessingpilot-b693a6a90\\matrices\\20261010T133957Z-761e2665\\runs\\20261010T133957Z-5511abe9-cpu\\reports\\restart-parity.json",
+      "restart_parity_report_sha256": "c020e71901298df8ad49f764efd7cf4b10bc7048fddc79c7796848f8433c090f",
+      "differences": {
+        "blocks": 111,
+        "light": 29,
+        "entities": 23,
+        "section_metadata": 1,
+        "other_nbt": 137
+      },
+      "postprocessing_gate": "81/81 chunks satisfied isLightCorrect, persisted status at least LIGHT, moonrise$isPostProcessingDone and two ready polls five ticks apart while ticketed",
+      "diagnosis": "Entity diffs are generated chest minecarts with stable UUIDs but changed tick state/position; other_nbt diffs are fluid_ticks. Natural ticking after reload also changes leaf distance and light. No fields were normalized.",
+      "cpu_repeatability_control": "not_run because the initial CPU roundtrip failed; do not use this as a CPU reference"
+    }
+  ]
 }

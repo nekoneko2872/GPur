@@ -44,9 +44,13 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
     private static final int LIGHT_SCAN_WINDOW = 64;
     private static final int LIGHT_POLL_TICKS = 5;
     private static final long LIGHT_TIMEOUT_NANOS = 120_000_000_000L;
+    private static final String FREEZE_SIMULATION_PROPERTY = "gpur.worldgen.freeze-simulation";
     private Run active;
     private TickMetrics tickMetrics;
     private long runSequence;
+    private boolean freezeSimulationRequested;
+    private boolean previousSimulationFrozen;
+    private boolean simulationFreezeApplied;
 
     @Override
     public void onEnable() {
@@ -58,10 +62,24 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
                     + cwd + " worldContainer=" + container);
             }
             if (getCommand("gpurbench") == null) throw new IllegalStateException("gpurbench command is missing");
-            this.tickMetrics = new TickMetrics();
+            this.freezeSimulationRequested = Boolean.getBoolean(FREEZE_SIMULATION_PROPERTY);
+            var tickManager = Bukkit.getServer().getServerTickManager();
+            this.previousSimulationFrozen = tickManager.isFrozen();
+            if (this.freezeSimulationRequested) {
+                tickManager.setFrozen(true);
+                this.simulationFreezeApplied = true;
+            }
+            if (tickManager.isFrozen() != this.freezeSimulationRequested) {
+                throw new IllegalStateException("simulation tick-manager state does not match requested mode: requestedFrozen="
+                    + this.freezeSimulationRequested + " actualFrozen=" + tickManager.isFrozen());
+            }
+            this.tickMetrics = new TickMetrics(simulationMode());
             getCommand("gpurbench").setExecutor(this);
             Bukkit.getPluginManager().registerEvents(this, this);
-            getLogger().info("GPURWGEN_READY cwd=" + cwd + " container=" + container);
+            getLogger().info("GPURWGEN_READY cwd=" + cwd + " container=" + container
+                + " freeze_simulation_requested=" + this.freezeSimulationRequested
+                + " simulation_frozen=" + tickManager.isFrozen()
+                + " simulation_mode=" + simulationMode());
         } catch (Exception error) {
             getLogger().severe("GPURWGEN_INVALID " + error);
             Bukkit.getPluginManager().disablePlugin(this);
@@ -73,6 +91,21 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         if (normalized.equals("c:/gpur-validation-20261009") || normalized.startsWith("c:/gpur-validation-20261009/")) return true;
         for (Path part : path) if (part.toString().equalsIgnoreCase("validation")) return true;
         return false;
+    }
+
+    private String simulationMode() {
+        return this.freezeSimulationRequested ? "frozen-worldgen" : "normal-world-ticks";
+    }
+
+    private boolean simulationFrozen() {
+        return Bukkit.getServer().getServerTickManager().isFrozen();
+    }
+
+    private void requireRequestedSimulationFreeze(String stage) {
+        if (simulationFrozen() != this.freezeSimulationRequested) {
+            throw new IllegalStateException("ServerTickManager.isFrozen() does not match requested simulation mode at "
+                + stage + ": requestedFrozen=" + this.freezeSimulationRequested + " actualFrozen=" + simulationFrozen());
+        }
     }
 
     @Override
@@ -125,6 +158,10 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         report.put("label", label);
         report.put("stage", stage);
         report.put("captured_utc", Instant.now().toString());
+        report.put("freeze_simulation_requested", this.freezeSimulationRequested);
+        report.put("simulation_frozen", simulationFrozen());
+        report.put("simulation_mode", simulationMode());
+        requireRequestedSimulationFreeze("status-" + stage);
         Map<String, Object> boundaries = new LinkedHashMap<>();
         boundaries.put("gpu_acceleration_enabled", configBoolean("gpuAccelerationEnabled"));
         boundaries.put("terrain_gpu_enabled", configBoolean("terrainGpuEnabled"));
@@ -238,6 +275,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
 
     private void begin(CommandSender sender, String phase, String label, long seed,
                        int centerX, int centerZ, int radius) throws Exception {
+        requireRequestedSimulationFreeze("before-world-creation-" + phase);
         String worldName = "gpurbench_wgen_" + label;
         World world = Bukkit.getWorld(worldName);
         Path expectedPath = findExistingWorldPath(worldName);
@@ -380,7 +418,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         run.lightingStarted = true;
         run.lightingStartedNanos = System.nanoTime();
         getLogger().info("GPURWGEN_LIGHT_START label=" + run.label + " chunks=" + run.coordinates.size()
-            + " status=isLightCorrect-and-persisted-at-least-LIGHT");
+            + " status=isLightCorrect-persisted-at-least-LIGHT-postprocessing-done-stable-polls=2");
         requestLightingWindow(run);
     }
 
@@ -428,19 +466,28 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
     private void pollLighting(Run run, Coordinate coordinate, org.bukkit.Chunk chunk, long requestStarted) {
         if (active != run) return;
         try {
-            if (isFullyLit(chunk)) {
-                releaseLightTicket(run, coordinate);
-                run.lightInFlight--;
-                run.lightCompleted++;
-                if (run.lightCompleted % 64 == 0 || run.lightCompleted == run.coordinates.size()) {
-                    getLogger().info("GPURWGEN_LIGHT_PROGRESS label=" + run.label + " complete="
-                        + run.lightCompleted + "/" + run.coordinates.size());
+            if (isLightAndPostProcessed(chunk)) {
+                // A FULL-status request can return before Moonrise promotes the holder
+                // to BLOCK_TICKING and drains LevelChunk's deferred generation work.
+                // Keep the entity-ticking plugin ticket held across two separated polls
+                // so the savepoint is taken only after both light and postprocessing stay ready.
+                if (!run.lightReadySamples.add(coordinate)) {
+                    releaseLightTicket(run, coordinate);
+                    run.lightInFlight--;
+                    run.lightCompleted++;
+                    run.postprocessingCompleted++;
+                    if (run.lightCompleted % 64 == 0 || run.lightCompleted == run.coordinates.size()) {
+                        getLogger().info("GPURWGEN_LIGHT_PROGRESS label=" + run.label + " complete="
+                            + run.lightCompleted + "/" + run.coordinates.size());
+                    }
+                    requestLightingWindow(run);
+                    return;
                 }
-                requestLightingWindow(run);
-                return;
+            } else {
+                run.lightReadySamples.remove(coordinate);
             }
         } catch (Exception failure) {
-            fail(run, "could not read light completion state at " + coordinate.x() + "," + coordinate.z()
+            fail(run, "could not read light/postprocessing completion state at " + coordinate.x() + "," + coordinate.z()
                 + ": " + failure);
             return;
         }
@@ -454,17 +501,18 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             () -> pollLighting(run, coordinate, chunk, requestStarted), LIGHT_POLL_TICKS);
     }
 
-    private static boolean isFullyLit(org.bukkit.Chunk chunk) throws Exception {
+    private static boolean isLightAndPostProcessed(org.bukkit.Chunk chunk) throws Exception {
         Class<?> statusClass = loadServerClass("net.minecraft.world.level.chunk.status.ChunkStatus");
         if (statusClass == null) throw new IllegalStateException("ChunkStatus class is unavailable");
         Object fullStatus = statusClass.getField("FULL").get(null);
         Object handle = chunk.getClass().getMethod("getHandle", statusClass).invoke(chunk, fullStatus);
         boolean lightCorrect = (Boolean)invoke(handle, "isLightCorrect");
+        boolean postProcessingDone = (Boolean)invoke(handle, "moonrise$isPostProcessingDone");
         Object persistedStatus = invoke(handle, "getPersistedStatus");
         Object lightStatus = statusClass.getField("LIGHT").get(null);
         boolean statusLit = (Boolean)statusClass.getMethod("isOrAfter", statusClass)
             .invoke(persistedStatus, lightStatus);
-        return lightCorrect && statusLit;
+        return lightCorrect && statusLit && postProcessingDone;
     }
 
     private void releaseLightTicket(Run run, Coordinate coordinate) {
@@ -506,6 +554,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             return;
         }
         try {
+            requireRequestedSimulationFreeze("before-save-" + run.phase);
             long saveStart = System.nanoTime();
             run.world.save();
             long saveMillis = (System.nanoTime() - saveStart) / 1_000_000L;
@@ -528,8 +577,15 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             result.put("completed_chunks", run.completed);
             result.put("lighting_complete", run.lightCompleted == run.coordinates.size());
             result.put("lighting_complete_chunks", run.lightCompleted);
+            result.put("postprocessing_complete_chunks", run.postprocessingCompleted);
             result.put("lighting_wait_ms", (run.lightingFinishedNanos - run.lightingStartedNanos) / 1_000_000L);
-            result.put("lighting_status_required", "isLightCorrect and persisted ChunkStatus at least LIGHT");
+            result.put("lighting_status_required", "isLightCorrect, persisted ChunkStatus at least LIGHT, "
+                + "moonrise$isPostProcessingDone, and ready on two polls five ticks apart while ticketed");
+            result.put("freeze_simulation_requested", this.freezeSimulationRequested);
+            result.put("simulation_frozen", simulationFrozen());
+            result.put("simulation_mode", simulationMode());
+            result.put("tick_metrics_interpretation", this.freezeSimulationRequested
+                ? "frozen-worldgen; do not interpret as normal SMP TPS" : "normal world ticks");
             result.put("pre_generated_before_command", run.preGenerated);
             result.put("pre_generated_before_each_request", run.preGeneratedRequests);
             result.put("min_y", run.world.getMinHeight());
@@ -578,6 +634,20 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
     public void onDisable() {
         if (active != null) fail(active, "plugin disabled while a phase was active");
         if (this.tickMetrics != null) this.tickMetrics.close();
+        if (this.simulationFreezeApplied) {
+            try {
+                Bukkit.getServer().getServerTickManager().setFrozen(this.previousSimulationFrozen);
+                boolean restored = simulationFrozen() == this.previousSimulationFrozen;
+                getLogger().info("GPURWGEN_SIMULATION_FREEZE_RESTORED requested=" + this.freezeSimulationRequested
+                    + " previous=" + this.previousSimulationFrozen + " actual=" + simulationFrozen()
+                    + " verified=" + restored);
+                if (!restored) getLogger().severe("could not restore prior server tick-manager frozen state");
+            } catch (RuntimeException failure) {
+                getLogger().severe("could not restore prior server tick-manager state: " + failure);
+            } finally {
+                this.simulationFreezeApplied = false;
+            }
+        }
     }
 
     private record Coordinate(int x, int z) {}
@@ -594,10 +664,11 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         final Path tickMetricsCsv;
         final Path tickMetricsReport;
         int next, completed, inFlight;
-        int lightNext, lightCompleted, lightInFlight;
+        int lightNext, lightCompleted, lightInFlight, postprocessingCompleted;
         long lightingStartedNanos, lightingFinishedNanos;
         boolean lightingStarted, lightingComplete;
         final Set<Coordinate> lightTickets = new HashSet<>();
+        final Set<Coordinate> lightReadySamples = new HashSet<>();
         boolean finishScheduled;
         long preGenerated, preGeneratedRequests, startedNanos;
         String startedUtc;

@@ -24,6 +24,70 @@ ANSI = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
 CREATE_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 DEVICES = {'cpu': [], 'rtx3070': ['NVIDIA GeForce RTX 3070'],
            'gtx1080': ['NVIDIA GeForce GTX 1080'], 'mixed': ['auto']}
+DEFAULT_INITIAL_HEAP_GIB = 16
+
+
+def parse_initial_heap_gib(value):
+    try:
+        gib = int(value)
+    except (TypeError, ValueError) as error:
+        raise argparse.ArgumentTypeError('--initial-heap-gib must be an integer in 1..16') from error
+    if not 1 <= gib <= 16:
+        raise argparse.ArgumentTypeError('--initial-heap-gib must be in 1..16')
+    return gib
+
+
+def build_java_command(jdk: Path, server_jar: Path, initial_heap_gib: int) -> list[str]:
+    initial_heap_gib = parse_initial_heap_gib(initial_heap_gib)
+    java = jdk / 'bin' / ('java.exe' if os.name == 'nt' else 'java')
+    return [str(java), '--enable-native-access=ALL-UNNAMED', f'-Xms{initial_heap_gib}G', '-Xmx16G',
+            '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=40',
+            '-Xlog:gc*,safepoint:file=gc.log:time,uptime,level,tags',
+            '-jar', str(server_jar), '--nogui']
+
+
+def render_gpur_config(case: str, force: bool, worldgen_mode: str) -> str:
+    if case not in DEVICES:
+        raise ValueError(f'unknown case: {case}')
+    if worldgen_mode not in ('disabled', 'strict', 'verified-exact'):
+        raise ValueError(f'unknown worldgen mode: {worldgen_mode}')
+    gpu_enabled = case != 'cpu'
+    lines = [
+        'config-version: 2',
+        'chunk-generation:',
+        '  gpu-acceleration:',
+        f'    enabled: {str(gpu_enabled).lower()}',
+    ]
+    if worldgen_mode != 'disabled':
+        terrain_enabled = gpu_enabled
+        lines.extend((
+            '  vanilla-terrain:',
+            f'    enabled: {str(terrain_enabled).lower()}',
+            f'    mode: {worldgen_mode if terrain_enabled else "disabled"}',
+            f'    noise-batches: {str(terrain_enabled).lower()}',
+            f'    aquifer-ranking: {str(terrain_enabled).lower()}',
+            f'    verify-every-batch: {str(worldgen_mode == "strict" if terrain_enabled else True).lower()}',
+            '    minimum-values: 1024',
+        ))
+    lines.extend((
+        'gpu:',
+        '  multi-gpu:',
+        f'    enabled: {str(case == "mixed").lower()}',
+        f'    devices: {json.dumps(DEVICES[case])}',
+        f'  force: {str(force).lower()}',
+        '  timeout-ms: 100',
+    ))
+    if worldgen_mode != 'disabled' and gpu_enabled:
+        lines.extend(('  scheduler:', '    async-submit: true'))
+    return '\n'.join(lines) + '\n'
+
+
+def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('--initial-heap-gib', type=parse_initial_heap_gib,
+                        default=DEFAULT_INITIAL_HEAP_GIB,
+                        help='initial Java heap in GiB (1..16); maximum remains fixed at 16 GiB')
+    parser.add_argument('--worldgen-mode', choices=('disabled', 'strict', 'verified-exact'), default='disabled',
+                        help='opt-in vanilla terrain GPU mode for GPU cases; CPU remains GPU-disabled')
 
 
 def emit(**value):
@@ -56,6 +120,18 @@ class Controller:
                          'plugin_sha256': digest(args.plugin),
                          'viaversion_sha256': digest(args.viaversion), 'viabackwards_sha256': digest(args.viabackwards),
                          'fresh_directory': str(self.directory), 'heap_gib': 16,
+                         'initial_heap_gib': args.initial_heap_gib,
+                         'jdk_home': str(JDK.resolve()),
+                         'jvm_options': ['--enable-native-access=ALL-UNNAMED',
+                                         f'-Xms{args.initial_heap_gib}G', '-Xmx16G',
+                                         '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=40'],
+                         'worldgen_mode_requested': args.worldgen_mode,
+                         'vanilla_terrain_mode': args.worldgen_mode if case != 'cpu' else 'disabled',
+                         'vanilla_terrain_enabled': case != 'cpu' and args.worldgen_mode != 'disabled',
+                         'gpu_acceleration_enabled': case != 'cpu',
+                         'gpu_devices_requested': DEVICES[case],
+                         'simulation_mode': 'normal-world-ticks',
+                         'freeze_simulation': False,
                          'view_distance': args.view, 'simulation_distance': args.simulation,
                          'client_view_distance': args.view, 'force_gpu_diagnostic': args.force,
                          'player_targets': args.targets, 'walking_percent': args.walking_percent,
@@ -103,12 +179,8 @@ class Controller:
         config.mkdir()
         (config / 'paper-global.yml').write_text('_version: 31\nchunk-system:\n  worker-threads: 4\n  io-threads: 2\n', encoding='utf-8')
         (config / 'paper-world-defaults.yml').write_text('_version: 31\nanticheat:\n  anti-xray:\n    enabled: true\n    engine-mode: 1\n', encoding='utf-8')
-        enabled = 'false' if self.case == 'cpu' else 'true'
-        selectors = json.dumps(DEVICES[self.case])
         (directory / 'gpur.yml').write_text(
-            f'config-version: 2\nchunk-generation:\n  gpu-acceleration:\n    enabled: {enabled}\n'
-            f'gpu:\n  multi-gpu:\n    enabled: {str(self.case == "mixed").lower()}\n    devices: {selectors}\n'
-            f'  force: {str(self.args.force).lower()}\n  timeout-ms: 100\n', encoding='utf-8')
+            render_gpur_config(self.case, self.args.force, self.args.worldgen_mode), encoding='utf-8')
         (directory / 'run.json').write_text(json.dumps(self.metadata, indent=2), encoding='utf-8')
 
     def capture_server(self):
@@ -126,11 +198,7 @@ class Controller:
                     emit(type='server', case=self.case, message=line[:2400])
 
     def start(self):
-        command = [str(JDK / 'bin/java.exe' if os.name == 'nt' else JDK / 'bin/java'),
-                   '--enable-native-access=ALL-UNNAMED', '-Xms16G', '-Xmx16G',
-                   '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=40',
-                   '-Xlog:gc*,safepoint:file=gc.log:time,uptime,level,tags',
-                   '-jar', str(self.server_jar), '--nogui']
+        command = build_java_command(JDK, self.server_jar, self.args.initial_heap_gib)
         self.metadata['java_command'] = command
         self.server = subprocess.Popen(command, cwd=self.directory, stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8',
@@ -457,6 +525,7 @@ def main():
     parser.add_argument('--cases', default='cpu,rtx3070,gtx1080,mixed')
     parser.add_argument('--pilot', action='store_true')
     parser.add_argument('--force', action='store_true')
+    add_runtime_arguments(parser)
     parser.add_argument('--seconds', type=int, default=90)
     parser.add_argument('--targets', type=lambda value: [int(x) for x in value.split(',')], default=[50, 150, 300])
     parser.add_argument('--walking-percent', type=int, default=20,

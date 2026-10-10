@@ -1,6 +1,6 @@
 # Fresh-world load matrix
 
-`run_matrix.py` launches each server sequentially with a 16GiB maximum Java heap, creates a fresh isolated run directory and normal-terrain dimension, and joins genuine loopback TCP players through the pinned 26.1 protocol/ViaVersion/ViaBackwards bridge. Dependencies: Python 3.12 with `psutil==7.0.0`, Node 22, JDK 25, the server Paperclip JAR, benchmark plugin and the explicitly supplied/recorded Via plugin binaries.
+`run_matrix.py` launches each server sequentially with a fixed 16 GiB maximum Java heap, creates a fresh isolated run directory and normal-terrain dimension, and joins genuine loopback TCP players through the pinned 26.1 protocol/ViaVersion/ViaBackwards bridge. `--initial-heap-gib` controls `-Xms` from 1 to 16 GiB and defaults to 16; use the same value for every case in a matrix. Dependencies: Python 3.12 with `psutil==7.0.0`, Node 22, JDK 25, the server Paperclip JAR, benchmark plugin and the explicitly supplied/recorded Via plugin binaries.
 
 Run the correctness/compile checks first and **finish all builds before measuring performance**. Parallel servers, clients from another case, compilers or hardware microbenchmarks would confound the result.
 
@@ -11,7 +11,7 @@ python benchmarks/run_matrix.py --pilot --cases cpu
 python benchmarks/run_matrix.py --cases cpu,rtx3070,gtx1080,mixed --seconds 60
 ```
 
-The default runtime root is `C:/GPur-validation-20261009/validation`. The runner defaults to 20% walking for the 1.0.0 regression replay; pass `--walking-percent 100` for a separately labeled all-walking diagnostic. Override input paths using `--help`. The EULA input must be an existing accepted file; this tool does not create a new agreement. Every case gets a new directory and world; changing GPU code, selectors or force mode must use a new run. Previously generated world data are never copied between cases. The vanilla launch cache may be copied because it contains server code rather than world chunks.
+The default runtime root is `C:/GPur-validation-20261009/validation`. The runner defaults to 20% walking for the 1.0.0 regression replay; pass `--walking-percent 100` for a separately labeled all-walking diagnostic. `--worldgen-mode` defaults to `disabled` to preserve the historical movement matrix configuration. Choose `strict` or `verified-exact` to enable vanilla terrain GPU mode, noise batches, and aquifer ranking for selected GPU cases; the CPU case keeps GPU acceleration and vanilla terrain disabled. These modes configure the movement run to exercise those paths; they do not replace the separate strict semantic worldgen release gate. The runner always uses normal, unfrozen server ticks. Override input paths using `--help`. The EULA input must be an existing accepted file; this tool does not create a new agreement. Every case gets a new directory and world; changing GPU code, selectors or force mode must use a new run. Previously generated world data are never copied between cases. The vanilla launch cache may be copied because it contains server code rather than world chunks.
 
 Each case ramps to 50, 150 and 300 players. It records player-only pad walking, 500/1,500/3,000 nearby AI mobs with concurrent walking, natural-spawn phases, 300 redstone circuits, synthetic new-chunk exploration and recovery. Setup/ramp/settle phases remain in the inclusive record. A GPU case is invalid if its selected physical devices do not initialize; a phase is invalid if clients are lost or protocol errors occur. `--force` is a separate diagnostic experiment and must not be represented as the recommended adaptive setting.
 
@@ -41,5 +41,13 @@ The published final matrix used the following command. `--natural-seconds` contr
 ```powershell
 python benchmarks/run_matrix.py --cases cpu,rtx3070,gtx1080,mixed --targets 300 --walking-percent 20 --seconds 30 --settle-seconds 15 --natural-seconds 10 --travel-seconds 5
 ```
+
+For a new-candidate regression that also exercises the opt-in terrain boundaries, keep the matrix unfrozen and set one common initial heap for every case:
+
+```powershell
+python benchmarks/run_matrix.py --cases cpu,rtx3070,gtx1080,mixed --initial-heap-gib 4 --worldgen-mode verified-exact --targets 300 --walking-percent 20 --seconds 30 --settle-seconds 15 --natural-seconds 10 --travel-seconds 5
+```
+
+The runner records the requested mode, per-case terrain configuration, initial and maximum heap, JVM arguments, and `simulation_mode=normal-world-ticks` in each run's metadata. GPU workload counters in this movement matrix show whether those configured paths were exercised; saved-world semantic parity remains the separate worldgen matrix's responsibility.
 
 The runner checks shared input files before starting, continues subsequent device cases after a running case fails, preserves the pre-teardown client snapshot, and exits unsuccessfully if any case failed. Use `analyze.py --include-failed` only to report such failures explicitly. A tick that stalls permanently has no TickEnd sample; inspect the failure, watchdog log and final time without a tick alongside MSPT maxima. A CSV maximum from completed ticks cannot describe an unfinished 60-second tick.

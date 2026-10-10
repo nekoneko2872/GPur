@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 /** Collects tiny immutable tick samples on the server thread and aggregates/writes them off-thread. */
 final class TickMetrics implements AutoCloseable {
     private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
+    private final String simulationMode;
     private final LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
     private final Thread writer;
     private volatile String writerFailure;
@@ -38,7 +39,8 @@ final class TickMetrics implements AutoCloseable {
     private String endAfterTickError;
     private boolean closed;
 
-    TickMetrics() {
+    TickMetrics(String simulationMode) {
+        this.simulationMode = simulationMode;
         this.writer = new Thread(this::writeLoop, "GPurWorldgenProbe-tick-writer");
         this.writer.setDaemon(true);
         this.writer.start();
@@ -47,7 +49,7 @@ final class TickMetrics implements AutoCloseable {
     void begin(long phaseId, String label, String phase, Path directory) {
         this.queue.add(new PhaseStart(phaseId, label, phase,
             directory.resolve(phase + "-tick-samples.csv"),
-            directory.resolve(phase + "-tick-metrics.json")));
+            directory.resolve(phase + "-tick-metrics.json"), this.simulationMode));
     }
 
     void tickStart(ServerTickStartEvent event, long phaseId) {
@@ -143,7 +145,8 @@ final class TickMetrics implements AutoCloseable {
         }
     }
 
-    private record PhaseStart(long id, String label, String phase, Path csv, Path report) {}
+    private record PhaseStart(long id, String label, String phase, Path csv, Path report,
+                              String simulationMode) {}
     private record TickSample(long phaseId, long tick, long epochMs, long startNs,
                               long durationNs, long intervalNs) {}
     private record PhaseEnd(long id, boolean success, String error) {}
@@ -189,6 +192,7 @@ final class TickMetrics implements AutoCloseable {
             report.put("schema", 1);
             report.put("label", this.start.label());
             report.put("phase", this.start.phase());
+            report.put("simulation_mode", this.start.simulationMode());
             report.put("complete", success);
             report.put("error", error);
             report.put("raw_csv", this.start.csv().toAbsolutePath().toString());

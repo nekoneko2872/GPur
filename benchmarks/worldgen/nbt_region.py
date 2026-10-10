@@ -309,42 +309,25 @@ def _tag_obj(tag: Tag) -> object:
     raise NbtError(f"cannot encode tag type {typ}")
 
 
-def _children_sorted(tag: Tag) -> Tag:
-    if tag.tag_type == 10:
-        fields: dict[str, Tag] = tag.value  # type: ignore[assignment]
-        result = {}
-        for key, value in fields.items():
-            if key.lower() in ("children", "pieces") and value.tag_type == 9:
-                children: TagList = value.value  # type: ignore[assignment]
-                ordered = sorted(children.values, key=lambda entry: repr(_tag_obj(entry)))
-                result[key] = Tag(9, TagList(children.element_type, tuple(ordered)))
-            else:
-                result[key] = _children_sorted(value)
-        return Tag(10, result)
-    if tag.tag_type == 9:
-        values: TagList = tag.value  # type: ignore[assignment]
-        return Tag(9, TagList(values.element_type, tuple(_children_sorted(item) for item in values.values)))
-    return tag
+def _sorted_structure_references(tag: Tag) -> Tag:
+    """Sort only the chunk-level ``structures.References`` set arrays.
 
-
-def _sorted_reference_arrays(tag: Tag) -> Tag:
-    if tag.tag_type == 10:
-        fields: dict[str, Tag] = tag.value  # type: ignore[assignment]
-        result = {}
-        for key, value in fields.items():
-            if key.lower() == "references" and value.tag_type == 10:
-                refs = compound(value, "structure references")
-                result[key] = Tag(10, {
-                    ref_key: Tag(12, tuple(sorted(long_array(ref_value, f"structure reference {ref_key}"))))
-                    for ref_key, ref_value in refs.items()
-                })
-            else:
-                result[key] = _sorted_reference_arrays(value)
-        return Tag(10, result)
-    if tag.tag_type == 9:
-        values: TagList = tag.value  # type: ignore[assignment]
-        return Tag(9, TagList(values.element_type, tuple(_sorted_reference_arrays(item) for item in values.values)))
-    return tag
+    Nested piece NBT can contain fields with the same name but arbitrary
+    semantics, so it must retain its original values and ordering.
+    """
+    if tag.tag_type != 10:
+        return tag
+    fields: dict[str, Tag] = tag.value  # type: ignore[assignment]
+    references = fields.get("References")
+    if references is None or references.tag_type != 10:
+        return tag
+    refs = compound(references, "structure references")
+    result = dict(fields)
+    result["References"] = Tag(10, {
+        ref_key: Tag(12, tuple(sorted(long_array(ref_value, f"structure reference {ref_key}"))))
+        for ref_key, ref_value in refs.items()
+    })
+    return Tag(10, result)
 
 
 def _clock_sentinel(tag: Tag) -> Tag:
@@ -522,7 +505,10 @@ def semantic_chunk(root: Tag, expected_x: int, expected_z: int,
 
     structures = fields.get("structures")
     if structures is not None:
-        structures = _sorted_reference_arrays(_children_sorted(structures))
+        # Compound children are canonicalized by _tag_obj, and structure
+        # references are a set on load. Children/Pieces, however, are ordered
+        # replay inputs for structure placement and must remain in source order.
+        structures = _sorted_structure_references(structures)
 
     clock = {
         key: _tag_obj(value)
