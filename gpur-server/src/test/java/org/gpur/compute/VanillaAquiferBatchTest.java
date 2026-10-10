@@ -177,6 +177,14 @@ class VanillaAquiferBatchTest {
         ));
     }
 
+    @Test
+    void rejectsExtremeGridDimensionsBeforeTheirProductCanOverflow() {
+        assertThrows(IllegalArgumentException.class, () -> VanillaAquiferBatch.input(
+            -2, -7, -2, 1 << 30, 1 << 30, 16,
+            new int[]{0, 0, 0}, new int[0]
+        ));
+    }
+
     private static AquiferFixture createAquiferFixture(Query query) throws Exception {
         WorldgenFixture worldgen = worldgenFixture();
         NoiseGeneratorSettings settings = smallOverworldSettings(worldgen.overworldSettings());

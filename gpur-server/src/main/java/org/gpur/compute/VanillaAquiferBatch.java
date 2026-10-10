@@ -259,11 +259,11 @@ public final class VanillaAquiferBatch {
         if (gridSizeX < 1 || gridSizeY < 1 || gridSizeZ < 1) {
             throw new IllegalArgumentException("Aquifer grid dimensions must be positive");
         }
-        long count = (long)gridSizeX * gridSizeY * gridSizeZ;
-        if (count > MAX_CENTER_CELLS) {
+        long countXY = (long)gridSizeX * gridSizeY;
+        if (countXY > MAX_CENTER_CELLS || countXY > MAX_CENTER_CELLS / gridSizeZ) {
             throw new IllegalArgumentException("Aquifer center grid exceeds the bounded cell count");
         }
-        return count;
+        return countXY * gridSizeZ;
     }
 
     private static int outputWordsUnchecked(int queryCount) {
