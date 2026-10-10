@@ -158,7 +158,10 @@
           "mixed": {
             "pass": false,
             "failure": "Both GPUs failed workload 6 CPU-reference parity during world creation. GTX 1080 accepted one noise batch before the failures; the timed-corpus GPU-use gate rejected the quarantined boundaries.",
-            "failed_devices": ["RTX 3070", "GTX 1080"],
+            "failed_devices": [
+              "RTX 3070",
+              "GTX 1080"
+            ],
             "gtx1080_workload_5_computed_values_before_failure": 40575,
             "gtx1080_workload_5_consumed_values_before_failure": 16450
           }
@@ -174,6 +177,356 @@
     "Native kernel parity is not saved-world parity or end-to-end speedup.",
     "API results are cached because API sources are unchanged.",
     "The new noise/aquifer settings default to false.",
-    "Do not promote to 2.0.0 until the complete requested implementation and release gates pass."
-  ]
+    "Do not promote to 2.0.0 until the complete requested implementation and release gates pass.",
+    "Generated-content comparison excludes only the two reported chunk-root clock tags; it is not full equality of persistent elapsed-tick state."
+  ],
+  "post_aquifer_fix": {
+    "implementation_commit": "b693a6a90193fa082703e2ba56d29850110483d3",
+    "artifact": {
+      "file": "gpur-server-26.2-SNAPSHOT1.1.0.jar",
+      "bytes": 92140012,
+      "sha256": "32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c",
+      "main_class": "io.papermc.paperclip.Main",
+      "version": "SNAPSHOT1.1.0"
+    },
+    "fix": "Replace undefined negative signed GLSL remainder with overflow-safe unsigned magnitude floor division; add negative-divisibility startup corpus and bounded opt-in parity diagnostics.",
+    "reproduction": {
+      "seed": 1196459378,
+      "height": 384,
+      "queries": 98304,
+      "first_differing_word": 3923,
+      "query": [
+        4,
+        -61,
+        13
+      ],
+      "rank": 3,
+      "cpu_center_index": 34,
+      "gpu_center_index": 16
+    },
+    "server_tests": {
+      "scope": "unfiltered, physical GPU tests enabled",
+      "tests": 9417,
+      "suites": 150,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 23,
+      "xml_digest_sha256": "9e5b851636ff0c8d8430a5566ab0f6eb375ec85b4a930e97a522711ad9026c3a"
+    },
+    "kernel_checks": {
+      "devices": [
+        "RTX 3070",
+        "GTX 1080"
+      ],
+      "full_height_queries": 98304,
+      "full_height_buffer_modes": [
+        "direct",
+        "staging"
+      ],
+      "negative_coordinate_queries": 32768,
+      "negative_coordinate_buffer_mode": "staging",
+      "mismatches": 0
+    },
+    "harness_tests": {
+      "worldgen": 24,
+      "movement_gate": 4,
+      "failures": 0,
+      "receipt_sha256": "c7feb0f9e2023bb2dd1c99e8a7455bb9be23c1b383c42364f0744409f5336a3d"
+    },
+    "probe_sha256": "da3b46559017d0386331917544071a936051bc2dfd3c0bde36c1ed41446004a7",
+    "movement_plugin_sha256": "5280196a91191c5ca1faa9644f5e476c3bbce90d975f5135b4242abd966d89e1",
+    "runtime_validation": [
+      {
+        "matrix": "20261010T132423Z-f459e52b",
+        "mode": "strict",
+        "radius": 4,
+        "initial_heap_gib": 16,
+        "maximum_heap_gib": 16,
+        "pass": false,
+        "failure_class": "host_commit_exhaustion_before_server_readiness",
+        "failure": "All four JVMs failed Windows memory commit with errno 1455 before plugin readiness. No generation, GPU parity/use, tick or saved-world comparisons executed.",
+        "report_sha256": "1085d9ba01111969bc1c1f9e2c155b413ae7f669c463bd40703567808a081591",
+        "receipt_sha256": "427385e2bdf5d349feafc2b115aff05afb822c49a2e1c463eb8b6b6b044bfdad"
+      },
+      {
+        "matrix": "20261010T133004Z-77984392",
+        "mode": "strict",
+        "radius": 4,
+        "initial_heap_gib": 4,
+        "maximum_heap_gib": 16,
+        "pass": false,
+        "generated_chunks_per_case": 81,
+        "failure_class": "probe_api_signature",
+        "failure": "All four cases stopped before lighting/save/restart checks because the probe called no-argument CraftChunk.getHandle(). CPU/GPU saved parity was not measured."
+      },
+      {
+        "matrix": "20261010T133250Z-8e6ae37b",
+        "mode": "strict",
+        "radius": 4,
+        "initial_heap_gib": 4,
+        "maximum_heap_gib": 16,
+        "probe_sha256": "b0983b4f33b02d68e665817519f20cad7828ff3c27151ac8d7ed7e12c9235a14",
+        "pass": false,
+        "failure_class": "post_generation_lifecycle_not_yet_stable",
+        "report_sha256": "f94e9173f506f3466e657fe59bbe0843209e9a893f2ad65b47164bc20dfa0ec3",
+        "cases": {
+          "cpu": {
+            "chunks": 81,
+            "restart_parity": false,
+            "category_difference_counts": {
+              "blocks": 854,
+              "biomes": 0,
+              "heightmaps": 0,
+              "light": 5,
+              "structures": 0,
+              "block_entities": 0,
+              "entities": 0,
+              "poi": 0,
+              "section_metadata": 0,
+              "other_nbt": 16872
+            },
+            "coverage_issues": {
+              "missing_left": 0,
+              "missing_right": 0,
+              "incomplete_light": 0,
+              "incomplete_status": 0
+            }
+          },
+          "rtx3070": {
+            "chunks": 81,
+            "restart_parity": true,
+            "category_difference_counts": {
+              "blocks": 0,
+              "biomes": 0,
+              "heightmaps": 0,
+              "light": 0,
+              "structures": 0,
+              "block_entities": 0,
+              "entities": 0,
+              "poi": 0,
+              "section_metadata": 0,
+              "other_nbt": 0
+            },
+            "coverage_issues": {
+              "missing_left": 0,
+              "missing_right": 0,
+              "incomplete_light": 0,
+              "incomplete_status": 0
+            }
+          },
+          "gtx1080": {
+            "chunks": 81,
+            "restart_parity": false,
+            "category_difference_counts": {
+              "blocks": 119,
+              "biomes": 0,
+              "heightmaps": 0,
+              "light": 0,
+              "structures": 0,
+              "block_entities": 0,
+              "entities": 0,
+              "poi": 0,
+              "section_metadata": 0,
+              "other_nbt": 1448
+            },
+            "coverage_issues": {
+              "missing_left": 0,
+              "missing_right": 0,
+              "incomplete_light": 0,
+              "incomplete_status": 0
+            }
+          },
+          "mixed": {
+            "chunks": 81,
+            "restart_parity": false,
+            "category_difference_counts": {
+              "blocks": 1579,
+              "biomes": 0,
+              "heightmaps": 4,
+              "light": 23,
+              "structures": 0,
+              "block_entities": 0,
+              "entities": 0,
+              "poi": 0,
+              "section_metadata": 0,
+              "other_nbt": 27362
+            },
+            "coverage_issues": {
+              "missing_left": 0,
+              "missing_right": 0,
+              "incomplete_light": 0,
+              "incomplete_status": 0
+            }
+          }
+        },
+        "cpu_vs_gpu_parity": "not_run_cpu_restart_gate_failed",
+        "cpu_repeatability_control": "not_run",
+        "gpu_workloads_5_6_consumed_by_all_selected_devices": true,
+        "reported_parity_failures": 0,
+        "performance_comparison": "not_run_strict_times_are_not_speedup"
+      },
+      {
+        "matrix": "20261010T133957Z-761e2665",
+        "cases": [
+          "cpu"
+        ],
+        "mode": "strict",
+        "radius": 4,
+        "initial_heap_gib": 4,
+        "maximum_heap_gib": 16,
+        "simulation_frozen": false,
+        "probe_sha256": "c8a098f99fe296010ee76b17d58ecd5cf94297b9ee4425ed18b61a50c514297d",
+        "pass": false,
+        "report_sha256": "2a94e498aaf5141fb228c3f98e775ad69aeaed2c4e983b237bf0ed441fc81d34",
+        "postprocessing_complete_chunks": 81,
+        "category_difference_counts": {
+          "blocks": 111,
+          "biomes": 0,
+          "heightmaps": 0,
+          "light": 29,
+          "structures": 0,
+          "block_entities": 0,
+          "entities": 23,
+          "poi": 0,
+          "section_metadata": 1,
+          "other_nbt": 137
+        },
+        "failure": "Normal simulation advances fluids, leaf updates and generated chest-minecart entities between savepoints, despite completed postprocessing. Preserve all differences; do not attribute them to GPU calculations.",
+        "repeatability_control": "not_run"
+      }
+    ],
+    "next_run": {
+      "state": "pending_new_candidate_and_explicit_frozen_simulation_pilot",
+      "initial_heap_gib": 4,
+      "maximum_heap_gib": 16,
+      "fresh_worlds": true,
+      "simulation_frozen": true,
+      "note": "Freeze game simulation through save/restart while retaining normal chunk-generation/postprocessing/light tasks. Frozen-worldgen tick statistics do not describe ordinary SMP load; movement regression remains unfrozen."
+    },
+    "speedup_established": false,
+    "movement_replay": "not_run",
+    "complete_requested_stage_coverage": false,
+    "version_bump": false,
+    "additional_harness_tests": {
+      "source_commit": "e9cd04abe8e764428fd11f88bdc7f64187d639f2",
+      "worldgen": 30,
+      "movement_gate": 4,
+      "failures": 0,
+      "receipt_sha256": "b4cdc3e9526f968f68a1eec007319c9f39e322a42e4587592c63068e788474a9"
+    },
+    "probe_api_fix": {
+      "source_commit": "e3a397ab7a358f0eff936756c7ea622c91e2298c",
+      "sha256": "b0983b4f33b02d68e665817519f20cad7828ff3c27151ac8d7ed7e12c9235a14",
+      "change": "Use Paper 26.2 CraftChunk.getHandle(ChunkStatus.FULL)."
+    }
+  },
+  "semantic_comparator_correction": {
+    "preserves_structure_piece_order": true,
+    "normalizes_only_exact_top_level_structure_references": true,
+    "focused_tests": 16,
+    "failures": 0,
+    "receipt_sha256": "69525109d78c52919b7eb7b441b32d830d404c7631f7412fb8e83d5cef0d611f",
+    "note": "Structure pieces execute sequentially with a shared RandomSource; sorting Children/Pieces could mask a semantic difference. Nested custom References also remain compared."
+  },
+  "latest_candidate": {
+    "implementation_commit": "81cd39cad0065edf3fb1e9e9888d5dc2509d9792",
+    "artifact": {
+      "source_commit": "81cd39cad0065edf3fb1e9e9888d5dc2509d9792",
+      "file": "gpur-server-26.2-SNAPSHOT1.1.0.jar",
+      "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+      "bytes": 92174774,
+      "sha256": "175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a",
+      "main_class": "io.papermc.paperclip.Main",
+      "version": "SNAPSHOT1.1.0",
+      "build_log_sha256": "11d4094052b353dc3a43c8e14b4be15e14c55209d0cf6f9435b2107bc24cecb6",
+      "server_tests": {
+        "tests": 9424,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 23,
+        "scope": "unfiltered physical enabled, nonduplicated"
+      }
+    },
+    "harness_commit": "3d53bf6c347e29266c41fc19b09dc6f69c63df72",
+    "server_tests": {
+      "tests": 9424,
+      "suites": 151,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 23,
+      "scope": "unfiltered physical GPU tests enabled; density tests counted once",
+      "console_sha256": "61cf9d627ab1ead1d16c3232f2fbe44197716874b3b647451f91ccb12482a04b",
+      "xml_manifest_sha256": "94c49346ec843537527f71f6019556219e710436f68304e014dd5ff124a3b7c8"
+    },
+    "density_graph_foundation": {
+      "implemented": true,
+      "execution": "CPU oracle only",
+      "connected_to_noise_chunk": false,
+      "gpu_kernel": false,
+      "raw_bit_tests": 6,
+      "unsupported": [
+        "nested splines",
+        "runtime cache wrappers",
+        "nonempty blending state",
+        "complete default Overworld root closure"
+      ],
+      "source_sha256": "a73019b1ce58120df20507e20f1cac7e4144c2c495535451def3de12d26484c0"
+    },
+    "harness_tests": {
+      "worldgen": 38,
+      "movement_and_runner": 9,
+      "failures": 0,
+      "receipt_sha256": "7f37b0ea46a14a05037c8a9023ed8a34a6a905760bc5e984b92b5a44b24fdbf3"
+    },
+    "runtime_validation": "cpu_restart_passed_cross_world_repeatability_failed_diagnosis_pending",
+    "movement_replay": "not_run",
+    "speedup_established": false,
+    "version_bump": false,
+    "probe_sha256": "f6ec34fed74b4c14d55c8db3e37958358d8ea91db48442ce445a66fed29221a8",
+    "runtime_runs": [
+      {
+        "id": "frozen-cpu-reload-status-sequencing-failure",
+        "report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-pilot-81cd39\\matrices\\20261010T140050Z-c7978520\\worldgen-matrix-report.json",
+        "report_sha256": "9343bdbea23e64a77dfd5b0ac33211cee55162a1a2dc03850080e076dee29d83",
+        "pass": false,
+        "failure": "Probe begin(reload) and runner wrote the same before-corpus-reload status; reload never began. Preserved failed harness cohort; no saved-world parity result."
+      },
+      {
+        "id": "frozen-cpu-radius4-roundtrip",
+        "report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-pilot-81cd39-reloadfix\\matrices\\20261010T140807Z-632beb00\\worldgen-matrix-report.json",
+        "report_sha256": "b948d80d22b76f9fb7a8e799ab783f398967e8f0d5835a5dd704c62d6a5cea52",
+        "pass": true,
+        "chunks": 81,
+        "semantic_restart_differences": 0,
+        "request_elapsed_ms": 4732,
+        "reload_elapsed_ms": 2377,
+        "all_ten_categories_zero_differences": true,
+        "simulation_mode": "frozen-worldgen",
+        "normal_smp_tps_claim_eligible": false
+      },
+      {
+        "id": "frozen-cpu-cross-world-control",
+        "report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-repeatability-81cd39.json",
+        "report_sha256": "334ab90af17422ea5b11f0ab64beded3a5d22a404efcdbf639711d5c2e780888",
+        "pass": false,
+        "chunks": 81,
+        "both_cpu_roundtrips_passed": true,
+        "category_difference_counts": {
+          "blocks": 5173,
+          "biomes": 0,
+          "heightmaps": 1318,
+          "light": 13,
+          "structures": 0,
+          "block_entities": 0,
+          "entities": 70,
+          "poi": 0,
+          "section_metadata": 0,
+          "other_nbt": 11039
+        },
+        "diagnosis": "Input/seed and feature-order inspection pending; do not attribute CPU-versus-CPU differences to GPU. No semantic fields suppressed."
+      }
+    ],
+    "four_case_frozen_gpu_matrix": "not_run_cpu_repeatability_gate_failed"
+  },
+  "historical_record_note": "Top-level artifact/test_runs and post_aquifer_fix preserve earlier candidates and failed experiments. latest_candidate identifies the currently frozen replacement; do not attribute historical tests/timings to it."
 }
