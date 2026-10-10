@@ -1,0 +1,12 @@
+name: GPurWorldgenProbe
+version: 1.0.0
+main: org.gpur.worldgen.WorldgenProbe
+api-version: '1.21'
+description: Isolated deterministic vanilla chunk-generation validation probe
+commands:
+  gpurbench:
+    description: Validation-only chunk generation and reload probe
+    permission: gpurbench.admin
+permissions:
+  gpurbench.admin:
+    default: op

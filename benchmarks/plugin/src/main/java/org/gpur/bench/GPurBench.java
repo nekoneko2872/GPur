@@ -63,6 +63,7 @@ public final class GPurBench extends JavaPlugin implements Listener {
     private Random random = new Random(worldSeed);
     private final Map<String, BukkitTask> jobs = new HashMap<>();
     private final List<Block> circuitBlocks = new ArrayList<>();
+    private final MovementTelemetry movementTelemetry = new MovementTelemetry();
     private long previousStartNs, tickStartNs, tickPhaseId, surveyTick = -20;
     private String tickPhase = "startup";
     private double intervalMs = -1, surveyMs;
@@ -82,7 +83,7 @@ public final class GPurBench extends JavaPlugin implements Listener {
             Path cwd = Path.of("").toRealPath();
             Path container = Bukkit.getWorldContainer().toPath().toRealPath();
             if (!isolated(cwd) || !isolated(container)) {
-                throw new IllegalStateException("requires isolated cwd AND world container under a validation directory or C:/GPur-validation-20261007; cwd=" + cwd + " worldContainer=" + container);
+                throw new IllegalStateException("requires isolated cwd AND world container under a validation directory (candidate root C:/GPur-validation-20261009/validation); cwd=" + cwd + " worldContainer=" + container);
             }
             Path run = getDataFolder().toPath().resolve("runs").resolve(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS").withZone(java.time.ZoneOffset.UTC).format(Instant.now()));
             marker = new NamespacedKey(this, "synthetic");
@@ -109,12 +110,28 @@ public final class GPurBench extends JavaPlugin implements Listener {
         result.put("max_heap_bytes", Runtime.getRuntime().maxMemory()); result.put("seed", worldSeed);
         result.put("online_players", Bukkit.getOnlinePlayers().size()); result.put("max_players", Bukkit.getMaxPlayers());
         result.put("bench_players", world == null ? 0 : world.getPlayers().size());
+        result.put("configured_walking_fraction", movementTelemetry.walkingPercent < 0 ? null : movementTelemetry.walkingPercent / 100.0);
+        result.put("configured_walking_percent", movementTelemetry.walkingPercent < 0 ? null : movementTelemetry.walkingPercent);
         result.put("world", world == null ? "none" : world.getName());
         if (world != null) { result.put("simulation_distance", world.getSimulationDistance()); result.put("view_distance", world.getViewDistance()); }
         result.put("gpu_status", gpuStatus); result.put("active_jobs", List.copyOf(jobs.keySet()));
         return result;
     }
-    private void phase(String name) { measurement.phase(name, metadata()); }
+    private void phase(String name) {
+        closeMovementPhase();
+        measurement.phase(name, metadata());
+        movementTelemetry.begin(measurement.phaseId(), name, world);
+    }
+    private void closeMovementPhase() {
+        Map<String, Object> summary = movementTelemetry.end(world);
+        if (summary != null) measurement.event(Map.of("type", "movement_phase_summary", "summary", summary));
+    }
+    private void saveMovementTelemetry() {
+        if (measurement == null || movementTelemetry.saved) return;
+        closeMovementPhase();
+        measurement.file("movement-telemetry.json", movementTelemetry.snapshot());
+        movementTelemetry.saved = true;
+    }
     private void requireWorld() {
         if (world == null) throw new IllegalStateException("create/select world first: /gpurbench world <label> <seed> [normal|flat]");
         if (!world.getName().startsWith("gpurbench_") || !isolated(world.getWorldFolder().toPath().toAbsolutePath())) throw new IllegalStateException("unsafe benchmark world");
@@ -142,7 +159,7 @@ public final class GPurBench extends JavaPlugin implements Listener {
         if (!sender.hasPermission("gpurbench.admin")) { sender.sendMessage("GPurBench requires gpurbench.admin"); return true; }
         if (measurement == null) { sender.sendMessage("GPURBENCH_INVALID measurement not initialized"); return true; }
         if (args.length == 0) {
-            sender.sendMessage("gpurbench world <label> <seed> [normal|flat] | phase <label> | prepare <radiusChunks> [perTick=1] [budgetMs=3] | place [spacing=96] | spawn <total> [radius=24] [perTick=25] | remove | travel <seconds> [speed=4.317] [east|west|north|south] | redstone <circuits> | clearredstone | status | finish");
+            sender.sendMessage("gpurbench world <label> <seed> [normal|flat] | walking-percent <0..100> | phase <label> | prepare <radiusChunks> [perTick=1] [budgetMs=3] | place [spacing=96] | spawn <total> [radius=24] [perTick=25] | remove | travel <seconds> [speed=4.317] [east|west|north|south] | redstone <circuits> | clearredstone | status | finish");
             return true;
         }
         String action = args[0].toLowerCase(Locale.ROOT);
@@ -151,6 +168,12 @@ public final class GPurBench extends JavaPlugin implements Listener {
             measurement.event(Map.of("type", "command", "arguments", List.of(args), "epoch_ms", System.currentTimeMillis()));
             switch (action) {
                 case "world" -> createWorld(args);
+                case "walking-percent" -> {
+                    if (args.length != 2) throw new IllegalArgumentException("walking-percent requires an integer 0..100");
+                    int percent = integer(args, 1, 100, 0, 100);
+                    movementTelemetry.walkingPercent = percent;
+                    done(action, "configured_walking_percent=" + percent + " configured_walking_fraction=" + (percent / 100.0));
+                }
                 case "phase" -> {
                     if (args.length != 2 || !args[1].matches("[A-Za-z0-9_.-]{1,80}")) throw new IllegalArgumentException("phase requires one label [A-Za-z0-9_.-], max80");
                     if (!jobs.isEmpty()) throw new IllegalStateException("wait for setup completion before changing phase; jobs=" + jobs.keySet());
@@ -419,7 +442,12 @@ public final class GPurBench extends JavaPlugin implements Listener {
     }
     @EventHandler(priority = EventPriority.MONITOR) public void redstoneEvent(BlockRedstoneEvent event) { if (world != null && event.getBlock().getWorld().equals(world)) redstoneEvents++; }
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true) public void spawnEvent(CreatureSpawnEvent event) { if (world != null && event.getLocation().getWorld().equals(world)) spawnEvents++; }
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true) public void moveEvent(PlayerMoveEvent event) { if (world != null && event.getPlayer().getWorld().equals(world)) moveEvents++; }
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true) public void moveEvent(PlayerMoveEvent event) {
+        if (world != null && event.getPlayer().getWorld().equals(world)) {
+            moveEvents++;
+            movementTelemetry.observe(event, world);
+        }
+    }
     @EventHandler(priority = EventPriority.MONITOR) public void chunkEvent(ChunkLoadEvent event) { if (world != null && event.getWorld().equals(world)) chunkLoadEvents++; }
     // Keep synthetic client counts stable while still executing Mob AI, pathfinding,
     // attacks, and ordinary CPU damage callbacks. This protection is part of the fixture.
@@ -437,7 +465,7 @@ public final class GPurBench extends JavaPlugin implements Listener {
     }
     private void finish() {
         if (finished) { getLogger().info("GPURBENCH_DONE command=finish already_finished=true"); return; }
-        noJobs(); finished = true;
+        noJobs(); saveMovementTelemetry(); finished = true;
         measurement.finish(metadata());
         // Completion marker means CSV, events and final JSON have actually been closed, not only queued.
         new Thread(() -> {
@@ -450,6 +478,120 @@ public final class GPurBench extends JavaPlugin implements Listener {
     }
     @Override public void onDisable() {
         for (BukkitTask task : jobs.values()) task.cancel(); jobs.clear();
-        if (measurement != null) measurement.close();
+        if (measurement != null) { saveMovementTelemetry(); measurement.close(); }
+    }
+
+    /** Aggregates real, uncancelled server-side PlayerMoveEvent from/to movement by phase and UUID. */
+    private static final class MovementTelemetry {
+        private static final double NONZERO_EPSILON_SQUARED = 1.0e-12;
+        private final List<Map<String, Object>> phases = new ArrayList<>();
+        private Phase current;
+        private int walkingPercent = -1;
+        private boolean saved;
+
+        private static final class PlayerMovement {
+            final UUID uuid;
+            String name;
+            long samples, nonzeroSamples, firstEpochMs, lastEpochMs;
+            double accumulatedDistance, accumulatedHorizontalDistance, maxStep;
+            Map<String, Object> firstNonzeroFrom, lastNonzeroTo;
+
+            PlayerMovement(Player player) { uuid = player.getUniqueId(); name = player.getName(); }
+
+            Map<String, Object> json() {
+                Map<String, Object> value = new LinkedHashMap<>();
+                value.put("uuid", uuid.toString()); value.put("name", name);
+                value.put("samples", samples); value.put("nonzero_displacement_samples", nonzeroSamples);
+                value.put("accumulated_from_to_distance_blocks", accumulatedDistance);
+                value.put("accumulated_horizontal_distance_blocks", accumulatedHorizontalDistance);
+                value.put("max_step_blocks", maxStep);
+                value.put("first_epoch_ms", samples == 0 ? null : firstEpochMs);
+                value.put("last_epoch_ms", samples == 0 ? null : lastEpochMs);
+                value.put("first_nonzero_from", firstNonzeroFrom);
+                value.put("last_nonzero_to", lastNonzeroTo);
+                return value;
+            }
+        }
+
+        private static final class Phase {
+            final long id, startedEpochMs;
+            final String name, world;
+            final int walkingPercent, playersAtStart;
+            final Map<UUID, PlayerMovement> players = new LinkedHashMap<>();
+            Phase(long id, String name, String world, int walkingPercent, int playersAtStart) {
+                this.id = id; this.name = name; this.world = world; this.walkingPercent = walkingPercent;
+                this.playersAtStart = playersAtStart; this.startedEpochMs = System.currentTimeMillis();
+            }
+        }
+
+        void begin(long phaseId, String name, World world) {
+            int playerCount = world == null ? 0 : world.getPlayers().size();
+            current = new Phase(phaseId, name, world == null ? "none" : world.getName(), walkingPercent, playerCount);
+            if (world != null) for (Player player : world.getPlayers()) current.players.put(player.getUniqueId(), new PlayerMovement(player));
+        }
+
+        void observe(PlayerMoveEvent event, World benchmarkWorld) {
+            if (current == null || benchmarkWorld == null) return;
+            Location from = event.getFrom(), to = event.getTo();
+            if (to == null || from.getWorld() == null || to.getWorld() == null
+                    || !benchmarkWorld.equals(from.getWorld()) || !benchmarkWorld.equals(to.getWorld())) return;
+            Player player = event.getPlayer();
+            PlayerMovement movement = current.players.computeIfAbsent(player.getUniqueId(), ignored -> new PlayerMovement(player));
+            movement.name = player.getName();
+            long now = System.currentTimeMillis();
+            if (movement.samples == 0) movement.firstEpochMs = now;
+            movement.lastEpochMs = now;
+            movement.samples++;
+            double dx = to.getX() - from.getX(), dy = to.getY() - from.getY(), dz = to.getZ() - from.getZ();
+            double distanceSquared = dx * dx + dy * dy + dz * dz;
+            if (distanceSquared <= NONZERO_EPSILON_SQUARED) return;
+            double distance = Math.sqrt(distanceSquared);
+            movement.nonzeroSamples++;
+            movement.accumulatedDistance += distance;
+            movement.accumulatedHorizontalDistance += Math.hypot(dx, dz);
+            movement.maxStep = Math.max(movement.maxStep, distance);
+            if (movement.firstNonzeroFrom == null) movement.firstNonzeroFrom = location(from);
+            movement.lastNonzeroTo = location(to);
+        }
+
+        private static Map<String, Object> location(Location location) {
+            return Map.of("x", location.getX(), "y", location.getY(), "z", location.getZ());
+        }
+
+        Map<String, Object> end(World world) {
+            if (current == null) return null;
+            Map<String, Object> summary = new LinkedHashMap<>();
+            List<PlayerMovement> ordered = new ArrayList<>(current.players.values());
+            ordered.sort(Comparator.comparing(player -> player.uuid.toString()));
+            List<Map<String, Object>> playerRows = ordered.stream().map(PlayerMovement::json).toList();
+            long samples = ordered.stream().mapToLong(player -> player.samples).sum();
+            long nonzeroSamples = ordered.stream().mapToLong(player -> player.nonzeroSamples).sum();
+            long movers = ordered.stream().filter(player -> player.nonzeroSamples > 0).count();
+            double distance = ordered.stream().mapToDouble(player -> player.accumulatedDistance).sum();
+            int expected = current.walkingPercent < 0 ? -1 : current.playersAtStart * current.walkingPercent / 100;
+            summary.put("phase_id", current.id); summary.put("phase", current.name);
+            summary.put("world", current.world); summary.put("started_epoch_ms", current.startedEpochMs);
+            summary.put("ended_epoch_ms", System.currentTimeMillis());
+            summary.put("configured_walking_percent", current.walkingPercent < 0 ? null : current.walkingPercent);
+            summary.put("configured_walking_fraction", current.walkingPercent < 0 ? null : current.walkingPercent / 100.0);
+            summary.put("players_at_start", current.playersAtStart);
+            summary.put("players_at_end", world == null ? 0 : world.getPlayers().size());
+            summary.put("expected_walking_players", expected < 0 ? null : expected);
+            summary.put("sample_count", samples); summary.put("nonzero_displacement_samples", nonzeroSamples);
+            summary.put("distinct_mover_count", movers);
+            summary.put("accumulated_nonzero_displacement_blocks", distance);
+            summary.put("players", playerRows);
+            phases.add(summary);
+            current = null;
+            return summary;
+        }
+
+        Map<String, Object> snapshot() {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("schema", 1); result.put("configured_walking_percent", walkingPercent < 0 ? null : walkingPercent);
+            result.put("configured_walking_fraction", walkingPercent < 0 ? null : walkingPercent / 100.0);
+            result.put("phases", new ArrayList<>(phases));
+            return result;
+        }
     }
 }

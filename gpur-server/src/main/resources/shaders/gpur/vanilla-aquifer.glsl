@@ -10,9 +10,15 @@ int aquiferSignedBits(uint bits) {
 }
 
 int aquiferFloorDiv12(int value) {
-    int quotient = value / 12;
-    int remainder = value % 12;
-    return value < 0 && remainder != 0 ? quotient - 1 : quotient;
+    if (value >= 0) return value / 12;
+
+    // GLSL 4.60 makes % undefined when either operand is negative (Operators):
+    // https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.pdf
+    // Build the magnitude without negating INT_MIN, then use unsigned division and remainder.
+    uint magnitude = uint(-(value + 1)) + 1u;
+    uint quotient = magnitude / 12u;
+    uint remainder = magnitude % 12u;
+    return -int(quotient) - (remainder != 0u ? 1 : 0);
 }
 
 uint aquiferIntBits(int value) {

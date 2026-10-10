@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "updated_utc": "2026-10-09",
+  "current_version": "1.1.0",
+  "proposed_version": "2.0.0",
+  "release_decision": "BLOCKED",
+  "release_rule": "Do not change the version to 2.0.0 until every blocking stage below passes on the same source and artifacts intended for release.",
+  "runtime_execution_this_plan": "not_run",
+  "semantic_mismatch_policy": "Preserve every CPU-vs-GPU mismatch. Run a second fresh CPU world against the CPU reference as a repeatability control before attributing it. Do not normalize generated UUIDs or other semantic NBT fields to force equality.",
+  "production_worldgen_gpu_integration": {
+    "status": "incomplete",
+    "note": "GPU kernel/backend components alone do not prove the vanilla terrain generator calls them, adopts verified values, or preserves save/reload semantics. Full density graph, fluid pressure/surface, feature placement, lighting and save computation are not GPU-ported."
+  },
+  "stages": [
+    {
+      "id": "validation-harness-unit-tests",
+      "status": "pass",
+      "blocking": true,
+      "evidence": "Python standard-library semantic/worldgen tests 19/19 and movement-gate source tests 4/4 passed locally; no server or bots launched.",
+      "acceptance": "Semantic decoding/comparison, strict-versus-verified-exact telemetry gates, immutable matrix references, and 20% server-observed movement gating pass their isolated source tests."
+    },
+    {
+      "id": "production-build-and-plugin-compile",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Finish production Gradle suites/build, compile the updated benchmark plugin and standalone worldgen probe against the immutable candidate, then record candidate SHA-256. Verify the probe writes raw per-tick CSV and generate/reload p50/p95/p99/max MSPT and start-interval statistics, >50/>100ms tick counts and measured TPS."
+    },
+    {
+      "id": "async-shutdown-close-tests",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Verify pending worldgen futures, including a continuation accepted by an executor but dropped during shutdown, complete or cancel and release retained budgets/frames without hanging."
+    },
+    {
+      "id": "inflight-worldgen-reload-retirement",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "On an isolated GPU server, prove a worldgen GPU request is pending, issue /gpur reload while the probe remains active, then prove generation resumes/completes, saves cleanly and matches its saved/reloaded semantic snapshot. A completed-consumption counter alone does not prove in-flight work."
+    },
+    {
+      "id": "isolated-radius4-four-case-smoke",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "After build-done and immutable JAR freeze, run fresh radius-4 CPU, RTX 3070, GTX 1080 and mixed worlds on loopback port 25620 with a 16 GiB heap; preserve every report and fail closed on mismatch or zero consumed GPU work."
+    },
+    {
+      "id": "production-integration-and-build",
+      "status": "incomplete",
+      "blocking": true,
+      "acceptance": "The vanilla worldgen path is integrated end-to-end, runs full required build/tests, and exposes strict verification counters."
+    },
+    {
+      "id": "complete-terrain-gpu-coverage",
+      "status": "incomplete",
+      "blocking": true,
+      "acceptance": "The complete required density/noise, aquifer/fluid pressure and surface, feature, lighting and save pipeline is integrated and proven to execute on GPU; backend kernels alone do not satisfy this stage."
+    },
+    {
+      "id": "isolated-cpu-worldgen-reference",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Fresh normal world, fixed seed and 4,225-chunk default corpus, vanilla structures on, all requests complete, 16 GiB heap, 0 fallback-only GPU claims."
+    },
+    {
+      "id": "isolated-rtx3070-worldgen",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Fresh world with identical seed/corpus; RTX 3070 admitted and reports accepted vanilla interpolation values with strict CPU parity checks and zero parity failures."
+    },
+    {
+      "id": "isolated-gtx1080-worldgen",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Fresh world with identical seed/corpus; GTX 1080 admitted and reports accepted vanilla interpolation values with strict CPU parity checks and zero parity failures."
+    },
+    {
+      "id": "isolated-mixed-worldgen",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Fresh world with identical seed/corpus; both GPUs admitted and both report accepted strict-parity terrain values with zero parity failures."
+    },
+    {
+      "id": "save-restart-and-reload",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Each case saves, exits cleanly, restarts, loads every requested chunk with generation disabled, saves again, then matches its pre-restart snapshot."
+    },
+    {
+      "id": "semantic-worldgen-parity",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Every chunk is Status=full and has complete saved-light metadata: isLightOn is present, Starlight light_version matches, and Status is at least LIGHT. Preserve and compare the original isLightOn value because Paper/Starlight may deliberately save false to trigger vanilla relighting. CPU versus every GPU case matches decoded blocks, biomes, all named heightmaps, light flags/arrays, structure starts/references, block entities, entity-store NBT, POI-store NBT and remaining chunk NBT. Require structure starts for the full radius-32 release corpus; a radius-4 smoke may contain zero starts."
+    },
+    {
+      "id": "gpu-use-and-no-fallback-only-pass",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "A GPU case cannot pass from world equality or CPU fallback. Strict mode requires positive per-device/per-workload deltas for dispatches, acceptedBatches, computedValues, consumedValues and paritySamples on workload boundaries noise 5 and aquifer 6. Verified-exact mode requires positive consumed-work deltas and nonzero absolute startup/periodic parity evidence per selected device/workload; its parity-sample delta may be zero after world-creation warmup. Both modes require accepted terrain interpolation values, zero parity failures and retained fallback-attempt telemetry."
+    },
+    {
+      "id": "throughput-cpu-3070-1080-mixed",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "First pass a strict semantic worldgen matrix. Then run separate fresh-world verified-exact matrices on the identical candidate JAR, seed, corpus and worker settings. Report chunks/second with raw per-phase tick-quality artifacts. Only verified-exact timings may report speedup; strict timings include full CPU recomputation and are correctness diagnostics only."
+    },
+    {
+      "id": "1.0.0-twenty-percent-walking-regression",
+      "status": "incomplete; replay_not_run",
+      "blocking": true,
+      "artifact_sha256": "bfe87ccaf419065f49acc0b7cf1b24dbda93d6abe8680dc5d3073f7043e2c846",
+      "artifact_note": "The archived exact 1.0.0 SHA is historical provenance only. Replay its documented scenarios on the new 1.1.0 candidate JAR; do not rebuild or rerun the old artifact as a release gate.",
+      "acceptance": "On the same immutable 1.1.0 candidate used by all release tests, replay 50/150/300 network-client targets with configured 20% walking (10/30/60 clients), 3,000 AI mobs, redstone fixtures, identical CPU/3070/1080/mixed settings, and retain raw client/server/tick evidence plus server-observed per-client UUID/name, phase sample counts, nonzero from/to displacement and distinct-mover validation."
+    },
+    {
+      "id": "1.0.0-all-walking-diagnostic",
+      "status": "historical-failure-known; rerun_not_run",
+      "blocking": true,
+      "artifact_note": "Historical all-walking failures remain failures; rerun this separate diagnostic on the new 1.1.0 candidate.",
+      "acceptance": "Keep 300-player all-walking cases separate from the 20%-walking matrix; record watchdog failures as failures and compare against the four known historical exit-70 stalls. Never relabel the prior failures as passes."
+    },
+    {
+      "id": "review-and-version-bump",
+      "status": "not_run",
+      "blocking": true,
+      "acceptance": "Review all artifacts and gate reports; only then change the product version to 2.0.0."
+    }
+  ],
+  "historical_movement_limits": [
+    "The bot clients implement login/control packets and consume many large world packets as opaque buffers; they are not complete Minecraft clients.",
+    "Walkers send grounded position/look packets at 20 Hz around a bounded 2-block-radius route, capped near 2 blocks per second. This tests real network movement callbacks but not ordinary exploration, collision physics, block interaction, combat or inventory use.",
+    "movementPackets counts client serialization attempts. Archived 1.0.0 results have only configured walking selection; the fleet's final walking field is 0 because its sampled action is idle after the walking phase. The new candidate GPurBench source now records server-observed per-phase PlayerMoveEvent displacement, but that change is unbuilt and unrun until candidate testing finishes.",
+    "The synthetic travel phase is server-directed teleport exploration, not client walking."
+  ],
+  "historical_workload_limits": [
+    "The 3,000 fixed cows/zombies have normal AI and activation settings, but invulnerability/persistence and fixture-specific damage/conversion controls alter gameplay; census counts in ticking chunks do not prove every mob's complete AI ran every tick.",
+    "Natural-spawn phases vary with mob caps and are not equal-population comparisons.",
+    "The 300 redstone circuits exercise CPU updates; they do not establish GPU redstone processing."
+  ],
+  "artifact_paths": {
+    "worldgen_workspace": "C:\\GPur-validation-20261009\\validation\\worldgen",
+    "archived_1_0_0_artifact": "C:\\GPur-validation-20261007\\artifacts\\result-gate-bfe87ccaf419065f49acc0b7cf1b24dbda93d6abe8680dc5d3073f7043e2c846.jar",
+    "historical_20_percent_report": "docs/results/controlled-matrix.json",
+    "historical_all_walking_report": "docs/results/all-walking-before-retry-fix.json"
+  }
+}

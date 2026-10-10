@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "state": "development_incomplete",
+  "release_version": "1.1.0",
+  "proposed_version": "2.0.0",
+  "version_bump": false,
+  "implementation_commit": "4bb40b0fd799ff55b2af39aa44b4771e3b550865",
+  "validation_model": "gpt-6-luna",
+  "reasoning_effort": "xhigh",
+  "artifact": {
+    "file": "gpur-server-26.2-worldgen-candidate.jar",
+    "bytes": 92137686,
+    "sha256": "eea9ee54c6535fcb7d159a612f98c2a062a27e472e3449371f31b18468def783",
+    "main_class": "io.papermc.paperclip.Main",
+    "version": "SNAPSHOT1.1.0"
+  },
+  "host": {
+    "os": "Windows 11 Pro 26200",
+    "cpu": "Intel Core i9-11900KF",
+    "ram_gib": 96,
+    "jdk": "OpenJDK 25.0.2",
+    "nvidia_driver": "581.57",
+    "devices": [
+      {
+        "name": "RTX 3070",
+        "uuid": "543d97381f7f3348a4b0b255385e36f0",
+        "vram_gib": 8
+      },
+      {
+        "name": "GTX 1080",
+        "uuid": "eefb282294d5f89200f4c2f5f582b223",
+        "vram_gib": 8
+      }
+    ]
+  },
+  "patch_application": {
+    "minecraft_patches": 249,
+    "paper_server_patches": 43,
+    "pass": true
+  },
+  "test_runs": {
+    "gpur_cpu": {
+      "tests": 123,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "suites": 34,
+      "xml_digest_sha256": "78d94f1b93cc2b39009b05da15ee5672cc3b319b41dd1f1e07b14cd8e6bf288c",
+      "cached": false,
+      "log_sha256": "a22d593cb7123f0b462ae29a38d8501b36d332066c7b49a685331443a3660035"
+    },
+    "physical_gpu": {
+      "tests": 123,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "suites": 34,
+      "xml_digest_sha256": "65dac85a1f750bf16680fdd65184a9dbfa8ceddce247a0e4768d4a5ad0c503f0",
+      "cached": false,
+      "log_sha256": "27704d51f546f22097d3e05bebc571c9b6974eb54d072dd0f0d1de013be2a8a8"
+    },
+    "server_default": {
+      "tests": 9413,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 29,
+      "suites": 149,
+      "xml_digest_sha256": "a51ba50972c29ac31f0a91b552b0509c3c43852954a1ece8f9dd3cee274fa60e",
+      "cached": false,
+      "log_sha256": "2e28e82d9c1f1f5aed195e22a25b9fca4ca9c3f31fcb2d98989510fb20c89126"
+    },
+    "api_cached": {
+      "tests": 519,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "suites": 40,
+      "xml_digest_sha256": "98617b6fcc9f2b1564b2e4a308ffd825af3cf26679c9b0318af0ccdb89d0f44c",
+      "cached": true,
+      "log_sha256": "f25f52e1487e2dbd12a3e1997138a5dd9a6e7473280d099277e01d31b2a9eab9"
+    }
+  },
+  "physical_new_kernels": [
+    {
+      "device": "RTX 3070",
+      "workloads": [
+        5,
+        6
+      ],
+      "native_submitted": 15,
+      "native_completed": 15,
+      "null_results": 0,
+      "rejected": 0,
+      "timed_out": 0,
+      "failed": 0
+    },
+    {
+      "device": "GTX 1080",
+      "workloads": [
+        5,
+        6
+      ],
+      "native_submitted": 15,
+      "native_completed": 15,
+      "null_results": 0,
+      "rejected": 0,
+      "timed_out": 0,
+      "failed": 0
+    }
+  ],
+  "implemented_gpu_boundaries": [
+    "FP64 static vanilla noise leaves",
+    "exact vanilla interpolation",
+    "aquifer nearest-candidate ranking"
+  ],
+  "unimplemented_gpu_boundaries": [
+    "complete density graph",
+    "aquifer fluid status and pressure",
+    "surface rules",
+    "structures and decorations",
+    "compact block classification",
+    "lighting",
+    "save serialization and compression"
+  ],
+  "runtime_validation": {
+    "state": "strict_smoke_failed_under_investigation",
+    "speedup_established": false,
+    "worldgen": [
+      {
+        "matrix": "20261009T144307Z-d686916b",
+        "artifact_sha256": "eea9ee54c6535fcb7d159a612f98c2a062a27e472e3449371f31b18468def783",
+        "mode": "strict",
+        "radius": 4,
+        "requested_chunks_per_case": 81,
+        "heap_gib": 16,
+        "cases": {
+          "cpu": {
+            "pass": false,
+            "generated_chunks": 81,
+            "failure": "Semantic parser rejected an out-of-dimension lighting-only section at Y=-5 without block_states. This harness defect was corrected; parsing retained data is not a rerun or a completed restart comparison."
+          },
+          "rtx3070": {
+            "pass": false,
+            "failure": "Workload 6 failed CPU-reference parity during world creation. Device quarantine made workload 5 ineligible, and the subsequent timed-corpus GPU-use gate rejected the case.",
+            "workload_6_dispatches": 1,
+            "workload_6_parity_samples": 1,
+            "workload_6_accepted_batches": 0,
+            "parity_failures": 1
+          },
+          "gtx1080": {
+            "pass": false,
+            "failure": "Workload 6 failed CPU-reference parity during world creation. Device quarantine made workload 5 ineligible, and the subsequent timed-corpus GPU-use gate rejected the case.",
+            "workload_6_dispatches": 1,
+            "workload_6_parity_samples": 1,
+            "workload_6_accepted_batches": 0,
+            "parity_failures": 1
+          },
+          "mixed": {
+            "pass": false,
+            "failure": "Both GPUs failed workload 6 CPU-reference parity during world creation. GTX 1080 accepted one noise batch before the failures; the timed-corpus GPU-use gate rejected the quarantined boundaries.",
+            "failed_devices": ["RTX 3070", "GTX 1080"],
+            "gtx1080_workload_5_computed_values_before_failure": 40575,
+            "gtx1080_workload_5_consumed_values_before_failure": 16450
+          }
+        },
+        "saved_world_parity": "not_established",
+        "save_restart_comparison": "not_completed",
+        "performance_comparison": "not_run"
+      }
+    ],
+    "movement_replay": "not_run"
+  },
+  "limits": [
+    "Native kernel parity is not saved-world parity or end-to-end speedup.",
+    "API results are cached because API sources are unchanged.",
+    "The new noise/aquifer settings default to false.",
+    "Do not promote to 2.0.0 until the complete requested implementation and release gates pass."
+  ]
+}

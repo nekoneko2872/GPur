@@ -1,19 +1,33 @@
 package org.gpur.compute;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.Aquifer;
 import net.minecraft.world.level.levelgen.DensityFunction;
+import net.minecraft.world.level.levelgen.DensityFunctions;
+import net.minecraft.world.level.levelgen.NoiseChunk;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
+import net.minecraft.world.level.levelgen.NoiseSettings;
+import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.synth.BlendedNoise;
 import net.minecraft.world.level.levelgen.synth.ImprovedNoise;
 import net.minecraft.world.level.levelgen.synth.NormalNoise;
@@ -21,14 +35,28 @@ import net.minecraft.world.level.levelgen.synth.PerlinNoise;
 import org.gpur.GPurConfig;
 import org.gpur.compute.VulkanDevice.DeviceMetrics;
 import org.gpur.compute.VulkanDevice.Info;
+import org.bukkit.support.RegistryHelper;
+import org.bukkit.support.environment.VanillaFeature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.junit.jupiter.api.function.Executable;
 
 /** Opt-in physical Vulkan parity checks for exact vanilla noise and aquifer ranking. */
 @EnabledIfSystemProperty(named = "gpur.gpu-tests", matches = "true")
+@VanillaFeature
 final class VanillaWorldgenKernelHardwareTest {
     private static final int MIXED_ROUNDS = 4;
     private static final long FUTURE_TIMEOUT_SECONDS = 60;
+    private static final long WORLD_SEED = 1_196_459_378L;
+    private static final int MIN_Y = -64;
+    private static final Field PRELIMINARY_SURFACE_LEVEL = field(NoiseChunk.class, "preliminarySurfaceLevel");
+    private static final Field MIN_GRID_X = field(Aquifer.NoiseBasedAquifer.class, "minGridX");
+    private static final Field MIN_GRID_Y = field(Aquifer.NoiseBasedAquifer.class, "minGridY");
+    private static final Field MIN_GRID_Z = field(Aquifer.NoiseBasedAquifer.class, "minGridZ");
+    private static final Field GRID_SIZE_X = field(Aquifer.NoiseBasedAquifer.class, "gridSizeX");
+    private static final Field GRID_SIZE_Z = field(Aquifer.NoiseBasedAquifer.class, "gridSizeZ");
+    private static final Field AQUIFER_LOCATION_CACHE = field(Aquifer.NoiseBasedAquifer.class, "aquiferLocationCache");
+    private static final Field POSITIONAL_RANDOM_FACTORY = field(Aquifer.NoiseBasedAquifer.class, "positionalRandomFactory");
 
     @Test
     void everyPhysicalUuidPassesExactNoiseAndLiteralAquiferKernelsUnderMixedConcurrency() throws Exception {
@@ -36,10 +64,58 @@ final class VanillaWorldgenKernelHardwareTest {
         assertFalse(devices.isEmpty(), "Hardware test requires at least one Vulkan FP64 device");
         assertEquals(devices.size(), devices.stream().map(Info::uuid).distinct().count(), "Device UUIDs must be unique");
         List<KernelCase> cases = List.of(noiseCase(), aquiferFirstTieCase(), aquiferNegativeBoundaryCase());
+        KernelCase fullHeight = seededAquiferCase(0, 0, 384);
+        KernelCase ordinaryHeightNegativeChunk = seededAquiferCase(-32, -32, 128);
 
         try (ConfigSnapshot config = ConfigSnapshot.capture()) {
             configureHardwareTest();
-            for (Info info : devices) verifyDevice(info, cases);
+            List<Throwable> failures = new ArrayList<>();
+            for (Info info : devices) {
+                runAndCollect(failures, info, "literal-and-mixed-cases", () -> verifyDevice(info, cases));
+                runAndCollect(failures, info, "full-height-direct",
+                    () -> verifyAquiferBufferMode(info, fullHeight, "full-height-spawn-aquifer-direct", 0, false));
+                runAndCollect(failures, info, "full-height-staged",
+                    () -> verifyAquiferBufferMode(info, fullHeight, "full-height-spawn-aquifer-staged", 65_536, true));
+                runAndCollect(failures, info, "negative-chunk-128-staged",
+                    () -> verifyAquiferBufferMode(info, ordinaryHeightNegativeChunk,
+                        "negative-chunk-128-aquifer", 65_536, true));
+            }
+            assertAll("Every physical UUID must pass all exact worldgen buffer modes",
+                failures.stream().map(failure -> (Executable)() -> { throw failure; }).toList());
+        }
+    }
+
+    private static void runAndCollect(List<Throwable> failures, Info info, String label, CheckedAction action) {
+        try {
+            action.run();
+        } catch (Exception | AssertionError failure) {
+            failures.add(new AssertionError(info.name() + " " + label, failure));
+        }
+    }
+
+    private static void verifyAquiferBufferMode(
+        Info info, KernelCase kernelCase, String label, int stagingThresholdBytes, boolean expectStaging
+    ) throws Exception {
+        GPurConfig.gpuDeviceLocalThresholdBytes = stagingThresholdBytes;
+        GPurConfig.gpuExecutionContexts = 1;
+        GPurConfig.gpuBatchMaxJobs = 1;
+        try (VulkanDevice device = VulkanDevice.create(info.uuid())) {
+            assertTrue(device.available(), info.name() + " must open by physical UUID " + info.uuid());
+            DeviceMetrics before = device.metrics();
+            int[] actual = device.computeAsync(
+                kernelCase.input(), ExactCompute.outputWords(kernelCase.input()), kernelCase.input()[1]
+            ).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            assertKernelResult(info, kernelCase, actual, label);
+            assertEquals(expectStaging, deviceLocalMode(device), info.name() + " " + label + " buffer mode");
+            DeviceMetrics metrics = device.metrics();
+            assertEquals(1, metrics.submittedJobs() - before.submittedJobs(), info.name() + " " + label + " native submission");
+            assertEquals(1, metrics.completedJobs() - before.completedJobs(), info.name() + " " + label + " native completion");
+            assertEquals(0, metrics.failedJobs() - before.failedJobs(), info.name() + " " + label + " failed jobs");
+            assertTrue(device.available(), info.name() + " remains available after " + label);
+            System.out.println("GPur aquifer Vulkan " + info.name() + " uuid=" + info.uuid() + " case=" + label
+                + " queries=" + kernelCase.input()[1] + " inputBytes=" + (long)kernelCase.input().length * Integer.BYTES
+                + " outputBytes=" + (long)kernelCase.expected().length * Integer.BYTES
+                + " bufferMode=" + (expectStaging ? "staging" : "direct") + " exact=true");
         }
     }
 
@@ -90,7 +166,21 @@ final class VanillaWorldgenKernelHardwareTest {
 
     private static void assertKernelResult(Info info, KernelCase kernelCase, int[] actual, String label) {
         assertNotNull(actual, info.name() + " " + label + " " + kernelCase.name() + " must return a native result");
-        assertArrayEquals(kernelCase.expected(), actual, info.name() + " " + label + " " + kernelCase.name() + " raw output");
+        String detail = info.name() + " " + label + " " + kernelCase.name() + " raw output";
+        if (kernelCase.input()[0] == VanillaAquiferBatch.WORKLOAD && actual.length == kernelCase.expected().length) {
+            int firstMismatch = 0;
+            while (firstMismatch < actual.length && actual[firstMismatch] == kernelCase.expected()[firstMismatch]) firstMismatch++;
+            if (firstMismatch < actual.length) {
+                int query = firstMismatch / VanillaAquiferBatch.RANK_COUNT;
+                int rank = firstMismatch % VanillaAquiferBatch.RANK_COUNT;
+                int queryOffset = VanillaAquiferBatch.HEADER_WORDS + query * 3;
+                int[] input = kernelCase.input();
+                detail += " firstMismatchWord=" + firstMismatch + " query=" + input[queryOffset] + ","
+                    + input[queryOffset + 1] + "," + input[queryOffset + 2] + " rank=" + rank
+                    + " expectedCenter=" + kernelCase.expected()[firstMismatch] + " actualCenter=" + actual[firstMismatch];
+            }
+        }
+        assertArrayEquals(kernelCase.expected(), actual, detail);
     }
 
     private static KernelCase noiseCase() {
@@ -202,6 +292,142 @@ final class VanillaWorldgenKernelHardwareTest {
         return new KernelCase("aquifer-negative-grid-edge", input, new int[]{11, 9, 7, 5});
     }
 
+    private static KernelCase seededAquiferCase(int chunkMinX, int chunkMinZ, int height) throws Exception {
+        WorldgenFixture worldgen = worldgenFixture();
+        NoiseGeneratorSettings settings = height == 384
+            ? worldgen.overworldSettings()
+            : dimensionSettings(worldgen.overworldSettings(), height);
+        RandomState randomState = RandomState.create(settings, worldgen.noiseLookup(), WORLD_SEED);
+        NoiseChunk noiseChunk = new NoiseChunk(
+            1,
+            randomState,
+            chunkMinX,
+            chunkMinZ,
+            settings.noiseSettings(),
+            TestBeardifier.INSTANCE,
+            settings,
+            (x, y, z) -> new Aquifer.FluidStatus(1_000, Blocks.WATER.defaultBlockState()),
+            Blender.empty()
+        );
+        PRELIMINARY_SURFACE_LEVEL.set(noiseChunk, DensityFunctions.constant(-10_000.0));
+        Aquifer.NoiseBasedAquifer aquifer = (Aquifer.NoiseBasedAquifer)noiseChunk.aquifer();
+        int minGridX = MIN_GRID_X.getInt(aquifer);
+        int minGridY = MIN_GRID_Y.getInt(aquifer);
+        int minGridZ = MIN_GRID_Z.getInt(aquifer);
+        int gridSizeX = GRID_SIZE_X.getInt(aquifer);
+        int gridSizeZ = GRID_SIZE_Z.getInt(aquifer);
+        long[] locationCache = (long[])AQUIFER_LOCATION_CACHE.get(aquifer);
+        int gridSizeY = locationCache.length / (gridSizeX * gridSizeZ);
+        Object randomFactory = POSITIONAL_RANDOM_FACTORY.get(aquifer);
+        Method at = randomFactory.getClass().getMethod("at", int.class, int.class, int.class);
+        for (int cellIndex = 0; cellIndex < locationCache.length; cellIndex++) {
+            if (locationCache[cellIndex] != Long.MAX_VALUE) continue;
+            int xIndex = cellIndex % gridSizeX;
+            int zIndex = cellIndex / gridSizeX % gridSizeZ;
+            int yIndex = cellIndex / (gridSizeX * gridSizeZ);
+            int gridX = minGridX + xIndex;
+            int gridY = minGridY + yIndex;
+            int gridZ = minGridZ + zIndex;
+            RandomSource random = (RandomSource)at.invoke(randomFactory, gridX, gridY, gridZ);
+            locationCache[cellIndex] = BlockPos.asLong(
+                gridX * 16 + random.nextInt(10),
+                gridY * 12 + random.nextInt(9),
+                gridZ * 16 + random.nextInt(10)
+            );
+        }
+
+        int queryCount = Math.multiplyExact(height, 256);
+        int[] queries = new int[queryCount * 3];
+        int queryIndex = 0;
+        for (int y = MIN_Y; y < MIN_Y + height; y++) {
+            for (int z = 0; z < 16; z++) {
+                for (int x = 0; x < 16; x++) {
+                    int offset = queryIndex++ * 3;
+                    queries[offset] = chunkMinX + x;
+                    queries[offset + 1] = y;
+                    queries[offset + 2] = chunkMinZ + z;
+                }
+            }
+        }
+        int[] centers = new int[locationCache.length * 3];
+        for (int cellIndex = 0; cellIndex < locationCache.length; cellIndex++) {
+            long location = locationCache[cellIndex];
+            int offset = cellIndex * 3;
+            centers[offset] = BlockPos.getX(location);
+            centers[offset + 1] = BlockPos.getY(location);
+            centers[offset + 2] = BlockPos.getZ(location);
+        }
+        int[] input = VanillaAquiferBatch.input(
+            minGridX, minGridY, minGridZ, gridSizeX, gridSizeY, gridSizeZ, queries, centers
+        );
+        return new KernelCase("aquifer-seed-" + WORLD_SEED + "-chunk-" + chunkMinX + "-" + chunkMinZ, input,
+            ExactCompute.reference(input));
+    }
+
+    private static NoiseGeneratorSettings dimensionSettings(NoiseGeneratorSettings original, int height) {
+        NoiseSettings size = NoiseSettings.create(
+            MIN_Y,
+            height,
+            original.noiseSettings().noiseSizeHorizontal(),
+            original.noiseSettings().noiseSizeVertical()
+        );
+        return new NoiseGeneratorSettings(
+            size,
+            original.defaultBlock(),
+            original.defaultFluid(),
+            original.noiseRouter(),
+            original.surfaceRule(),
+            original.spawnTarget(),
+            original.seaLevel(),
+            original.disableMobGeneration(),
+            original.isAquifersEnabled(),
+            original.oreVeinsEnabled(),
+            original.useLegacyRandomSource()
+        );
+    }
+
+    private static WorldgenFixture worldgenFixture() {
+        RegistryAccess registries = RegistryHelper.registryAccess();
+        NoiseGeneratorSettings settings = registries.lookupOrThrow(Registries.NOISE_SETTINGS)
+            .getOrThrow(NoiseGeneratorSettings.OVERWORLD).value();
+        HolderLookup.RegistryLookup<NormalNoise.NoiseParameters> noises = registries.lookupOrThrow(Registries.NOISE);
+        return new WorldgenFixture(settings, noises);
+    }
+
+    private static Field field(Class<?> owner, String name) {
+        try {
+            Field field = owner.getDeclaredField(name);
+            field.setAccessible(true);
+            return field;
+        } catch (ReflectiveOperationException exception) {
+            throw new ExceptionInInitializerError(exception);
+        }
+    }
+
+    private static boolean deviceLocalMode(VulkanDevice device) throws Exception {
+        Field contextsField = VulkanDevice.class.getDeclaredField("contexts");
+        contextsField.setAccessible(true);
+        BlockingQueue<?> contexts = (BlockingQueue<?>)contextsField.get(device);
+        assertEquals(1, contexts.size(), "The execution context must return after readback");
+        Object context = contexts.peek();
+        Method deviceLocal = context.getClass().getDeclaredMethod("deviceLocal");
+        deviceLocal.setAccessible(true);
+        return (boolean)deviceLocal.invoke(context);
+    }
+
+    private record WorldgenFixture(
+        NoiseGeneratorSettings overworldSettings,
+        HolderLookup<NormalNoise.NoiseParameters> noiseLookup
+    ) {}
+
+    private enum TestBeardifier implements DensityFunctions.BeardifierOrMarker {
+        INSTANCE;
+
+        @Override public double compute(DensityFunction.FunctionContext context) { return 0.0; }
+        @Override public double minValue() { return 0.0; }
+        @Override public double maxValue() { return 0.0; }
+    }
+
     private static int[] doubleWords(List<Double> values) {
         int[] words = new int[values.size() * 2];
         for (int i = 0; i < values.size(); i++) {
@@ -295,6 +521,11 @@ final class VanillaWorldgenKernelHardwareTest {
     }
 
     private record KernelCase(String name, int[] input, int[] expected) {}
+
+    @FunctionalInterface
+    private interface CheckedAction {
+        void run() throws Exception;
+    }
 
     private static final class ConfigSnapshot implements AutoCloseable {
         private final List<SavedField> fields;

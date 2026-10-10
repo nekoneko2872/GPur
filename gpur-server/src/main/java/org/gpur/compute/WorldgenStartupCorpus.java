@@ -32,10 +32,10 @@ final class WorldgenStartupCorpus {
             batches.add(VanillaNoiseBatch.input(samples));
         }
         if (aquifer) {
-            int[] centers = new int[4 * 6 * 4 * 3];
+            int[] centers = new int[4 * 11 * 4 * 3];
             Random random = new Random(0x41717569666572L);
             int offset = 0;
-            for (int y = -2; y < 4; y++) {
+            for (int y = -7; y < 4; y++) {
                 for (int z = -2; z < 2; z++) {
                     for (int x = -2; x < 2; x++) {
                         centers[offset++] = x * 16 + random.nextInt(10);
@@ -44,8 +44,16 @@ final class WorldgenStartupCorpus {
                     }
                 }
             }
-            batches.add(VanillaAquiferBatch.input(-2, -2, -2, 4, 6, 4,
-                new int[]{-16, -12, -16, 0, 0, 0, 16, 24, 16, -1, -1, -1}, centers));
+            int[][] coordinates = {
+                {-16, -64, -16}, {-16, -61, 0}, {-1, -49, 16}, {0, -37, -1},
+                {16, -25, -16}, {16, -13, 0}, {-1, -1, 16}, {0, 0, 0},
+                {16, 11, -16}, {-16, 12, 0}, {-1, 23, 16}, {0, 24, 0}
+            };
+            int[] queries = new int[coordinates.length * 3];
+            for (int query = 0; query < coordinates.length; query++) {
+                System.arraycopy(coordinates[query], 0, queries, query * 3, 3);
+            }
+            batches.add(VanillaAquiferBatch.input(-2, -7, -2, 4, 11, 4, queries, centers));
         }
         return List.copyOf(batches);
     }

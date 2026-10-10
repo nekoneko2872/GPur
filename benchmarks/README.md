@@ -11,7 +11,7 @@ python benchmarks/run_matrix.py --pilot --cases cpu
 python benchmarks/run_matrix.py --cases cpu,rtx3070,gtx1080,mixed --seconds 60
 ```
 
-The default runtime root is `C:/GPur-validation-20261007`. Override input paths using `--help`. The EULA input must be an existing accepted file; this tool does not create a new agreement. Every case gets a new directory and world; changing GPU code, selectors or force mode must use a new run. Previously generated world data are never copied between cases. The vanilla launch cache may be copied because it contains server code rather than world chunks.
+The default runtime root is `C:/GPur-validation-20261009/validation`. The runner defaults to 20% walking for the 1.0.0 regression replay; pass `--walking-percent 100` for a separately labeled all-walking diagnostic. Override input paths using `--help`. The EULA input must be an existing accepted file; this tool does not create a new agreement. Every case gets a new directory and world; changing GPU code, selectors or force mode must use a new run. Previously generated world data are never copied between cases. The vanilla launch cache may be copied because it contains server code rather than world chunks.
 
 Each case ramps to 50, 150 and 300 players. It records player-only pad walking, 500/1,500/3,000 nearby AI mobs with concurrent walking, natural-spawn phases, 300 redstone circuits, synthetic new-chunk exploration and recovery. Setup/ramp/settle phases remain in the inclusive record. A GPU case is invalid if its selected physical devices do not initialize; a phase is invalid if clients are lost or protocol errors occur. `--force` is a separate diagnostic experiment and must not be represented as the recommended adaptive setting.
 
@@ -34,7 +34,7 @@ python benchmarks/plot.py --report C:/GPur-validation-20261007/results/matrix.js
 
 Plotting additionally requires Matplotlib. The plot retains every recorded tick, uses a logarithmic MSPT axis, and marks the 50ms budget. Create a run-local `ABORT` text file to request controlled shutdown; an aborted run is excluded from completed comparisons.
 
-For a separate controlled-activity experiment, use `--targets 300 --walking-percent 20 --no-natural --seconds 60`. All 300 clients remain connected, while 60 walk at 20Hz and 240 send idle heartbeats. The default is 100% walking. This experiment must be labeled with its movement fraction; it does not demonstrate capacity for 300 simultaneously active players. `--no-natural` omits variable natural populations but keeps the fixed 3,000 AI fixture, circuits and fresh-chunk travel. `--settle-seconds` adjusts the explicitly recorded settling period.
+For a separate controlled-activity experiment, use `--targets 300 --walking-percent 20 --no-natural --seconds 60`. All 300 clients remain connected, while 60 walk at 20Hz and 240 send idle heartbeats. The run-matrix default is 20%; the standalone fleet tool defaults to 100%. This experiment must be labeled with its movement fraction; it does not demonstrate capacity for 300 simultaneously active players. `--no-natural` omits variable natural populations but keeps the fixed 3,000 AI fixture, circuits and fresh-chunk travel. `--settle-seconds` adjusts the explicitly recorded settling period.
 
 The published final matrix used the following command. `--natural-seconds` controls the separate variable-population phase; `--travel-seconds` counts simulation time at 20TPS, so exploration takes longer in wall time when the server is overloaded.
 

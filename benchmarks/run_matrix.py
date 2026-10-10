@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import threading
 import time
@@ -17,6 +18,7 @@ import traceback
 import psutil
 
 ROOT = Path(__file__).resolve().parents[1]
+SAFE_ROOT = Path('C:/GPur-validation-20261009/validation')
 JDK = Path(os.environ.get('JAVA_HOME', str(Path.home() / '.jdks/openjdk-25.0.2')))
 ANSI = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
 CREATE_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
@@ -36,6 +38,9 @@ def digest(path):
 class Controller:
     def __init__(self, args, case):
         self.args, self.case = args, case
+        for key, expected_hash in args._artifact_hashes.items():
+            if digest(getattr(args, key)) != expected_hash:
+                raise RuntimeError(f'{key} artifact changed during matrix setup; refusing mixed-artifact run')
         stamp = time.strftime('%Y%m%d-%H%M%S', time.gmtime()) + f'-{time.time_ns() % 1_000_000:06d}'
         self.directory = args.output.resolve() / 'runs' / f'{stamp}-{case}'
         self.directory.mkdir(parents=True, exist_ok=False)
@@ -45,6 +50,7 @@ class Controller:
         self.server = None
         self.expected_players = 0
         self.expected_mobs = 0
+        self.movement_phases_to_validate = []
         self.started = time.monotonic()
         self.metadata = {'case': case, 'jar_sha256': digest(args.jar), 'seed': args.seed,
                          'plugin_sha256': digest(args.plugin),
@@ -61,15 +67,29 @@ class Controller:
 
     def prepare(self):
         directory = self.directory
+        artifacts = directory / 'artifacts'
+        artifacts.mkdir()
+        def copy_verified(source, destination, label):
+            shutil.copy2(source, destination)
+            expected = self.args._artifact_hashes[label]
+            actual = digest(destination)
+            if actual != expected:
+                raise RuntimeError(f'{label} validation copy SHA-256 mismatch: expected={expected} actual={actual}')
+            return actual
+
+        self.server_jar = artifacts / 'GPurServer.jar'
+        copy_verified(self.args.jar, self.server_jar, 'jar')
+        self.metadata['server_artifact_copy'] = str(self.server_jar)
         # Copy an already accepted EULA supplied in the user's original archive.
-        shutil.copy2(self.args.eula, directory / 'eula.txt')
+        copy_verified(self.args.eula, directory / 'eula.txt', 'eula')
         (directory / 'cache').mkdir()
-        shutil.copy2(self.args.mojang, directory / 'cache/mojang_26.2.jar')
+        copy_verified(self.args.mojang, directory / 'cache/mojang_26.2.jar', 'mojang')
         plugins = directory / 'plugins'
         (plugins / 'bStats').mkdir(parents=True)
         (plugins / 'bStats/config.yml').write_text('enabled: false\n', encoding='utf-8')
-        for artifact in (self.args.plugin, self.args.viaversion, self.args.viabackwards):
-            shutil.copy2(artifact, plugins / artifact.name)
+        for key in ('plugin', 'viaversion', 'viabackwards'):
+            artifact = getattr(self.args, key)
+            copy_verified(artifact, plugins / artifact.name, key)
         (directory / 'server.properties').write_text(
             f'server-ip=127.0.0.1\nserver-port={self.args.port}\nonline-mode=false\nmax-players=350\n'
             f'view-distance={self.args.view}\nsimulation-distance={self.args.simulation}\n'
@@ -110,7 +130,7 @@ class Controller:
                    '--enable-native-access=ALL-UNNAMED', '-Xms16G', '-Xmx16G',
                    '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=40',
                    '-Xlog:gc*,safepoint:file=gc.log:time,uptime,level,tags',
-                   '-jar', str(self.args.jar), '--nogui']
+                   '-jar', str(self.server_jar), '--nogui']
         self.metadata['java_command'] = command
         self.server = subprocess.Popen(command, cwd=self.directory, stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8',
@@ -142,6 +162,7 @@ class Controller:
             raise RuntimeError(f'GPU admission mismatch: expected={expected}, actual={admitted}')
         self.metadata['admitted_devices'] = admitted
         self.command('world load ' + str(self.args.seed) + ' normal', timeout=180)
+        self.command('walking-percent ' + str(self.args.walking_percent))
         self.command('phase idle-baseline')
         self.pause(10, 'idle baseline')
 
@@ -243,6 +264,75 @@ class Controller:
         if any(s.get('unexpectedLosses', 0) or s.get('errors', 0) or s.get('kicks', 0) for s in self.clients.values()):
             raise RuntimeError('client connection loss or protocol error invalidated phase: ' + name)
 
+    def validate_movement_evidence(self, summary_path):
+        telemetry_path = summary_path.parent / 'movement-telemetry.json'
+        if not telemetry_path.is_file():
+            raise RuntimeError('per-phase server-observed movement telemetry is missing: ' + str(telemetry_path))
+        telemetry = json.loads(telemetry_path.read_text(encoding='utf-8'))
+        if telemetry.get('schema') != 1 or telemetry.get('configured_walking_percent') != self.args.walking_percent:
+            raise RuntimeError('movement telemetry schema or configured walking percentage does not match the run')
+        phases = telemetry.get('phases')
+        if not isinstance(phases, list):
+            raise RuntimeError('movement telemetry has no phase list')
+        validation = {'schema': 1, 'configured_walking_percent': self.args.walking_percent,
+                      'configured_walking_fraction': self.args.walking_percent / 100.0,
+                      'phases': [], 'pass': False}
+        failures = []
+        by_name = {}
+        for phase in phases:
+            by_name.setdefault(phase.get('phase'), []).append(phase)
+        for phase_name, target in self.movement_phases_to_validate:
+            matches = by_name.get(phase_name, [])
+            if len(matches) != 1:
+                failures.append({'phase': phase_name, 'error': 'expected exactly one telemetry summary', 'matches': len(matches)})
+                continue
+            phase = matches[0]
+            expected = target * self.args.walking_percent // 100
+            expected_names = {f'GPurBot{index:04d}' for index in range(target)
+                              if (index + 1) * self.args.walking_percent // 100
+                              > index * self.args.walking_percent // 100}
+            players = phase.get('players', [])
+            movers = [player for player in players if int(player.get('nonzero_displacement_samples', 0)) > 0]
+            actual = int(phase.get('distinct_mover_count', -1))
+            row = {'phase': phase_name, 'target_players': target, 'players_at_start': phase.get('players_at_start'),
+                   'players_at_end': phase.get('players_at_end'), 'expected_distinct_movers': expected,
+                   'observed_distinct_movers': actual, 'expected_mover_names': sorted(expected_names),
+                   'observed_mover_names': sorted(str(name) for name in {player.get('name') for player in movers}),
+                   'observed_movers': [{'uuid': player.get('uuid'), 'name': player.get('name'),
+                                        'samples': player.get('samples'),
+                                        'nonzero_displacement_samples': player.get('nonzero_displacement_samples'),
+                                        'accumulated_from_to_distance_blocks': player.get('accumulated_from_to_distance_blocks'),
+                                        'first_nonzero_from': player.get('first_nonzero_from'),
+                                        'last_nonzero_to': player.get('last_nonzero_to')} for player in movers]}
+            validation['phases'].append(row)
+            if phase.get('configured_walking_percent') != self.args.walking_percent:
+                failures.append({'phase': phase_name, 'error': 'phase configured walking percentage mismatch'})
+            if phase.get('players_at_start') != target or phase.get('players_at_end') != target:
+                failures.append({'phase': phase_name, 'error': 'server-observed player population mismatch',
+                                 'players_at_start': phase.get('players_at_start'), 'players_at_end': phase.get('players_at_end'),
+                                 'expected_players': target})
+            if actual != expected or len(movers) != expected:
+                failures.append({'phase': phase_name, 'error': 'distinct from/to movers did not match configured selection',
+                                 'expected': expected, 'observed': actual, 'mover_rows': len(movers)})
+            observed_names = {player.get('name') for player in movers}
+            if observed_names != expected_names:
+                failures.append({'phase': phase_name, 'error': 'server-observed movers do not match the configured bot selection',
+                                 'expected_names': sorted(expected_names), 'observed_names': sorted(str(name) for name in observed_names)})
+            if any(not player.get('first_nonzero_from') or not player.get('last_nonzero_to')
+                   or not player.get('uuid') or not player.get('name') for player in movers):
+                failures.append({'phase': phase_name, 'error': 'mover lacks UUID/name/from/to evidence'})
+        if not self.movement_phases_to_validate:
+            failures.append({'error': 'no walking phases were designated for movement verification'})
+        validation['pass'] = not failures
+        validation['failures'] = failures
+        report_path = self.directory / 'movement-validation.json'
+        report_path.write_text(json.dumps(validation, indent=2), encoding='utf-8')
+        self.metadata['movement_telemetry'] = str(telemetry_path)
+        self.metadata['movement_validation'] = str(report_path)
+        self.metadata['movement_validation_pass'] = validation['pass']
+        if failures:
+            raise RuntimeError('server-observed movement validation failed; see ' + str(report_path))
+
     def run(self):
         self.start()
         current = 0
@@ -261,6 +351,7 @@ class Controller:
             self.command('place ' + str(self.args.spacing), timeout=600)
             self.command('removenatural', timeout=600)
             self.client_action('walk')
+            self.movement_phases_to_validate.append((f'players-{target}-walk', target))
             self.measure(f'players-{target}-settle', 10 if self.args.pilot else self.args.settle_seconds)
             self.measure(f'players-{target}-walk', 10 if self.args.pilot else self.args.seconds)
             self.client_action('idle')
@@ -268,6 +359,7 @@ class Controller:
             self.command(f'spawn {target * 10} 24 20', timeout=240)
             self.expected_mobs = target * 10
             self.client_action('walk')
+            self.movement_phases_to_validate.append((f'players-{target}-mobs-{target * 10}', target))
             self.measure(f'players-{target}-mobs-{target * 10}-settle', 10 if self.args.pilot else self.args.settle_seconds)
             self.measure(f'players-{target}-mobs-{target * 10}', 15 if self.args.pilot else self.args.seconds)
             if target >= 150 and not self.args.no_natural:
@@ -287,6 +379,7 @@ class Controller:
         if not reports:
             raise RuntimeError('plugin summary not found')
         self.metadata['measurement_summary'] = str(reports[-1])
+        self.validate_movement_evidence(reports[-1])
         self.metadata['clients_at_finish'] = dict(self.clients)
         # The built-in profiler has already sampled the entire run. Export only
         # after closing the tick record, so serializing it cannot pollute MSPT.
@@ -345,6 +438,9 @@ class Controller:
             reports = sorted((self.directory / 'plugins/GPurBench/runs').glob('*/summary.json'))
             if reports:
                 self.metadata.setdefault('measurement_summary', str(reports[-1]))
+                movement_path = reports[-1].parent / 'movement-telemetry.json'
+                if movement_path.is_file():
+                    self.metadata.setdefault('movement_telemetry', str(movement_path))
             self.stop_monitor.set()
             self.monitor.join(timeout=5)
             if hasattr(self, 'gpu_monitor_process'):
@@ -363,7 +459,8 @@ def main():
     parser.add_argument('--force', action='store_true')
     parser.add_argument('--seconds', type=int, default=90)
     parser.add_argument('--targets', type=lambda value: [int(x) for x in value.split(',')], default=[50, 150, 300])
-    parser.add_argument('--walking-percent', type=int, default=100)
+    parser.add_argument('--walking-percent', type=int, default=20,
+                        help='Configured percentage of clients that walk during walk phases (default 20 for the 1.0.0 replay)')
     parser.add_argument('--no-natural', action='store_true')
     parser.add_argument('--natural-seconds', type=int, default=0, help='0 uses --seconds; otherwise10..1800')
     parser.add_argument('--settle-seconds', type=int, default=45)
@@ -374,9 +471,9 @@ def main():
     parser.add_argument('--ramp', type=float, default=5)
     parser.add_argument('--seed', type=int, default=1196459378)
     parser.add_argument('--port', type=int, default=25620)
-    parser.add_argument('--output', type=Path, default=Path('C:/GPur-validation-20261007'))
-    parser.add_argument('--jar', type=Path, default=ROOT / 'gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.0.0.jar')
-    parser.add_argument('--plugin', type=Path, default=ROOT / 'validation/benchmark-plugin/GPurBench.jar')
+    parser.add_argument('--output', type=Path, default=SAFE_ROOT)
+    parser.add_argument('--jar', type=Path, default=ROOT / 'gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.1.0.jar')
+    parser.add_argument('--plugin', type=Path, default=Path('C:/GPur-validation-20261009/validation/benchmark-plugin/GPurBench.jar'))
     parser.add_argument('--viaversion', type=Path, default=ROOT / 'validation/bots/ViaVersion-5.12.1-SNAPSHOT-build1469.jar')
     parser.add_argument('--viabackwards', type=Path, default=Path.home() / 'Downloads/ViaBackwards-5.12.1-SNAPSHOT.jar')
     parser.add_argument('--eula', type=Path, default=ROOT / 'validation/eula.txt', help='Existing accepted EULA file; never synthesized')
@@ -397,8 +494,22 @@ def main():
             or not 1 <= args.travel_seconds <= 120):
         parser.error('targets must increase within10..300; walking-percent0..100; settle-seconds10..120')
     output = args.output.resolve()
-    if 'validation' not in output.name.lower():
-        parser.error('output directory must have validation in its name')
+    safe_root = SAFE_ROOT.resolve()
+    if output != safe_root and safe_root not in output.parents:
+        parser.error(f'output directory must stay under {safe_root}')
+    if args.port == 25565:
+        parser.error('port 25565 is reserved; this validation runner never uses the live-server port')
+    if not 1024 <= args.port <= 65535:
+        parser.error('port must be in 1024..65535')
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+        try:
+            listener.bind(('127.0.0.1', args.port))
+        except OSError as error:
+            parser.error(f'loopback port {args.port} is occupied; no validation server was started ({error})')
+    args.output = output
+    args._artifact_hashes = {key: digest(getattr(args, key)) for key in
+                             ('jar', 'plugin', 'viaversion', 'viabackwards', 'eula', 'mojang')}
     failed = False
     for case in cases:
         controller = Controller(args, case)

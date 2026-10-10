@@ -3,6 +3,7 @@ package org.gpur.compute;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import net.minecraft.SharedConstants;
@@ -106,6 +107,49 @@ class VanillaAquiferBatchTest {
                 : Blocks.DIRT.defaultBlockState(),
             result
         );
+    }
+
+    @Test
+    void referenceMatchesVanillaForEveryNegativeWorldYAndDivisibilityBoundary() throws Exception {
+        int minY = -64;
+        int[] queries = new int[64 * 3];
+        for (int offset = 0, y = minY; y < 0; y++, offset += 3) {
+            queries[offset] = -25;
+            queries[offset + 1] = y;
+            queries[offset + 2] = -25;
+        }
+
+        AquiferFixture fixture = createAquiferFixture(new Query(-25, minY, -25));
+        int[] snapshot = VanillaAquiferBatch.input(
+            fixture.minGridX(), fixture.minGridY(), fixture.minGridZ(),
+            fixture.gridSizeX(), fixture.gridSizeY(), fixture.gridSizeZ(),
+            queries, fixture.centerCoordinates()
+        );
+        int[] ranks = VanillaAquiferBatch.reference(snapshot);
+        assertArrayEquals(new int[]{13, 22, 14, 16}, Arrays.copyOfRange(ranks, 0, 4),
+            "The Y=-64 fixture has a literal nearest-four order independent of cache loading");
+        Aquifer.FluidStatus[] cache = (Aquifer.FluidStatus[])AQUIFER_CACHE.get(fixture.aquifer());
+
+        for (int query = 0; query < 64; query++) {
+            java.util.Arrays.fill(cache, null);
+            int x = queries[query * 3];
+            int y = queries[query * 3 + 1];
+            int z = queries[query * 3 + 2];
+            assertEquals(SharedConstants.DEBUG_DISABLE_FLUID_GENERATION
+                    ? Blocks.AIR.defaultBlockState()
+                    : Blocks.WATER.defaultBlockState(), fixture.aquifer().computeSubstance(
+                new DensityFunction.SinglePointContext(x, y, z), -1.0
+            ), "vanilla block state at Y=" + y);
+            Set<Integer> expectedRanks = toSet(new int[]{
+                ranks[query * 4], ranks[query * 4 + 1], ranks[query * 4 + 2], ranks[query * 4 + 3]
+            });
+            Set<Integer> loadedStatuses = populatedCacheIndices(fixture.aquifer());
+            assertFalse(loadedStatuses.isEmpty(), "vanilla must load a nearest aquifer status at Y=" + y);
+            assertTrue(expectedRanks.containsAll(loadedStatuses),
+                "vanilla may load fewer than four nearest statuses after an early return at Y=" + y);
+            assertTrue(loadedStatuses.contains(ranks[query * 4]),
+                "vanilla must first load the exact nearest aquifer cell at Y=" + y);
+        }
     }
 
     @Test

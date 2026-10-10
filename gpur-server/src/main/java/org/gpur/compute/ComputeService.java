@@ -407,13 +407,14 @@ public final class ComputeService implements AutoCloseable {
         metrics.dispatches.incrementAndGet();
         metrics.dispatchNanos.addAndGet(elapsed);
         if (words.length != ExactCompute.outputWords(input)) {
-            this.quarantineVanilla(device);
+            this.quarantineVanilla(device, input, null, words);
             return false;
         }
         if (metrics.verification.nextVerificationRequired()) {
             metrics.paritySamples.incrementAndGet();
-            if (!ExactCompute.equal(ExactCompute.reference(input), words, workload)) {
-                this.quarantineVanilla(device);
+            int[] reference = ExactCompute.reference(input);
+            if (!ExactCompute.equal(reference, words, workload)) {
+                this.quarantineVanilla(device, input, reference, words);
                 return false;
             }
             metrics.verification.recordVerificationSuccess();
@@ -587,16 +588,17 @@ public final class ComputeService implements AutoCloseable {
         state.vanillaMaxDispatchNanos.accumulateAndGet(elapsed, Math::max);
         // Length checks are unconditional, including sampled mode and observe.
         if (result.length != ExactCompute.outputWords(input)) {
-            this.quarantineVanilla(state);
+            this.quarantineVanilla(state, input, null, result);
             return null;
         }
         if (state.verification.nextVerificationRequired()) {
             long started = System.nanoTime();
             state.vanillaParitySamples.incrementAndGet();
-            boolean matched = ExactCompute.equal(ExactCompute.reference(input), result, 4);
+            int[] reference = ExactCompute.reference(input);
+            boolean matched = ExactCompute.equal(reference, result, 4);
             state.vanillaVerificationNanos.addAndGet(System.nanoTime() - started);
             if (!matched) {
-                this.quarantineVanilla(state);
+                this.quarantineVanilla(state, input, reference, result);
                 return null;
             }
             state.verification.recordVerificationSuccess();
@@ -612,14 +614,16 @@ public final class ComputeService implements AutoCloseable {
         return result;
     }
 
-    private void quarantineVanilla(DeviceState state) {
+    private void quarantineVanilla(DeviceState state, int[] input, int[] expected, int[] actual) {
         this.vanillaParityFailures.incrementAndGet();
         this.resultGate.disable(() -> {
             // Invalidate collected snapshots awaiting CPU installation, including other devices.
             this.vanillaResultEpoch.incrementAndGet();
             state.device.disable();
         });
-        this.logger.warning("Vanilla worldgen parity failed; retaining original CPU terrain on " + state.device.name());
+        this.logger.warning("Vanilla worldgen parity failed; retaining original CPU terrain on " + state.device.name()
+            + ": " + WorldgenParityDiagnostics.describe(input, expected, actual));
+        WorldgenParityDiagnostics.captureIfRequested(this.logger, input, expected, actual);
     }
 
     /** Exact FP64 interpolation only. Density graphs, aquifers, biome/ore/surface rules remain vanilla. */

@@ -6,10 +6,11 @@ Build with JDK 25 after applying the server patches:
 
 ```powershell
 .\gradlew.bat -I benchmarks/plugin/classpath.init.gradle :purpur-server:writeValidationClasspath --no-configuration-cache
-python benchmarks/plugin/build.py --classpath validation/classpath.txt
+python benchmarks/plugin/build.py --classpath validation/classpath.txt `
+  --output C:\GPur-validation-20261009\validation\benchmark-plugin
 ```
 
-The included init task writes the server runtime dependency paths to the ignored classpath file. Alternatively, pass a file containing the Paper API and its dependencies. The build helper writes only to the selected output directory; its default artifact is the ignored `validation/benchmark-plugin/GPurBench.jar`.
+The included init task writes the server runtime dependency paths to the ignored classpath file. Alternatively, pass a file containing the Paper API and its dependencies. The build helper writes only to the selected output directory; use the C-drive validation path above for the candidate replay artifact.
 
 ## Measurement
 
@@ -18,6 +19,8 @@ Paper `ServerTickEndEvent` provides the reported tick duration in milliseconds. 
 `summary.json` includes every phase plus `all_including_setup_and_spikes`, p50/p95/p99/maximum MSPT, mean MSPT, counts over 50/100ms, actual player counts, wall TPS and collector metrics. `events.jsonl` records phase boundaries, GC notifications, workload commands, completion and errors. `finish` reports completion only after output files are closed.
 
 The once-per-20-ticks census records living mobs, synthetic mobs, loaded chunks and mobs inside ticking chunks. `isTicking` is chunk membership, not proof that every entity executes its entire AI on every tick. Census age and its measured cost are recorded. Standard Paper activation behavior stays enabled; synthetic mobs have AI and awareness enabled, with nearby real survival players and targeted zombies. Reflective GPur diagnostics are optional; ordinary Paper can run the same plugin.
+
+The plugin records server-observed `PlayerMoveEvent` evidence in `movement-telemetry.json`: phase ID/name, configured bot walking percentage/fraction, per-player UUID/name, same-world movement sample count, nonzero from/to displacement samples and distances, first nonzero from position, last nonzero to position, and distinct mover totals. `gpurbench walking-percent <0..100>` records the expected fleet selection before measurement. The orchestrator validates the exact observed mover count for walk and mob phases; packet serialization counters are not used as movement proof. This is source-level instrumentation until the updated plugin has been compiled and replayed on the candidate.
 
 GC notification durations include collector-reported concurrent work and cannot all be called stop-the-world pauses. Use the separate JVM `gc.log` pause and safepoint entries for that conclusion. Measurements themselves have overhead, including ordinary CPU event callbacks and periodic entity census; the same plugin and settings must be used in comparisons.
 
@@ -30,6 +33,7 @@ All changes are limited to marked `gpurbench_*` worlds in the isolated directory
 | Command | Purpose |
 | --- | --- |
 | `gpurbench world <label> <seed> normal` | Create/select a marked normal-terrain test world; preserve the same seed across fresh runs. |
+| `gpurbench walking-percent <0..100>` | Record the configured bot walking fraction for phase telemetry. |
 | `gpurbench phase <label>` | Change phase after setup jobs complete. |
 | `gpurbench place 96` | Disperse actual connected survival players onto a deterministic grid and small level pads. |
 | `gpurbench spawn 3000 24 20` | Add 3,000 AI-enabled cows/zombies near players, paced at up to 20 per tick and a 3ms soft setup budget. |
