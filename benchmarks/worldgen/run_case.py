@@ -384,6 +384,16 @@ def run_worldgen_status(server: Server, label: str, stage: str) -> dict:
     return read_worldgen_status(server, label, stage, marker)
 
 
+def run_reload_phase(server: Server, label: str, args, timeout: int) -> tuple[int, Path, dict, dict]:
+    # The probe writes before-corpus-reload from begin(), just before it starts
+    # the reload. Read that report after the command starts; sending a separate
+    # status command here would create the same report twice and abort reload.
+    start, report_path, tick_metrics = run_probe_phase(server, "reload", label, args, timeout)
+    before_reload = read_worldgen_status(server, label, "before-corpus-reload")
+    validate_simulation_status(before_reload, args.freeze_simulation, "before-corpus-reload")
+    return start, report_path, tick_metrics, before_reload
+
+
 def read_worldgen_status(server: Server, label: str, stage: str, marker: str | None = None) -> dict:
     if marker is None:
         marker = f"GPURWGEN_STATUS_DONE label={label} stage={stage}"
@@ -604,10 +614,8 @@ def main() -> int:
                         args.freeze_simulation)
         server.start(args.startup_timeout)
         validate_admission(server, args.case)
-        worldgen_before_reload = run_worldgen_status(server, label, "before-corpus-reload")
-        validate_simulation_status(worldgen_before_reload, args.freeze_simulation, "before-corpus-reload")
-        _reload_start, reload_report_path, reload_tick_metrics = run_probe_phase(
-            server, "reload", label, args, args.phase_timeout)
+        _reload_start, reload_report_path, reload_tick_metrics, worldgen_before_reload = run_reload_phase(
+            server, label, args, args.phase_timeout)
         reload_exit = server.stop()
         reload_freeze_restore = validate_simulation_restoration(server, args.freeze_simulation)
         server = None

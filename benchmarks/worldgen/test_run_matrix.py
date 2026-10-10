@@ -9,7 +9,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from run_case import build_java_command, validate_simulation_restoration, validate_simulation_status
+from run_case import (build_java_command, run_reload_phase, validate_simulation_restoration,
+                      validate_simulation_status)
 from run_matrix import invoke_case, throughput_entry, validate_strict_reference
 
 
@@ -245,6 +246,24 @@ class StrictReferenceTests(unittest.TestCase):
                                    capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(completed.returncode, 2)
         self.assertIn("--initial-heap-gib must be in 1..16", completed.stderr)
+
+
+class ReloadPhaseTests(unittest.TestCase):
+    def test_reload_uses_probe_written_pre_corpus_status_without_duplicate_command(self):
+        args = SimpleNamespace(freeze_simulation=True)
+        events = []
+        status = {"freeze_simulation_requested": True, "simulation_frozen": True}
+        with patch("run_case.run_probe_phase", side_effect=lambda *_args: (
+                events.append("reload-started") or 1, Path("reload.json"), {"complete": True})), \
+             patch("run_case.read_worldgen_status", side_effect=lambda *_args: (
+                events.append("pre-corpus-status-read") or status)), \
+             patch("run_case.run_worldgen_status") as explicit_status:
+            result = run_reload_phase(object(), "cpu", args, 60)
+
+        self.assertEqual(events, ["reload-started", "pre-corpus-status-read"])
+        self.assertEqual(result[1], Path("reload.json"))
+        self.assertEqual(result[3], status)
+        explicit_status.assert_not_called()
 
 
 if __name__ == "__main__":
