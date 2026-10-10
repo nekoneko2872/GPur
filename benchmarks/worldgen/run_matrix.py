@@ -12,7 +12,7 @@ import sys
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from run_case import CASES, ROOT, SAFE_ROOT, safe_output
+from run_case import CASES, ROOT, SAFE_ROOT, parse_initial_heap_gib, safe_output, worldgen_jvm_options
 
 
 def invoke_case(args, output: Path, case: str) -> dict:
@@ -22,7 +22,8 @@ def invoke_case(args, output: Path, case: str) -> dict:
                "--probe", str(args.probe), "--mojang", str(args.mojang), "--eula", str(args.eula),
                "--jdk", str(args.jdk), "--port", str(args.port), "--seed", str(args.seed),
                "--center-x", str(args.center_x), "--center-z", str(args.center_z),
-               "--radius", str(args.radius), "--startup-timeout", str(args.startup_timeout),
+               "--radius", str(args.radius), "--initial-heap-gib", str(args.initial_heap_gib),
+               "--startup-timeout", str(args.startup_timeout),
                "--phase-timeout", str(args.phase_timeout)]
     if args.parity_dump_dir is not None:
         case_dump_dir = safe_output(args.parity_dump_dir / output.name / case)
@@ -63,6 +64,11 @@ def validate_strict_reference(path: Path, jar_sha256: str, cases: list[str], cor
         raise ValueError("strict reference case set does not match this matrix")
     for case in cases:
         row = report["cases"][case]
+        if row.get("jvm_options") != runtime["jvm_options"]:
+            raise ValueError(f"strict reference case {case} JVM options do not match the matrix runtime")
+        if (row.get("server_heap_gib") != runtime["heap_gib"]
+                or row.get("initial_heap_gib") != runtime["initial_heap_gib"]):
+            raise ValueError(f"strict reference case {case} heap metadata does not match the matrix runtime")
         if (row.get("pass") is not True or row.get("exit_code") != 0 or row.get("jar_sha256") != jar_sha256
                 or row.get("case") != case or row.get("seed") != corpus["seed"]
                 or row.get("center_chunk") != corpus["center_chunk"]
@@ -112,6 +118,8 @@ def main() -> int:
     parser.add_argument("--mojang", type=Path, default=ROOT / "validation/smoke-gpu-final/cache/mojang_26.2.jar")
     parser.add_argument("--eula", type=Path, default=ROOT / "validation/eula.txt")
     parser.add_argument("--jdk", type=Path, default=Path.home() / ".jdks" / "openjdk-25.0.2")
+    parser.add_argument("--initial-heap-gib", type=parse_initial_heap_gib, default=16,
+                        help="initial Java heap in GiB (1..16); maximum remains fixed at 16 GiB")
     parser.add_argument("--port", type=int, default=25620)
     parser.add_argument("--seed", type=int, default=1196459378)
     parser.add_argument("--center-x", type=int, default=128)
@@ -148,7 +156,8 @@ def main() -> int:
         java = (args.jdk.resolve() / "bin" / ("java.exe" if sys.platform == "win32" else "java"))
         runtime = {"jdk_home": str(args.jdk.resolve()), "java_sha256": file_sha256(java),
                    "worker_threads": 4, "io_threads": 2, "heap_gib": 16,
-                   "jvm_options": ["--enable-native-access=ALL-UNNAMED", "-Xms16G", "-Xmx16G", "-XX:+UseG1GC"]}
+                   "initial_heap_gib": args.initial_heap_gib,
+                   "jvm_options": worldgen_jvm_options(args.initial_heap_gib)}
         strict_reference = None
         if args.mode == "verified-exact":
             strict_reference = validate_strict_reference(args.strict_report.resolve(), jar_sha256, cases, corpus, runtime)

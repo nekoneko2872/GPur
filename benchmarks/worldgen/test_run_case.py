@@ -1,12 +1,39 @@
 """Unit checks for parsing the terrain-use gate from gpur status detail."""
 
+import argparse
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
-from run_case import build_java_command, extract_status, validate_worldgen_consumption
+from run_case import (build_java_command, extract_status, parse_initial_heap_gib,
+                      validate_worldgen_consumption, worldgen_jvm_options)
 
 
 class StatusParsingTests(unittest.TestCase):
+    def test_initial_heap_is_configurable_but_maximum_stays_at_sixteen_gib(self):
+        java = Path("C:/jdk/bin/java.exe")
+        jar = Path("C:/validation/candidate.jar")
+        command = build_java_command(java, jar, initial_heap_gib=4)
+        self.assertIn("-Xms4G", command)
+        self.assertIn("-Xmx16G", command)
+        self.assertEqual(worldgen_jvm_options(4), [
+            "--enable-native-access=ALL-UNNAMED", "-Xms4G", "-Xmx16G", "-XX:+UseG1GC",
+        ])
+        self.assertEqual(parse_initial_heap_gib("16"), 16)
+
+    def test_initial_heap_rejects_non_integer_and_out_of_range_values(self):
+        for value in ("0", "17", "-1", "four"):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                parse_initial_heap_gib(value)
+
+    def test_case_cli_rejects_initial_heap_outside_allowed_range(self):
+        script = Path(__file__).with_name("run_case.py")
+        completed = subprocess.run([sys.executable, str(script), "--case", "cpu", "--initial-heap-gib", "0"],
+                                   capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("--initial-heap-gib must be in 1..16", completed.stderr)
+
     def test_parity_dump_jvm_property_is_opt_in(self):
         java = Path("C:/jdk/bin/java.exe")
         jar = Path("C:/validation/candidate.jar")

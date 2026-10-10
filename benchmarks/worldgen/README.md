@@ -2,7 +2,7 @@
 
 This harness validates vanilla `NORMAL` chunk generation through lighting, save, clean shutdown, server restart, reload, and saved Anvil comparison. Its only runtime output belongs under `C:\GPur-validation-20261009\validation`; it binds loopback port `25620` by default and refuses port `25565`. It does not access or copy from the live server directory.
 
-The first strict radius-4 four-case smoke **failed** on the retained candidate: the GPU aquifer workload (6) reported a startup parity mismatch with zero consumed work, disabling the global GPU gate; the later noise workload (5) was therefore ineligible. All four matrix cases failed. A CPU snapshot also exposed an out-of-dimension lighting-only section that the parser initially rejected; the parser fix is covered by the current unit suite. A replacement candidate is pending, and no replacement runtime run has started. The release gate remains blocked. See [`release-gate.json`](release-gate.json) for the remaining stages. A version change to `2.0.0` remains blocked until those rows are complete and pass.
+The first strict radius-4 smoke on the earlier candidate **failed**: GPU aquifer workload 6 reported a startup parity mismatch with zero consumed work, disabling the global GPU gate and making later noise workload 5 ineligible; all four cases failed. A CPU snapshot also exposed an out-of-dimension lighting-only section that the parser initially rejected; the parser correction is covered by the unit suite. A second matrix on immutable candidate SHA `32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c` attempted all four cases, but each JVM exited before plugin readiness because Windows could not commit the initial 16 GiB heap (errno 1455). That run reached no worldgen, parity, or GPU-consumption checks. It is preserved under `C:\GPur-validation-20261009\validation\worldgen-smoke-b693a6a90`; the next attempt uses a 4 GiB initial heap while retaining the 16 GiB maximum. The release gate remains blocked. See [`release-gate.json`](release-gate.json) for the remaining stages. A version change to `2.0.0` remains blocked until those rows are complete and pass.
 
 ## Build and run after production integration is ready
 
@@ -15,21 +15,23 @@ python benchmarks/worldgen/build_plugin.py `
   --output C:\GPur-validation-20261009\validation\worldgen-plugin-20261010-w6fix
 
 python benchmarks/worldgen/run_matrix.py `
-  --jar C:\path\to\replacement-candidate-server.jar `
+  --jar C:\GPur-validation-20261009\validation\artifacts\b693a6a90\gpur-server-26.2-SNAPSHOT1.1.0.jar `
   --probe C:\GPur-validation-20261009\validation\worldgen-plugin-20261010-w6fix\GPurWorldgenProbe.jar `
   --mojang validation\smoke-gpu-final\cache\mojang_26.2.jar `
   --eula validation\eula.txt `
   --jdk C:\Users\caram\.jdks\openjdk-25.0.2 `
-  --output C:\GPur-validation-20261009\validation\worldgen-smoke-replacement-20261010 `
+  --output C:\GPur-validation-20261009\validation\worldgen-smoke-b693a6a90-xms4 `
   --radius 4 `
-  --parity-dump-dir C:\GPur-validation-20261009\validation\worldgen-parity-replacement-20261010
+  --initial-heap-gib 4 `
+  --continue-on-error `
+  --parity-dump-dir C:\GPur-validation-20261009\validation\worldgen-parity-b693a6a90-xms4
 ```
 
 For an isolated diagnostic rerun, optionally pass `--parity-dump-dir C:\GPur-validation-20261009\validation\worldgen-parity-dumps`. The matrix creates a unique subdirectory per matrix and case, and the JVM writes a binary input/expected/actual snapshot only when strict parity fails. The option is disabled by default and its path must remain under the validation root.
 
 The default corpus uses seed `1196459378`, center chunk `(128,128)`, radius `32` and a `65 × 65 = 4,225` chunk square. The probe creates a new normal world for each CPU, RTX 3070, GTX 1080 and mixed-device case, enables vanilla structures, disables natural mob spawning and day/weather cycling, then submits chunks in stable X-major/Z-minor order through a bounded 64-request async window. Completion order may differ; the deterministic ordering is request order. The off-spawn corpus starts far from server spawn chunks. Each case has a unique server directory/world; no prior world is reused.
 
-Every server uses `-Xms16G -Xmx16G`, the same seed and settings, no connected clients, and loopback only. CPU has GPU acceleration disabled. GPU cases enable both opt-in worldgen workload boundaries (`noise-batches` and `aquifer-ranking`) with `gpu.force=false`. `--mode strict` is the default and is the correctness gate: each selected card must have positive deltas for dispatches, accepted batches, computed values, consumed values, and strict parity samples on workload IDs 5 (noise) and 6 (aquifer). Fallback attempt deltas are retained by workload. Mixed requires evidence from both cards. Equality after CPU fallback, startup tests, or unconsumed kernel results cannot pass as GPU validation.
+Every server uses `-Xmx16G`; `--initial-heap-gib` selects `-Xms` from 1 GiB through 16 GiB and defaults to 16 GiB. The initial and maximum heap are recorded separately, and verified-exact matrices require matching JVM flags in the strict reference. Cases use the same seed and settings, no connected clients, and loopback only. CPU has GPU acceleration disabled. GPU cases enable both opt-in worldgen workload boundaries (`noise-batches` and `aquifer-ranking`) with `gpu.force=false`. `--mode strict` is the default and is the correctness gate: each selected card must have positive deltas for dispatches, accepted batches, computed values, consumed values, and strict parity samples on workload IDs 5 (noise) and 6 (aquifer). Fallback attempt deltas are retained by workload. Mixed requires evidence from both cards. Equality after CPU fallback, startup tests, or unconsumed kernel results cannot pass as GPU validation.
 
 Strict mode recomputes GPU batches on the CPU, so its chunks/second is only diagnostic and must not be used as a speedup result. After a passing strict matrix, run a separate `--mode verified-exact --strict-report <strict-matrix-report.json>` matrix. It uses new worlds and keeps the candidate JAR, seed, corpus and workers unchanged. It still requires positive per-device/workload consumed-value deltas, nonzero startup/periodic parity evidence, zero parity failures, and full CPU-vs-GPU saved-world semantic equality. A zero parity-sample delta during this run is allowed because world-creation warmup may already have produced the periodic sample; a zero absolute sample count is not. Only this second matrix reports speedup, and it rejects a strict report with a different JAR SHA, corpus or case set.
 

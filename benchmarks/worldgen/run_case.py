@@ -34,6 +34,21 @@ CASES = {
 }
 
 
+def parse_initial_heap_gib(value: str | int) -> int:
+    try:
+        gib = int(value)
+    except (TypeError, ValueError) as error:
+        raise argparse.ArgumentTypeError("--initial-heap-gib must be an integer in 1..16") from error
+    if not 1 <= gib <= 16:
+        raise argparse.ArgumentTypeError("--initial-heap-gib must be in 1..16")
+    return gib
+
+
+def worldgen_jvm_options(initial_heap_gib: int) -> list[str]:
+    initial_heap_gib = parse_initial_heap_gib(initial_heap_gib)
+    return ["--enable-native-access=ALL-UNNAMED", f"-Xms{initial_heap_gib}G", "-Xmx16G", "-XX:+UseG1GC"]
+
+
 def sha256(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
@@ -72,9 +87,11 @@ def check_port(port: int) -> None:
 
 
 class Server:
-    def __init__(self, directory: Path, java: Path, jar: Path, parity_dump_dir: Path | None = None):
+    def __init__(self, directory: Path, java: Path, jar: Path, parity_dump_dir: Path | None = None,
+                 initial_heap_gib: int = 16):
         self.directory, self.java, self.jar = directory, java, jar
         self.parity_dump_dir = parity_dump_dir
+        self.initial_heap_gib = parse_initial_heap_gib(initial_heap_gib)
         self.lines: list[str] = []
         self.lock = threading.Lock()
         self.process: subprocess.Popen | None = None
@@ -84,7 +101,7 @@ class Server:
         check_port(self.port)
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         self.process = subprocess.Popen(
-            build_java_command(self.java, self.jar, self.parity_dump_dir),
+            build_java_command(self.java, self.jar, self.parity_dump_dir, self.initial_heap_gib),
             cwd=self.directory, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
             creationflags=flags,
@@ -164,8 +181,11 @@ class Server:
         return int(self.process.returncode or 0)
 
 
-def build_java_command(java: Path, jar: Path, parity_dump_dir: Path | None = None) -> list[str]:
-    command = [str(java), "--enable-native-access=ALL-UNNAMED", "-Xms16G", "-Xmx16G", "-XX:+UseG1GC"]
+def build_java_command(java: Path, jar: Path, parity_dump_dir: Path | None = None,
+                       initial_heap_gib: int = 16) -> list[str]:
+    initial_heap_gib = parse_initial_heap_gib(initial_heap_gib)
+    command = [str(java), "--enable-native-access=ALL-UNNAMED", f"-Xms{initial_heap_gib}G",
+               "-Xmx16G", "-XX:+UseG1GC"]
     if parity_dump_dir is not None:
         command.append(f"-Dgpur.worldgen.parity-dump={parity_dump_dir.resolve()}")
     command.extend(("-jar", str(jar), "--nogui"))
@@ -226,13 +246,14 @@ def write_case_files(args, directory: Path, case: str, label: str, jar_copy: Pat
         "expected_chunks": (args.radius * 2 + 1) ** 2,
         "world_type": "vanilla NORMAL with structures enabled in WorldCreator",
         "server_heap_gib": 16,
+        "initial_heap_gib": args.initial_heap_gib,
         "worker_threads": 4,
         "io_threads": 2,
         "jdk_home": str(args.jdk.resolve()),
         "java_sha256": sha256((args.jdk / "bin" / ("java.exe" if os.name == "nt" else "java")).resolve()),
-        "jvm_options": ["--enable-native-access=ALL-UNNAMED", "-Xms16G", "-Xmx16G", "-XX:+UseG1GC"]
-            + ([f"-Dgpur.worldgen.parity-dump={args.parity_dump_dir.resolve()}"]
-               if args.parity_dump_dir is not None else []),
+        "jvm_options": worldgen_jvm_options(args.initial_heap_gib),
+        "jvm_system_properties": ([f"-Dgpur.worldgen.parity-dump={args.parity_dump_dir.resolve()}"]
+                                  if args.parity_dump_dir is not None else []),
         "parity_dump_dir": str(args.parity_dump_dir.resolve()) if args.parity_dump_dir is not None else None,
         "force": False,
         "vanilla_verification_mode": args.mode if gpu_enabled else "disabled",
@@ -458,6 +479,8 @@ def main() -> int:
     parser.add_argument("--mojang", type=Path, default=ROOT / "validation/smoke-gpu-final/cache/mojang_26.2.jar")
     parser.add_argument("--eula", type=Path, default=ROOT / "validation/eula.txt")
     parser.add_argument("--jdk", type=Path, default=DEFAULT_JDK)
+    parser.add_argument("--initial-heap-gib", type=parse_initial_heap_gib, default=16,
+                        help="initial Java heap in GiB (1..16); maximum remains fixed at 16 GiB")
     parser.add_argument("--port", type=int, default=25620)
     parser.add_argument("--seed", type=int, default=1196459378)
     parser.add_argument("--center-x", type=int, default=128)
@@ -471,7 +494,9 @@ def main() -> int:
     parser.add_argument("--phase-timeout", type=int, default=3600)
     args = parser.parse_args()
 
-    result = {"schema": 1, "case": args.case, "mode": args.mode, "pass": False}
+    result = {"schema": 1, "case": args.case, "mode": args.mode, "pass": False,
+              "server_heap_gib": 16, "initial_heap_gib": args.initial_heap_gib,
+              "jvm_options": worldgen_jvm_options(args.initial_heap_gib)}
     server: Server | None = None
     try:
         args.output = safe_output(args.output)
@@ -505,7 +530,7 @@ def main() -> int:
         jar_copy = directory / "artifacts" / "GPurServer.jar"
         plugin_copy = directory / "artifacts" / "GPurWorldgenProbe.jar"
         metadata = write_case_files(args, directory, args.case, label, jar_copy, plugin_copy)
-        server = Server(directory, java, jar_copy, args.parity_dump_dir)
+        server = Server(directory, java, jar_copy, args.parity_dump_dir, args.initial_heap_gib)
 
         server.start(args.startup_timeout)
         admissions = validate_admission(server, args.case)
@@ -526,7 +551,7 @@ def main() -> int:
         generated_snapshot = directory / "snapshots" / "generated"
         snapshot_world(args, Path(worldgen["world_path"]), generated_snapshot, generate_report_path)
 
-        server = Server(directory, java, jar_copy, args.parity_dump_dir)
+        server = Server(directory, java, jar_copy, args.parity_dump_dir, args.initial_heap_gib)
         server.start(args.startup_timeout)
         validate_admission(server, args.case)
         _reload_start, reload_report_path, reload_tick_metrics = run_probe_phase(
@@ -621,6 +646,9 @@ def main() -> int:
                    "center_chunk": [args.center_x, args.center_z], "radius_chunks": args.radius,
                    "worker_threads": metadata["worker_threads"], "io_threads": metadata["io_threads"],
                    "jdk_home": metadata["jdk_home"], "java_sha256": metadata["java_sha256"],
+                   "server_heap_gib": metadata["server_heap_gib"],
+                   "initial_heap_gib": metadata["initial_heap_gib"],
+                   "jvm_options": metadata["jvm_options"],
                    "chunks": expected_chunks,
                    "require_structure_starts": args.require_structures,
                    "request_elapsed_ms": metadata["request_elapsed_ms"],
@@ -645,6 +673,9 @@ def main() -> int:
             atomic_json(directory / "result.json", result)
             print("WORLDGEN_CASE_RESULT " + json.dumps({
                 "case": args.case, "pass": False, "workspace": str(directory), "error": result["error"],
+                "server_heap_gib": 16,
+                "initial_heap_gib": args.initial_heap_gib,
+                "jvm_options": worldgen_jvm_options(args.initial_heap_gib),
             }, separators=(",", ":")), flush=True)
         print(f"WORLDGEN_CASE_FAIL {args.case}: {error}", file=sys.stderr, flush=True)
         return 1
