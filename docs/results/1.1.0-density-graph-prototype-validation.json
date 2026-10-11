@@ -192,5 +192,10 @@
   "speedup_established": false,
   "noise_chunk_connected": false,
   "complete_requested_stage_coverage": false,
-  "raw_evidence_directory": "C:\\GPur-validation-20261009\\validation\\w7-validation-20261011"
+  "raw_evidence_directory": "C:\\GPur-validation-20261009\\validation\\w7-validation-20261011",
+  "runtime_validation": {
+    "serial_cpu_receipt": "1.1.0-serial-cpu-worldgen-validation.json",
+    "movement_replay": "running; no final result yet",
+    "w7_production_consumption": false
+  }
 }

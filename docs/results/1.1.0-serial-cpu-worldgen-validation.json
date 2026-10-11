@@ -1,0 +1,259 @@
+{
+  "schema": 1,
+  "release_version": "1.1.0",
+  "proposed_version": "2.0.0",
+  "version_bump": false,
+  "state": "self_roundtrips_passed_cross_world_unfiltered_failed_entities_only",
+  "validation_model": "gpt-6-luna",
+  "reasoning_effort": "xhigh",
+  "candidate": {
+    "source_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+    "branch": "ver/26.2",
+    "jar": "C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "bytes": 92205013,
+    "sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896"
+  },
+  "probe": {
+    "source": "benchmarks/worldgen/src/main/java/org/gpur/worldgen/WorldgenProbe.java",
+    "source_sha256": "6582f48ce9f8bc2e75c1bb09c99fe7194124418ab2a09dee65a6c71613511d07",
+    "build_command": "python benchmarks/worldgen/build_plugin.py --classpath validation/classpath.txt --jdk C:\\Users\\caram\\.jdks\\openjdk-25.0.2 --output C:\\GPur-validation-20261009\\validation\\worldgen-plugin-w7-current",
+    "jar": "C:\\GPur-validation-20261009\\validation\\worldgen-plugin-w7-current\\GPurWorldgenProbe.jar",
+    "jar_sha256": "6bc7972a90cace93572cd55fe71487278b84604cb2becdf001b9567e8a34da29",
+    "compile_exit_code": 0,
+    "warnings": 5,
+    "initial_attempt": {
+      "exit_code": 1,
+      "failure": "javac could not resolve the local variable run in the GPURWGEN_START request_window log expression",
+      "correction": "changed the expression to active.requestWindowSize",
+      "failed_source_sha256": "48c4abaf5ed96cb72330de0000055bbac63f6c671cb9effa9a8b3fedbb155c62",
+      "failed_artifact_claimed": false
+    }
+  },
+  "harness_tests": {
+    "worldgen_python": {
+      "passed": 44,
+      "failed": 0
+    },
+    "movement_harness_python": {
+      "passed": 9,
+      "failed": 0
+    }
+  },
+  "controls": {
+    "cases": [
+      {
+        "id": "20261011T133204Z-85542813",
+        "report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\matrices\\20261011T133204Z-85542813\\worldgen-matrix-report.json",
+        "report_sha256": "e5a479ab46c77ee3a87abcf8b68eb2297460419f83c7221611b92a9c2b0ebf12",
+        "self_roundtrip_pass": true,
+        "observed_chunks": 81,
+        "request_window_size": 1,
+        "worker_threads": 1,
+        "generation_ms": 17886,
+        "reload_ms": 9194
+      },
+      {
+        "id": "20261011T133407Z-4c5323d7",
+        "report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\matrices\\20261011T133407Z-4c5323d7\\worldgen-matrix-report.json",
+        "report_sha256": "8a7a298158a799aed9ba2a5c39ca8b5b5d25ffb3661cd101fba1cf749944c19d",
+        "self_roundtrip_pass": true,
+        "observed_chunks": 81,
+        "request_window_size": 1,
+        "worker_threads": 1,
+        "generation_ms": 17960,
+        "reload_ms": 9385
+      }
+    ],
+    "shared_settings": {
+      "seed": 1196459378,
+      "center_chunk": [
+        128,
+        128
+      ],
+      "radius_chunks": 4,
+      "chunks_per_run": 81,
+      "simulation": "frozen-worldgen",
+      "jvm_options": [
+        "-Xms4G",
+        "-Xmx16G"
+      ],
+      "comparison_categories": [
+        "blocks",
+        "biomes",
+        "heightmaps",
+        "light",
+        "structures",
+        "block_entities",
+        "entities",
+        "poi",
+        "section_metadata",
+        "other_nbt"
+      ]
+    },
+    "cross_world_comparison": {
+      "report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\cpu-repeatability-comparison.json",
+      "report_sha256": "fa2e98630ef6adfc0c050334d8425845710ff928f7ec2c813584096e3b49530c",
+      "pass": false,
+      "chunks_equal": true,
+      "expected_chunks": 81,
+      "missing_chunk_count_left": 0,
+      "missing_chunk_count_right": 0,
+      "difference_count_by_category": {
+        "blocks": 0,
+        "biomes": 0,
+        "heightmaps": 0,
+        "light": 0,
+        "structures": 0,
+        "block_entities": 0,
+        "entities": 70,
+        "poi": 0,
+        "section_metadata": 0,
+        "other_nbt": 0
+      },
+      "entity_leaf_differences_by_field": {
+        "UUID": 24,
+        "Paper.OriginWorld": 24,
+        "WorldUUIDLeast": 6,
+        "WorldUUIDMost": 6,
+        "LootTableSeed": 2,
+        "Paper.Origin": 4,
+        "Pos": 4
+      },
+      "changed_entity_store_chunks": [
+        [
+          127,
+          131
+        ],
+        [
+          127,
+          132
+        ],
+        [
+          129,
+          131
+        ],
+        [
+          130,
+          131
+        ],
+        [
+          132,
+          132
+        ]
+      ],
+      "entity_store_chunk_count": 5,
+      "entities_per_changed_chunk_pairs": {
+        "one-to-one": 4,
+        "two-to-two": 1
+      },
+      "interpretation": "Unfiltered 70-leaf entity mismatch preserved. See entity_pairing_diagnostic for the unique-key comparison showing only entity/fresh-world UUID differences after diagnosing UUID-sort order; no gameplay-field disagreement observed in the six records.",
+      "entity_keyed_diagnostic": {
+        "report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\entity-key-diagnostic.json",
+        "entity_records_each_snapshot": 6,
+        "matched_unique_type_pos_keys": 6,
+        "duplicate_keys": 0,
+        "unmatched_keys": 0,
+        "leaf_differences_after_key_alignment": 60,
+        "field_differences": {
+          "UUID": 24,
+          "Paper.OriginWorld": 24,
+          "WorldUUIDLeast": 6,
+          "WorldUUIDMost": 6
+        },
+        "position_origin_loot_diffs_after_alignment": 0,
+        "strict_unfiltered_comparator_remains_failed": true,
+        "unique_alignment_key": "entity type + exact Pos double-bit values"
+      },
+      "historical_default_control_context": "The earlier 1,784 block-position mismatch between production81 default CPU rounds was not reproduced with request-window=1/worker-threads=1. These settings are not proven to have caused that difference, and the earlier mismatch remains historical failed evidence."
+    }
+  },
+  "entity_pairing_diagnostic": {
+    "schema": 1,
+    "scope": "diagnostic mapping only; the strict unfiltered comparison remains the authoritative failed result",
+    "source_comparison": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\cpu-repeatability-comparison.json",
+    "alignment_key": [
+      "entity type",
+      "exact Pos double-bit values"
+    ],
+    "position_key_is_unique_in_each_snapshot": true,
+    "left_entity_records": 6,
+    "right_entity_records": 6,
+    "matching_unique_keys": 6,
+    "left_only_keys": 0,
+    "right_only_keys": 0,
+    "duplicate_keys_left": 0,
+    "duplicate_keys_right": 0,
+    "record_counts_by_chunk": {
+      "127,131": 1,
+      "127,132": 1,
+      "129,131": 2,
+      "130,131": 1,
+      "132,132": 1
+    },
+    "strict_uuid_sorted_comparison_leaf_differences": 70,
+    "uuid_sorted_difference_fields": {
+      "UUID": 24,
+      "Paper.OriginWorld": 24,
+      "WorldUUIDLeast": 6,
+      "WorldUUIDMost": 6,
+      "LootTableSeed": 2,
+      "Paper.Origin": 4,
+      "Pos": 4
+    },
+    "key_aligned_typed_nbt_leaf_differences": 60,
+    "key_aligned_difference_fields": {
+      "UUID": 24,
+      "Paper.OriginWorld": 24,
+      "WorldUUIDLeast": 6,
+      "WorldUUIDMost": 6
+    },
+    "key_aligned_zero_difference_fields": [
+      "Air",
+      "Bukkit.updateLevel",
+      "Fire",
+      "FlippedRotation",
+      "HasTicked",
+      "Invulnerable",
+      "Items",
+      "LootTable",
+      "LootTableSeed",
+      "Motion",
+      "OnGround",
+      "Paper.Origin",
+      "Paper.SpawnReason",
+      "PortalCooldown",
+      "Pos",
+      "Rotation",
+      "Spigot.ticksLived",
+      "fall_distance",
+      "id"
+    ],
+    "order_effect": "The two chest-minecart records in chunk 129,131 exchanged list positions after UUID sorting; their exact Pos keys and LootTableSeed values match across worlds. This explains the extra 10 leaf differences in the strict positional pairing.",
+    "interpretation": "No entity position, origin, or loot seed differs when records are diagnostically aligned by their unique exact type+position key. The retained UUID and fresh world UUID fields still differ, so the strict typed-NBT comparator correctly remains failed. This diagnostic does not alter, filter, or rewrite the strict comparison."
+  },
+  "raw_proof": {
+    "path": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\portable-proof.json",
+    "sha256": "fbe8599e6178caf53ec1e0ea6acc591f74ec4f83485195e461b244487bdb7ef0"
+  },
+  "probe_build_receipt": {
+    "path": "C:\\GPur-validation-20261009\\validation\\worldgen-plugin-w7-current\\build-receipt.json",
+    "sha256": "143d134d3301a772972c61bf8e3a1fa63e4d65ad1701e8be0f041f8fc6442870"
+  },
+  "entity_diagnostic_receipt": {
+    "path": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\entity-key-diagnostic.json",
+    "sha256": "314e5f0fb8cb04792c8d90a18e23026bc21a06f8597f0093d4df27ef80bddee5"
+  },
+  "interpretation": {
+    "blocks": "Zero block-position and block-field differences across these two serial CPU worlds. Biomes, heightmaps, light, structures, block entities, POI, section metadata and other NBT also match.",
+    "entities": "The unfiltered comparator remains failed at 70 typed-NBT leaves. Unique type plus exact position-bit alignment diagnoses a two-minecart UUID-sort order exchange; position, origin and loot seed match. The 60 remaining keyed leaves are entity UUID and fresh world UUID fields.",
+    "old_default_control": "The old 81cd39 default request-window/worker control had 1784 differing block positions. The new 1/1 run does not prove the cause because it changes the candidate and both execution controls.",
+    "measurement": "Frozen CPU correctness control only; not normal SMP TPS, GPU parity or performance proof.",
+    "release_gate": "No complete 2.0.0 implementation or release pass."
+  },
+  "movement_replay": {
+    "status_at_receipt": "running independently after the CPU control",
+    "output_root": "C:\\GPur-validation-20261009\\validation\\movement-full-replay-w7-current-plugin-20261011",
+    "candidate_sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896",
+    "plugin_sha256": "99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e"
+  }
+}

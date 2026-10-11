@@ -16,7 +16,7 @@ from run_matrix import invoke_case, throughput_entry, validate_strict_reference
 
 class StrictReferenceTests(unittest.TestCase):
     runtime = {"jdk_home": "C:/jdk25", "java_sha256": "java-hash", "worker_threads": 4,
-               "io_threads": 2, "heap_gib": 16, "initial_heap_gib": 16,
+               "io_threads": 2, "request_window_size": 64, "heap_gib": 16, "initial_heap_gib": 16,
                "freeze_simulation": False,
                "jvm_options": ["--enable-native-access=ALL-UNNAMED", "-Xms16G", "-Xmx16G", "-XX:+UseG1GC"]}
 
@@ -31,11 +31,15 @@ class StrictReferenceTests(unittest.TestCase):
                            "freeze_simulation": self.runtime["freeze_simulation"],
                            "simulation_mode": "frozen-worldgen" if self.runtime["freeze_simulation"]
                            else "normal-world-ticks",
-                           "jvm_system_properties": (["-Dgpur.worldgen.freeze-simulation=true"]
-                                                     if self.runtime["freeze_simulation"] else []),
+                            "jvm_system_properties": (["-Dgpur.worldgen.freeze-simulation=true"]
+                                                      if self.runtime["freeze_simulation"] else [])
+                                                      + ([f"-Dgpur.worldgen.request-window={self.runtime['request_window_size']}"]
+                                                         if self.runtime["request_window_size"] != 64 else []),
                            "jvm_options": self.runtime["jvm_options"],
-                           "worker_threads": self.runtime["worker_threads"],
-                           "io_threads": self.runtime["io_threads"], "jdk_home": self.runtime["jdk_home"],
+                            "worker_threads": self.runtime["worker_threads"],
+                            "io_threads": self.runtime["io_threads"],
+                            "request_window_size": self.runtime["request_window_size"],
+                            "jdk_home": self.runtime["jdk_home"],
                            "java_sha256": self.runtime["java_sha256"]}
         report = {
             "pass": True,
@@ -62,12 +66,53 @@ class StrictReferenceTests(unittest.TestCase):
         self.assertEqual(result["mode"], "strict")
         self.assertEqual(len(result["sha256"]), 64)
 
+    def test_request_window_one_worker_one_reference_requires_matching_property_and_metadata(self):
+        corpus = {"seed": 42, "center_chunk": [8, 9], "radius_chunks": 4,
+                  "expected_chunks": 81, "require_structure_starts": False}
+        original_runtime = self.runtime
+        diagnostic_runtime = {**self.runtime, "request_window_size": 1, "worker_threads": 1}
+        try:
+            self.runtime = diagnostic_runtime
+            with tempfile.TemporaryDirectory() as directory:
+                path = self.make_report(Path(directory))
+                result = validate_strict_reference(path, "candidate-hash",
+                                                   ["cpu", "rtx3070", "gtx1080", "mixed"],
+                                                   corpus, diagnostic_runtime)
+                self.assertEqual(result["mode"], "strict")
+
+                report = json.loads(path.read_text(encoding="utf-8"))
+                report["cases"]["cpu"]["jvm_system_properties"] = []
+                path.write_text(json.dumps(report), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "request-window JVM property"):
+                    validate_strict_reference(path, "candidate-hash",
+                                              ["cpu", "rtx3070", "gtx1080", "mixed"],
+                                              corpus, diagnostic_runtime)
+
+                report["cases"]["cpu"]["jvm_system_properties"] = ["-Dgpur.worldgen.request-window=1"]
+                report["cases"]["cpu"]["jvm_system_properties"].append("-Dgpur.worldgen.request-window=2")
+                path.write_text(json.dumps(report), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "request-window JVM property"):
+                    validate_strict_reference(path, "candidate-hash",
+                                              ["cpu", "rtx3070", "gtx1080", "mixed"],
+                                              corpus, diagnostic_runtime)
+
+                report["cases"]["cpu"]["jvm_system_properties"] = ["-Dgpur.worldgen.request-window=1"]
+                report["cases"]["cpu"]["request_window_size"] = 64
+                path.write_text(json.dumps(report), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "same candidate JAR"):
+                    validate_strict_reference(path, "candidate-hash",
+                                              ["cpu", "rtx3070", "gtx1080", "mixed"],
+                                              corpus, diagnostic_runtime)
+        finally:
+            self.runtime = original_runtime
+
     def test_matrix_passes_explicit_parity_dump_path_to_each_case_only_when_enabled(self):
         args = SimpleNamespace(
             candidate_jar=Path("C:/validation/candidate.jar"), jar=Path("C:/validation/candidate.jar"),
             mode="strict", probe=Path("C:/validation/probe.jar"), mojang=Path("C:/validation/mojang.jar"),
             eula=Path("C:/validation/eula.txt"), jdk=Path("C:/jdk"), port=25620, seed=42,
             center_x=8, center_z=9, radius=4, startup_timeout=300, phase_timeout=3600,
+            request_window_size=1, worker_threads=1,
             require_structures=False, parity_dump_dir=Path("C:/GPur-validation-20261009/validation/parity-captures"),
             initial_heap_gib=4, freeze_simulation=True,
         )
@@ -77,6 +122,8 @@ class StrictReferenceTests(unittest.TestCase):
             command = run.call_args.args[0]
         heap_index = command.index("--initial-heap-gib")
         self.assertEqual(command[heap_index + 1], "4")
+        self.assertEqual(command[command.index("--request-window") + 1], "1")
+        self.assertEqual(command[command.index("--worker-threads") + 1], "1")
         index = command.index("--parity-dump-dir")
         self.assertEqual(Path(command[index + 1]),
                          Path("C:/GPur-validation-20261009/validation/parity-captures/matrix-1/rtx3070"))
@@ -250,9 +297,10 @@ class StrictReferenceTests(unittest.TestCase):
 
 class ReloadPhaseTests(unittest.TestCase):
     def test_reload_uses_probe_written_pre_corpus_status_without_duplicate_command(self):
-        args = SimpleNamespace(freeze_simulation=True)
+        args = SimpleNamespace(freeze_simulation=True, request_window_size=1)
         events = []
-        status = {"freeze_simulation_requested": True, "simulation_frozen": True}
+        status = {"freeze_simulation_requested": True, "simulation_frozen": True,
+                  "request_window_size": 1}
         with patch("run_case.run_probe_phase", side_effect=lambda *_args: (
                 events.append("reload-started") or 1, Path("reload.json"), {"complete": True})), \
              patch("run_case.read_worldgen_status", side_effect=lambda *_args: (

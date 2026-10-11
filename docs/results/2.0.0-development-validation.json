@@ -463,10 +463,24 @@
       "complete_default_overworld_closure": false,
       "validation_receipt": "1.1.0-density-graph-prototype-validation.json"
     },
-    "runtime_validation": "pending_serial_cpu_controls_and_full_movement_replay",
-    "movement_replay": "not_run_on_this_candidate",
+    "runtime_validation": "serial_cpu_controls_completed_full_normal_movement_replay_running",
+    "movement_replay": "running_cpu_first_fresh_normal_simulation_50_150_300_four_case_matrix",
     "speedup_established": false,
-    "version_bump": false
+    "version_bump": false,
+    "serial_cpu_controls": {
+      "receipt_file": "docs/results/1.1.0-serial-cpu-worldgen-validation.json",
+      "self_roundtrips": 2,
+      "chunks_per_run": 81,
+      "request_window_size": 1,
+      "worker_threads": 1,
+      "block_differences": 0,
+      "other_nonentity_category_differences": 0,
+      "unfiltered_entity_leaf_differences": 70,
+      "unfiltered_cross_world_pass": false,
+      "keyed_entity_gameplay_differences": 0,
+      "keyed_uuid_leaf_differences": 60,
+      "gpu_validation": false
+    }
   },
   "historical_record_note": "Top-level artifact/test_runs, post_aquifer_fix and prior_candidate_81cd39cad preserve earlier candidates and failed experiments. latest_candidate identifies the frozen replacement; do not attribute historical tests/timings or movement pilots to it.",
   "density_graph_gpu_prototype": {

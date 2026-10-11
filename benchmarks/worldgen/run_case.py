@@ -88,11 +88,13 @@ def check_port(port: int) -> None:
 
 class Server:
     def __init__(self, directory: Path, java: Path, jar: Path, parity_dump_dir: Path | None = None,
-                 initial_heap_gib: int = 16, freeze_simulation: bool = False):
+                 initial_heap_gib: int = 16, freeze_simulation: bool = False,
+                 request_window_size: int = 64):
         self.directory, self.java, self.jar = directory, java, jar
         self.parity_dump_dir = parity_dump_dir
         self.initial_heap_gib = parse_initial_heap_gib(initial_heap_gib)
         self.freeze_simulation = freeze_simulation
+        self.request_window_size = request_window_size
         self.lines: list[str] = []
         self.lock = threading.Lock()
         self.process: subprocess.Popen | None = None
@@ -103,14 +105,20 @@ class Server:
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         self.process = subprocess.Popen(
             build_java_command(self.java, self.jar, self.parity_dump_dir, self.initial_heap_gib,
-                               self.freeze_simulation),
+                               self.freeze_simulation, self.request_window_size),
             cwd=self.directory, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
             creationflags=flags,
         )
         self.reader = threading.Thread(target=self._capture, name="worldgen-server-log", daemon=True)
         self.reader.start()
-        self.wait(lambda: self.contains("Done (") and self.contains("GPURWGEN_READY"), timeout, "server/plugin ready")
+        self.wait(lambda: self.contains("Done (") and self.has_matching_probe_configuration(),
+                  timeout, "server/plugin ready with matching request window")
+
+    def has_matching_probe_configuration(self) -> bool:
+        marker = f"request_window={self.request_window_size} "
+        with self.lock:
+            return any("GPURWGEN_READY" in line and marker in line for line in self.lines)
 
     @property
     def port(self) -> int:
@@ -184,14 +192,19 @@ class Server:
 
 
 def build_java_command(java: Path, jar: Path, parity_dump_dir: Path | None = None,
-                       initial_heap_gib: int = 16, freeze_simulation: bool = False) -> list[str]:
+                       initial_heap_gib: int = 16, freeze_simulation: bool = False,
+                       request_window_size: int = 64) -> list[str]:
     initial_heap_gib = parse_initial_heap_gib(initial_heap_gib)
+    if not 1 <= request_window_size <= 64:
+        raise ValueError("request window size must be in 1..64")
     command = [str(java), "--enable-native-access=ALL-UNNAMED", f"-Xms{initial_heap_gib}G",
                "-Xmx16G", "-XX:+UseG1GC"]
     if parity_dump_dir is not None:
         command.append(f"-Dgpur.worldgen.parity-dump={parity_dump_dir.resolve()}")
     if freeze_simulation:
         command.append("-Dgpur.worldgen.freeze-simulation=true")
+    if request_window_size != 64:
+        command.append(f"-Dgpur.worldgen.request-window={request_window_size}")
     command.extend(("-jar", str(jar), "--nogui"))
     return command
 
@@ -217,7 +230,7 @@ def write_case_files(args, directory: Path, case: str, label: str, jar_copy: Pat
     )
     (directory / "bukkit.yml").write_text("settings:\n  connection-throttle: 0\n  allow-end: false\n", encoding="utf-8")
     (directory / "config" / "paper-global.yml").write_text(
-        "_version: 31\nchunk-system:\n  worker-threads: 4\n  io-threads: 2\n", encoding="utf-8",
+        f"_version: 31\nchunk-system:\n  worker-threads: {args.worker_threads}\n  io-threads: 2\n", encoding="utf-8",
     )
     (directory / "config" / "paper-world-defaults.yml").write_text(
         "_version: 31\nanticheat:\n  anti-xray:\n    enabled: false\n", encoding="utf-8",
@@ -255,14 +268,17 @@ def write_case_files(args, directory: Path, case: str, label: str, jar_copy: Pat
         "simulation_mode": "frozen-worldgen" if args.freeze_simulation else "normal-world-ticks",
         "tick_metrics_interpretation": "frozen-worldgen; do not interpret as normal SMP TPS"
         if args.freeze_simulation else "normal world ticks",
-        "worker_threads": 4,
+        "worker_threads": args.worker_threads,
         "io_threads": 2,
+        "request_window_size": args.request_window_size,
         "jdk_home": str(args.jdk.resolve()),
         "java_sha256": sha256((args.jdk / "bin" / ("java.exe" if os.name == "nt" else "java")).resolve()),
         "jvm_options": worldgen_jvm_options(args.initial_heap_gib),
         "jvm_system_properties": ([f"-Dgpur.worldgen.parity-dump={args.parity_dump_dir.resolve()}"]
                                   if args.parity_dump_dir is not None else [])
-                                  + (["-Dgpur.worldgen.freeze-simulation=true"] if args.freeze_simulation else []),
+                                  + (["-Dgpur.worldgen.freeze-simulation=true"] if args.freeze_simulation else [])
+                                  + ([f"-Dgpur.worldgen.request-window={args.request_window_size}"]
+                                     if args.request_window_size != 64 else []),
         "parity_dump_dir": str(args.parity_dump_dir.resolve()) if args.parity_dump_dir is not None else None,
         "force": False,
         "vanilla_verification_mode": args.mode if gpu_enabled else "disabled",
@@ -373,6 +389,8 @@ def run_probe_phase(server: Server, phase: str, label: str, args, timeout: int) 
     if (report.get("freeze_simulation_requested") is not args.freeze_simulation
             or report.get("simulation_frozen") is not args.freeze_simulation):
         raise RuntimeError(f"{phase} simulation freeze readback does not match the request: {report}")
+    if report.get("request_window_size") != args.request_window_size:
+        raise RuntimeError(f"{phase} request window readback does not match the request: {report}")
     if report.get("seed") != args.seed or report.get("structures") is not True:
         raise RuntimeError(f"{phase} world identity/structure settings mismatch: {report}")
     return before, plugin_report, tick_metrics
@@ -390,7 +408,8 @@ def run_reload_phase(server: Server, label: str, args, timeout: int) -> tuple[in
     # status command here would create the same report twice and abort reload.
     start, report_path, tick_metrics = run_probe_phase(server, "reload", label, args, timeout)
     before_reload = read_worldgen_status(server, label, "before-corpus-reload")
-    validate_simulation_status(before_reload, args.freeze_simulation, "before-corpus-reload")
+    validate_simulation_status(before_reload, args.freeze_simulation, "before-corpus-reload",
+                               args.request_window_size)
     return start, report_path, tick_metrics, before_reload
 
 
@@ -407,12 +426,16 @@ def read_worldgen_status(server: Server, label: str, stage: str, marker: str | N
     return value
 
 
-def validate_simulation_status(report: dict, freeze_requested: bool, stage: str) -> None:
+def validate_simulation_status(report: dict, freeze_requested: bool, stage: str,
+                               request_window_size: int | None = None) -> None:
     if report.get("freeze_simulation_requested") is not freeze_requested:
         raise RuntimeError(f"simulation freeze request metadata mismatch at {stage}: {report}")
     if report.get("simulation_frozen") is not freeze_requested:
         expected = "frozen" if freeze_requested else "unfrozen"
         raise RuntimeError(f"simulation was expected {expected} but readback disagrees at {stage}: {report}")
+    if (request_window_size is not None
+            and report.get("request_window_size") != request_window_size):
+        raise RuntimeError(f"probe request-window readback does not match at {stage}: {report}")
 
 
 def validate_worldgen_consumption(before: dict, after: dict, case: str, mode: str = "strict") -> dict:
@@ -532,6 +555,10 @@ def main() -> int:
                         help="initial Java heap in GiB (1..16); maximum remains fixed at 16 GiB")
     parser.add_argument("--freeze-simulation", action="store_true",
                         help="freeze world/entity/block/fluid simulation during saved-world parity validation")
+    parser.add_argument("--request-window", dest="request_window_size", type=int, default=64,
+                        help="maximum concurrent chunk requests in the validation probe (1..64; default 64)")
+    parser.add_argument("--worker-threads", type=int, default=4,
+                        help="Paper chunk-system worker threads (1..64; default 4)")
     parser.add_argument("--port", type=int, default=25620)
     parser.add_argument("--seed", type=int, default=1196459378)
     parser.add_argument("--center-x", type=int, default=128)
@@ -547,6 +574,7 @@ def main() -> int:
 
     result = {"schema": 1, "case": args.case, "mode": args.mode, "pass": False,
               "server_heap_gib": 16, "initial_heap_gib": args.initial_heap_gib,
+              "worker_threads": args.worker_threads, "request_window_size": args.request_window_size,
               "freeze_simulation": args.freeze_simulation,
               "simulation_mode": "frozen-worldgen" if args.freeze_simulation else "normal-world-ticks",
               "tick_metrics_interpretation": "frozen-worldgen; do not interpret as normal SMP TPS"
@@ -557,6 +585,10 @@ def main() -> int:
         args.output = safe_output(args.output)
         if args.port == 25565:
             raise ValueError("refusing live-server port 25565")
+        if not 1 <= args.request_window_size <= 64:
+            raise ValueError("request window size must be in 1..64")
+        if not 1 <= args.worker_threads <= 64:
+            raise ValueError("worker threads must be in 1..64")
         if not 1 <= args.radius <= 64:
             raise ValueError("radius must be in 1..64 chunks")
         if args.require_structures is None:
@@ -585,20 +617,24 @@ def main() -> int:
         jar_copy = directory / "artifacts" / "GPurServer.jar"
         plugin_copy = directory / "artifacts" / "GPurWorldgenProbe.jar"
         metadata = write_case_files(args, directory, args.case, label, jar_copy, plugin_copy)
-        server = Server(directory, java, jar_copy, args.parity_dump_dir, args.initial_heap_gib,
-                        args.freeze_simulation)
+        server = Server(directory, java, jar_copy, parity_dump_dir=args.parity_dump_dir,
+                        initial_heap_gib=args.initial_heap_gib, freeze_simulation=args.freeze_simulation,
+                        request_window_size=args.request_window_size)
 
         server.start(args.startup_timeout)
         admissions = validate_admission(server, args.case)
         metadata["admitted_compute_devices"] = admissions
         worldgen_before_world = run_worldgen_status(server, label, "before")
-        validate_simulation_status(worldgen_before_world, args.freeze_simulation, "before-world-creation")
+        validate_simulation_status(worldgen_before_world, args.freeze_simulation, "before-world-creation",
+                                   args.request_window_size)
         _generate_start, generate_report_path, generate_tick_metrics = run_probe_phase(
             server, "generate", label, args, args.phase_timeout)
         worldgen_before_corpus = read_worldgen_status(server, label, "before-corpus-generate")
-        validate_simulation_status(worldgen_before_corpus, args.freeze_simulation, "before-corpus-generate")
+        validate_simulation_status(worldgen_before_corpus, args.freeze_simulation, "before-corpus-generate",
+                                   args.request_window_size)
         worldgen_after = run_worldgen_status(server, label, "after-generate")
-        validate_simulation_status(worldgen_after, args.freeze_simulation, "after-generate")
+        validate_simulation_status(worldgen_after, args.freeze_simulation, "after-generate",
+                                   args.request_window_size)
         worldgen_consumption = validate_worldgen_consumption(
             worldgen_before_corpus, worldgen_after, args.case, args.mode)
         status, exit_code, generation_freeze_restore = capture_status_and_stop(server, args.freeze_simulation)
@@ -610,8 +646,9 @@ def main() -> int:
         generated_snapshot = directory / "snapshots" / "generated"
         snapshot_world(args, Path(worldgen["world_path"]), generated_snapshot, generate_report_path)
 
-        server = Server(directory, java, jar_copy, args.parity_dump_dir, args.initial_heap_gib,
-                        args.freeze_simulation)
+        server = Server(directory, java, jar_copy, parity_dump_dir=args.parity_dump_dir,
+                        initial_heap_gib=args.initial_heap_gib, freeze_simulation=args.freeze_simulation,
+                        request_window_size=args.request_window_size)
         server.start(args.startup_timeout)
         validate_admission(server, args.case)
         _reload_start, reload_report_path, reload_tick_metrics, worldgen_before_reload = run_reload_phase(
@@ -714,6 +751,7 @@ def main() -> int:
                    "jar_sha256": metadata["jar_sha256"], "seed": args.seed,
                    "center_chunk": [args.center_x, args.center_z], "radius_chunks": args.radius,
                    "worker_threads": metadata["worker_threads"], "io_threads": metadata["io_threads"],
+                   "request_window_size": metadata["request_window_size"],
                    "jdk_home": metadata["jdk_home"], "java_sha256": metadata["java_sha256"],
                    "server_heap_gib": metadata["server_heap_gib"],
                    "initial_heap_gib": metadata["initial_heap_gib"],
@@ -747,6 +785,8 @@ def main() -> int:
                 "case": args.case, "pass": False, "workspace": str(directory), "error": result["error"],
                 "server_heap_gib": 16,
                 "initial_heap_gib": args.initial_heap_gib,
+                "worker_threads": args.worker_threads,
+                "request_window_size": args.request_window_size,
                 "freeze_simulation": args.freeze_simulation,
                 "simulation_mode": "frozen-worldgen" if args.freeze_simulation else "normal-world-ticks",
                 "tick_metrics_interpretation": "frozen-worldgen; do not interpret as normal SMP TPS"

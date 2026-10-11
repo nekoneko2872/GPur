@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "updated_utc": "2026-10-10T13:53:16.506698Z",
+  "updated_utc": "2026-10-11T13:14:47Z",
   "current_version": "1.1.0",
   "proposed_version": "2.0.0",
   "release_decision": "BLOCKED",
   "release_rule": "Do not change the version to 2.0.0 until every blocking stage below passes on the same source and artifacts intended for release.",
-  "runtime_execution_this_plan": "partial; the immutable b693 candidate radius-4 matrix and unfrozen normal-tick CPU lifecycle pilot both failed saved/reload semantics; frozen-simulation harness source now passes Python tests but is not yet compiled or run against the replacement candidate",
+  "runtime_execution_this_plan": "partial; immutable production81 candidate built and its unfiltered physical suite passed 9,424 tests across 151 XML suites with 23 skipped; CPU worldgen repeatability remains unresolved; a 10-player CPU movement pilot completed with server-observed movement proof, but the full 50/150/300 four-case replay is not run; configurable request-window/worker diagnostic source is prepared but uncompiled",
   "semantic_mismatch_policy": "Preserve every CPU-vs-GPU mismatch. Run a second fresh CPU world against the CPU reference as a repeatability control before attributing it. Do not normalize generated UUIDs or other semantic NBT fields to force equality.",
   "production_worldgen_gpu_integration": {
     "status": "incomplete",
@@ -14,17 +14,17 @@
   "stages": [
     {
       "id": "validation-harness-unit-tests",
-      "status": "pass",
+      "status": "pass; probe compilation pending",
       "blocking": true,
-      "evidence": "python -m unittest discover -v -s benchmarks/worldgen -p 'test_*.py': 38/38 passed; python -m unittest discover -v -s benchmarks -p 'test_run_matrix_movement.py': 4/4 passed. Final logs/source hashes: C:\\GPur-validation-20261009\\validation\\harness-freeze-unit-tests-20261010; test-receipt.json SHA-256 f89f7f7ffdf9882ae6ec70773f86cd7cda6d4295d4f71162b3a7beb5efa78b5e. These are source-level checks; the freeze-enabled probe has not yet been compiled or run.",
+      "evidence": "After adding opt-in request-window and worker-thread controls, Python harness suites passed: python -m unittest discover -v -s benchmarks/worldgen -p 'test_*.py' (44/44) and python -m unittest discover -v -s benchmarks -p 'test_run_matrix_movement.py' (9/9). Receipt: C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\request-window-worker-controls-python-tests.json SHA-256 d20390fdacb913cfda4d21d8b31f7ebe1dffe1c0d6c0fb4aacfdf8cf48a8e2ac; raw logs and source hashes are recorded beside it. Tests verify defaults/limits, opt-in JVM property, exact status readback, strict-reference matching, worker config metadata, and invalid-value rejection before Java launch. Java probe has not yet been compiled or run.",
       "acceptance": "Semantic decoding/comparison, strict-versus-verified-exact telemetry gates, immutable matrix references, and 20% server-observed movement gating pass their isolated source tests."
     },
     {
       "id": "production-build-and-plugin-compile",
-      "status": "prior candidate built; replacement freeze-probe compile pending",
+      "status": "production81 candidate built; updated diagnostic probe compile pending",
       "blocking": true,
       "acceptance": "Finish production Gradle suites/build, compile the updated benchmark plugin and standalone worldgen probe against the immutable candidate, then record candidate SHA-256. Verify the probe writes raw per-tick CSV and generate/reload p50/p95/p99/max MSPT and start-interval statistics, >50/>100ms tick counts and measured TPS.",
-      "evidence": "Prior immutable candidate b693a6a90193fa082703e2ba56d29850110483d3 remains SHA-256 32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c; its unfiltered physical suite passed 9417 tests, 0 failures/errors, 23 skipped, and the earlier probe/GPurBench javac-only builds are recorded below. Current source now includes the frozen-simulation property, status readback, and matching strict-reference checks; it still needs compilation against the replacement candidate before runtime use."
+      "evidence": "Current immutable production81 candidate is built from 81cd39cad0065edf3fb1e9e9888d5dc2509d9792, 92,174,774 bytes, SHA-256 175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a. Its unfiltered physical-enabled suite passed 9,424 tests across 151 XML suites, zero failures/errors, 23 skipped; artifact receipt C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\artifact-receipt.json SHA-256 7624297902e5e03c23d557a660f281ba5d21e0b1ed39ccabb52aafffe3433d6a. Worldgen probe source now adds opt-in request-window and worker-thread provenance/readback and needs compilation before use. The earlier b693 matrix and CPU lifecycle failures remain historical evidence."
     },
     {
       "id": "async-shutdown-close-tests",
@@ -41,10 +41,35 @@
     },
     {
       "id": "frozen-simulation-cpu-pilot",
-      "status": "not_run; source tests pass, replacement candidate pending",
+      "status": "self-roundtrip passes; CPU repeatability fails",
       "blocking": true,
-      "acceptance": "Compile the freeze-enabled probe against the replacement immutable candidate. Run a fresh radius-4 CPU-only generate/save/shutdown/restart/reload with --freeze-simulation and require zero semantic differences. Then run a second fresh frozen CPU world as a CPU-vs-CPU repeatability control before the all-four strict GPU matrix. Require requested/actual freeze state to match through both savepoints; label all timing as frozen-worldgen.",
-      "evidence": "run_case.py/run_matrix.py and the standalone probe now carry the opt-in frozen-simulation property, readback, metadata and strict-reference checks. Worldgen Python suite 37/37 and movement suite 4/4 pass; test receipt is C:\\GPur-validation-20261009\\validation\\harness-freeze-unit-tests-20261010\\test-receipt.json. No compile or frozen runtime pilot has been run; await replacement candidate."
+      "acceptance": "Compile the freeze-enabled probe against an immutable candidate. Run fresh radius-4 CPU-only generate/save/shutdown/restart/reload rounds with --freeze-simulation and require zero differences within each round, then require a zero-difference CPU-vs-CPU comparison before the all-four strict GPU matrix. Require requested/actual freeze state to match through both savepoints; preserve every semantic NBT field and label all timing as frozen-worldgen.",
+      "evidence": "Two fresh frozen CPU production81 rounds each passed their own 81-chunk generated-to-reload strict comparison with zero differences across all 10 semantic categories. First report: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-pilot-81cd39-reloadfix\\matrices\\20261010T140807Z-632beb00\\worldgen-matrix-report.json SHA-256 b948d80d22b76f9fb7a8e799ab783f398967e8f0d5835a5dd704c62d6a5cea52. Second: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-repeatability-81cd39\\matrices\\20261010T140950Z-9720340f\\worldgen-matrix-report.json SHA-256 90508fcce6b1ee5ed55ae1386294a80589ebb3085defed8915a3abdfc83b4daf. Both used JAR SHA-256 175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a and matching seed/corpus/JDK/JVM/worker/freeze settings. The separate CPU-vs-CPU comparison failed: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-repeatability-81cd39.json SHA-256 334ab90af17422ea5b11f0ab64beded3a5d22a404efcdbf639711d5c2e780888 reports 1,784 differing block positions despite matching inputs. Preserve the mismatch; no structure/leaf/fluid/UUID normalization. The reference gate remains blocked and no GPU worldgen matrix is authorized until CPU repeatability is resolved."
+    },
+    {
+      "id": "cpu-repeatability-request-window-diagnostic",
+      "status": "source_prepared; runtime_not_run",
+      "blocking": true,
+      "acceptance": "After the latest W7 immutable candidate and matching probe compile are ready, run two fresh CPU-only radius-4 strict worlds serially with identical seed/corpus/JVM and --freeze-simulation, --request-window 1 and --worker-threads 1. Compare the two generated snapshots with the unfiltered semantic comparator and retain every NBT field, including entity UUIDs. Report block-position differences separately from entity UUID/NBT differences. Exact CPU repeatability passes only if all semantic categories match; zero block differences with remaining UUID-only differences isolates block variance but does not pass the full semantic gate. This control certifies no GPU case or full radius-32 matrix.",
+      "planned_controls": {
+        "runs": 2,
+        "execution": "serial, separate fresh matrices under one external output root",
+        "cases": ["cpu"],
+        "mode": "strict",
+        "freeze_simulation": true,
+        "request_window_size": 1,
+        "worker_threads": 1,
+        "seed": 1196459378,
+        "center_chunk": [128, 128],
+        "radius_chunks": 4,
+        "expected_chunks": 81,
+        "require_structure_starts": false,
+        "heap_gib": {"initial": 4, "maximum": 16},
+        "jdk_home": "C:\\Users\\caram\\.jdks\\openjdk-25.0.2",
+        "output_root": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7",
+        "comparison": "benchmarks/worldgen/semantic_snapshot.py compare on both runs' snapshots/generated; no normalization or field exclusions"
+      },
+      "evidence": "Harness controls are opt-in request-window 1..64 (default 64) and worker-threads 1..64 (default 4); Python tests pass and probe property readback is required, but the updated Java probe still needs compilation. Source review identifies an expected independent entity-UUID source: Entity's constructor uses Mth.createInsecureUUID(this.random); the default entitySharedRandom setting is true and its SHARED_RANDOM uses a generated unique seed, while the opt-out branch uses RandomSource.create(). MineshaftPieces creates chest minecarts with EntityTypes.CHEST_MINECART.create. These UUIDs are not derived from the world-generation seed and must remain in semantic equality. They are tracked separately from the unresolved 1,784 differing block positions; the UUID source does not explain or excuse block variance. Do not run until the execution window and latest candidate/probe build are returned."
     },
     {
       "id": "isolated-radius4-four-case-smoke",
@@ -119,12 +144,42 @@
     },
     {
       "id": "1.0.0-twenty-percent-walking-regression",
-      "status": "incomplete; replay_not_run",
+      "status": "10-player CPU pilot completed; full replay_not_run",
       "blocking": true,
       "artifact_sha256": "bfe87ccaf419065f49acc0b7cf1b24dbda93d6abe8680dc5d3073f7043e2c846",
       "artifact_note": "The archived exact 1.0.0 SHA is historical provenance only. Replay its documented scenarios on the new 1.1.0 candidate JAR; do not rebuild or rerun the old artifact as a release gate.",
       "acceptance": "On the same immutable 1.1.0 candidate used by all release tests, replay 50/150/300 network-client targets with configured 20% walking (10/30/60 clients), 3,000 AI mobs, redstone fixtures, identical CPU/3070/1080/mixed settings, and retain raw client/server/tick evidence plus server-observed per-client UUID/name, phase sample counts, nonzero from/to displacement and distinct-mover validation.",
-      "evidence": "GPurBench current source compiled into JAR SHA-256 5280196a91191c5ca1faa9644f5e476c3bbce90d975f5135b4242abd966d89e1; movement unit gates 4/4 passed. No 1.0.0 regression runtime replay has been run on the candidate."
+      "replay_plan": {
+        "candidate": "Wait for the immutable candidate built from the W7-passed source; use its exact path and hash for all four cases. Production81 pilot is historical only.",
+        "cases": ["cpu", "rtx3070", "gtx1080", "mixed"],
+        "player_targets": [50, 150, 300],
+        "walking_percent": 20,
+        "expected_server_observed_movers": [10, 30, 60],
+        "fixed_normal_ai_mobs": [500, 1500, 3000],
+        "fresh_world_per_case": true,
+        "walk_and_mob_phase_seconds": 90,
+        "settle_seconds": 45,
+        "natural_spawn_seconds": 90,
+        "redstone_circuits": 300,
+        "redstone_seconds": 90,
+        "synthetic_travel_seconds_at_20tps": 20,
+        "recovery_seconds": 45,
+        "measured_phase_seconds_per_case": 1145,
+        "minimum_measured_seconds_all_four": 4580,
+        "heap_gib": {"initial": 4, "maximum": 16},
+        "view_distance": 6,
+        "simulation_distance": 4,
+        "seed": 1196459378,
+        "port": 25620,
+        "simulation_mode": "normal-world-ticks",
+        "freeze_simulation": false,
+        "worldgen_mode": "verified-exact (CPU terrain disabled by runner)",
+        "plugin_path": "C:\\GPur-validation-20261009\\validation\\movement-plugin-current-source-20261010\\GPurBench.jar",
+        "plugin_sha256": "99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e",
+        "output_root": "C:\\GPur-validation-20261009\\validation\\movement-full-replay-w7-current-plugin-20261011",
+        "runner_note": "Use explicit --plugin, omit --pilot and --force, and retain fresh run directories; defaults retain historic 90-second phases, 45-second settles, 20-second travel and 45-second recovery. No shortened full replay."
+      },
+      "evidence": "A CPU-only 10-player pilot completed on immutable production81 JAR SHA-256 175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a, using current GPurBench source artifact SHA-256 99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e. Server-observed PlayerMoveEvent telemetry passed for 2/2 movers in both the 10-player walking phase and 100-fixed-mob phase. Portable proof: C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\movement-pilot-proof.json SHA-256 8f98eb9b7b9d0047ee5b0faae47d442c51b6af7d9d8801e77fd0367414c8127a. It is a pilot only: no 50/150/300 targets, full 500/1500/3000 AI ladder, natural-spawn phase, redstone, synthetic travel or recovery; do not treat it as the full replay or as validation of a later W7 candidate."
     },
     {
       "id": "1.0.0-all-walking-diagnostic",
@@ -156,28 +211,32 @@
     "archived_1_0_0_artifact": "C:\\GPur-validation-20261007\\artifacts\\result-gate-bfe87ccaf419065f49acc0b7cf1b24dbda93d6abe8680dc5d3073f7043e2c846.jar",
     "historical_20_percent_report": "docs/results/controlled-matrix.json",
     "historical_all_walking_report": "docs/results/all-walking-before-retry-fix.json",
-    "current_candidate_jar": "C:\\GPur-validation-20261009\\validation\\artifacts\\b693a6a90\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
-    "current_radius4_matrix": "C:\\GPur-validation-20261009\\validation\\worldgen-smoke-b693a6a90-xms4-paper-handlefix\\matrices\\20261010T133250Z-8e6ae37b\\worldgen-matrix-report.json",
-    "current_cpu_lifecycle_pilot": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-postprocessingpilot-b693a6a90\\matrices\\20261010T133957Z-761e2665\\worldgen-matrix-report.json"
+    "current_candidate_jar": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "prior_radius4_matrix_b693": "C:\\GPur-validation-20261009\\validation\\worldgen-smoke-b693a6a90-xms4-paper-handlefix\\matrices\\20261010T133250Z-8e6ae37b\\worldgen-matrix-report.json",
+    "prior_cpu_lifecycle_pilot_b693": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-postprocessingpilot-b693a6a90\\matrices\\20261010T133957Z-761e2665\\worldgen-matrix-report.json",
+  "movement_pilot_proof": "C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\movement-pilot-proof.json",
+  "request_window_worker_controls_python_tests": "C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\request-window-worker-controls-python-tests.json"
   },
   "candidate_artifact": {
-    "git_commit": "b693a6a90193fa082703e2ba56d29850110483d3",
-    "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\b693a6a90\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
-    "bytes": 92140012,
-    "sha256": "32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c",
+    "git_commit": "81cd39cad0065edf3fb1e9e9888d5dc2509d9792",
+    "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "bytes": 92174774,
+    "sha256": "175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a",
     "main_class": "io.papermc.paperclip.Main",
     "physical_test_command": ":purpur-server:test -PgpurGpuTests=true --no-daemon",
     "physical_tests": {
-      "count": 9417,
+      "count": 9424,
       "failures": 0,
       "errors": 0,
       "skipped": 23,
+      "xml_suites": 151,
+      "scope": "unfiltered physical enabled, nonduplicated",
       "result": "BUILD SUCCESSFUL"
     },
-    "physical_test_notes": "C:\\GPur-validation-20261009\\validation\\aquifer-final\\unfiltered-physical\\run-notes.txt",
-    "physical_test_notes_sha256": "f0d4249b1ca83db22bc004b8aa328707ee3663d1e03136376b699b7da06cedc3",
-    "paperclip_build_log": "C:\\GPur-validation-20261009\\validation\\artifacts\\b693a6a90\\paperclip-build.log",
-    "paperclip_build_log_sha256": "4132cda6fe06924f5a6468b9952132ad849a3b6b2019caf70b10073aa3ba06be"
+    "physical_test_notes": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\artifact-receipt.json",
+    "physical_test_notes_sha256": "7624297902e5e03c23d557a660f281ba5d21e0b1ed39ccabb52aafffe3433d6a",
+    "paperclip_build_log": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\paperclip-build.log",
+    "paperclip_build_log_sha256": "11d4094052b353dc3a43c8e14b4be15e14c55209d0cf6f9435b2107bc24cecb6"
   },
   "validation_runs": [
     {
@@ -324,6 +383,49 @@
       "postprocessing_gate": "81/81 chunks satisfied isLightCorrect, persisted status at least LIGHT, moonrise$isPostProcessingDone and two ready polls five ticks apart while ticketed",
       "diagnosis": "Entity diffs are generated chest minecarts with stable UUIDs but changed tick state/position; other_nbt diffs are fluid_ticks. Natural ticking after reload also changes leaf distance and light. No fields were normalized.",
       "cpu_repeatability_control": "not_run because the initial CPU roundtrip failed; do not use this as a CPU reference"
+    },
+    {
+      "id": "production81-frozen-cpu-repeatability-control",
+      "status": "failed",
+      "candidate_jar_sha256": "175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a",
+      "cases": ["cpu"],
+      "frozen": true,
+      "first_matrix_report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-pilot-81cd39-reloadfix\\matrices\\20261010T140807Z-632beb00\\worldgen-matrix-report.json",
+      "first_matrix_report_sha256": "b948d80d22b76f9fb7a8e799ab783f398967e8f0d5835a5dd704c62d6a5cea52",
+      "second_matrix_report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-repeatability-81cd39\\matrices\\20261010T140950Z-9720340f\\worldgen-matrix-report.json",
+      "second_matrix_report_sha256": "90508fcce6b1ee5ed55ae1386294a80589ebb3085defed8915a3abdfc83b4daf",
+      "cross_repeatability_report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-repeatability-81cd39.json",
+      "cross_repeatability_report_sha256": "334ab90af17422ea5b11f0ab64beded3a5d22a404efcdbf639711d5c2e780888",
+      "roundtrip_differences_each": {"all_10_semantic_categories": 0},
+      "cross_repeatability_differences": {"block_positions": 1784},
+      "inputs_match": true,
+      "diagnosis": "The two fresh rounds self-pass but differ across CPU generation. Source review identifies non-world-seed entity UUID generation (Entity uses Mth.createInsecureUUID(this.random); MineshaftPieces creates chest minecarts), which remains preserved and is tracked separately. The 1,784 differing block positions remain unexplained and independent of the known UUID source. No semantic NBT categories were excluded or normalized; no GPU worldgen run while this reference gate is unresolved."
+    },
+    {
+      "id": "movement-current-plugin-10-player-cpu-pilot",
+      "status": "pilot_pass; full_replay_not_run",
+      "candidate_jar_sha256": "175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a",
+      "plugin_sha256": "99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e",
+      "actual_player_target": 10,
+      "metadata_player_targets_anomaly": "result/run metadata lists default full targets [50,150,300], but this pilot actually ran at target 10 as shown by plugin validation/max players; report target 10 and do not infer full-target coverage",
+      "movement_validation_pass": true,
+      "server_exit_code": 0,
+      "phases": {
+        "players-10-walk": {"expected_movers": 2, "observed_distinct_uuids": 2, "nonzero_displacement_uuids": 2},
+        "players-10-mobs-100": {"expected_movers": 2, "observed_distinct_uuids": 2, "nonzero_displacement_uuids": 2}
+      },
+      "portable_proof": "C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\movement-pilot-proof.json",
+      "portable_proof_sha256": "8f98eb9b7b9d0047ee5b0faae47d442c51b6af7d9d8801e77fd0367414c8127a",
+      "raw_evidence": {
+        "run_json_sha256": "ed95ccd656013106d6970b082b72013df035fe0172d4e11579d6e52bd60ce713",
+        "result_json_sha256": "303475470f41aef45ed68d2634e715b44b0a25dc367539a39deb07cf98f1ebb2",
+        "movement_validation_sha256": "bc56b14f7e192ce61453f658c02d530615bb7d44bf9cd987526e7ae2425a9796",
+        "movement_telemetry_sha256": "70ec41eac42e1d8cae8dc6e3626c2821bbd2efb20611ef10489897c2ffbd503e",
+        "summary_sha256": "c527d8eb4e32d9e3c8b0c25d8cc1f0426c35294203d7f6ec6dc82ac591f33adb",
+        "server_log_sha256": "37a6e3a328192db7a0164e3e4e42538af1b78d53abe6953c3655a075cf18b104"
+      },
+      "full_replay_pass": null,
+      "full_replay_status": "not_run; this pilot omits 50/150/300 targets, the full 500/1500/3000 mob ladder, natural spawn, redstone, synthetic travel and recovery; future full replay must use the new immutable W7 candidate and same hash across all four hardware cases"
     }
   ]
 }

@@ -23,6 +23,8 @@ def invoke_case(args, output: Path, case: str) -> dict:
                "--jdk", str(args.jdk), "--port", str(args.port), "--seed", str(args.seed),
                "--center-x", str(args.center_x), "--center-z", str(args.center_z),
                "--radius", str(args.radius), "--initial-heap-gib", str(args.initial_heap_gib),
+               "--request-window", str(args.request_window_size),
+               "--worker-threads", str(args.worker_threads),
                "--startup-timeout", str(args.startup_timeout),
                "--phase-timeout", str(args.phase_timeout)]
     if args.freeze_simulation:
@@ -82,6 +84,12 @@ def validate_strict_reference(path: Path, jar_sha256: str, cases: list[str], cor
         if (not isinstance(properties, list)
                 or ((expected_freeze_property in properties) is not runtime["freeze_simulation"])):
             raise ValueError(f"strict reference case {case} freeze JVM property does not match the matrix runtime")
+        expected_window_properties = ([] if runtime["request_window_size"] == 64 else
+                                      [f"-Dgpur.worldgen.request-window={runtime['request_window_size']}"])
+        actual_window_properties = [value for value in properties
+                                    if value.startswith("-Dgpur.worldgen.request-window=")]
+        if actual_window_properties != expected_window_properties:
+            raise ValueError(f"strict reference case {case} request-window JVM property does not match the matrix runtime")
         if (row.get("pass") is not True or row.get("exit_code") != 0 or row.get("jar_sha256") != jar_sha256
                 or row.get("case") != case or row.get("seed") != corpus["seed"]
                 or row.get("center_chunk") != corpus["center_chunk"]
@@ -89,6 +97,7 @@ def validate_strict_reference(path: Path, jar_sha256: str, cases: list[str], cor
                 or row.get("require_structure_starts") != corpus["require_structure_starts"]
                 or row.get("worker_threads") != runtime["worker_threads"]
                 or row.get("io_threads") != runtime["io_threads"]
+                or row.get("request_window_size") != runtime["request_window_size"]
                 or row.get("jdk_home") != runtime["jdk_home"]
                 or row.get("java_sha256") != runtime["java_sha256"]):
             raise ValueError(f"strict reference case {case} did not pass on the same candidate JAR")
@@ -161,6 +170,10 @@ def main() -> int:
                         help="initial Java heap in GiB (1..16); maximum remains fixed at 16 GiB")
     parser.add_argument("--freeze-simulation", action="store_true",
                         help="freeze world/entity/block/fluid simulation during saved-world parity validation")
+    parser.add_argument("--request-window", dest="request_window_size", type=int, default=64,
+                        help="maximum concurrent chunk requests in the validation probe (1..64; default 64)")
+    parser.add_argument("--worker-threads", type=int, default=4,
+                        help="Paper chunk-system worker threads (1..64; default 4)")
     parser.add_argument("--port", type=int, default=25620)
     parser.add_argument("--seed", type=int, default=1196459378)
     parser.add_argument("--center-x", type=int, default=128)
@@ -188,6 +201,10 @@ def main() -> int:
             raise ValueError("--mode verified-exact requires --strict-report from a passing strict matrix")
         if args.mode == "strict" and args.strict_report is not None:
             raise ValueError("--strict-report is only valid with --mode verified-exact")
+        if not 1 <= args.request_window_size <= 64:
+            raise ValueError("request window size must be in 1..64")
+        if not 1 <= args.worker_threads <= 64:
+            raise ValueError("worker threads must be in 1..64")
         if args.require_structures is None:
             args.require_structures = args.radius >= 32
         corpus = {"seed": args.seed, "center_chunk": [args.center_x, args.center_z],
@@ -196,7 +213,8 @@ def main() -> int:
         jar_sha256 = file_sha256(args.jar.resolve())
         java = (args.jdk.resolve() / "bin" / ("java.exe" if sys.platform == "win32" else "java"))
         runtime = {"jdk_home": str(args.jdk.resolve()), "java_sha256": file_sha256(java),
-                   "worker_threads": 4, "io_threads": 2, "heap_gib": 16,
+                   "worker_threads": args.worker_threads, "io_threads": 2,
+                   "request_window_size": args.request_window_size, "heap_gib": 16,
                    "initial_heap_gib": args.initial_heap_gib,
                    "freeze_simulation": args.freeze_simulation,
                    "jvm_options": worldgen_jvm_options(args.initial_heap_gib)}

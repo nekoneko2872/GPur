@@ -3,11 +3,17 @@
 import argparse
 import subprocess
 import sys
+import json
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
+import run_case
 from run_case import (build_java_command, extract_status, parse_initial_heap_gib,
-                      validate_worldgen_consumption, worldgen_jvm_options)
+                      validate_simulation_status, validate_worldgen_consumption, worldgen_jvm_options,
+                      write_case_files)
 
 
 class StatusParsingTests(unittest.TestCase):
@@ -46,6 +52,65 @@ class StatusParsingTests(unittest.TestCase):
                               if arg.startswith("-Dgpur.worldgen.parity-dump="))
         self.assertEqual(diagnostic[property_index], f"-Dgpur.worldgen.parity-dump={dump_dir.resolve()}")
         self.assertLess(property_index, diagnostic.index("-jar"))
+
+    def test_request_window_property_is_opt_in_and_range_checked(self):
+        java = Path("C:/jdk/bin/java.exe")
+        jar = Path("C:/validation/candidate.jar")
+        ordinary = build_java_command(java, jar)
+        self.assertFalse(any(arg.startswith("-Dgpur.worldgen.request-window=") for arg in ordinary))
+
+        diagnostic = build_java_command(java, jar, request_window_size=1)
+        index = diagnostic.index("-Dgpur.worldgen.request-window=1")
+        self.assertLess(index, diagnostic.index("-jar"))
+        for value in (0, 65):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "request window size must be in 1..64"):
+                build_java_command(java, jar, request_window_size=value)
+
+    def test_request_window_readback_must_match_and_be_present(self):
+        validate_simulation_status({"freeze_simulation_requested": False, "simulation_frozen": False,
+                                    "request_window_size": 1}, False, "diagnostic", 1)
+        for report in (
+            {"freeze_simulation_requested": False, "simulation_frozen": False, "request_window_size": 64},
+            {"freeze_simulation_requested": False, "simulation_frozen": False},
+        ):
+            with self.subTest(report=report), self.assertRaisesRegex(RuntimeError, "request-window readback"):
+                validate_simulation_status(report, False, "diagnostic", 1)
+
+    def test_invalid_diagnostic_limits_fail_before_java_starts(self):
+        for option, value in (("--request-window", "0"), ("--request-window", "65"),
+                              ("--worker-threads", "0"), ("--worker-threads", "65")):
+            with self.subTest(option=option, value=value), patch.object(
+                    sys, "argv", ["run_case.py", "--case", "cpu", option, value]), \
+                    patch.object(run_case.subprocess, "Popen") as popen:
+                self.assertEqual(run_case.main(), 1)
+                popen.assert_not_called()
+
+    def test_one_worker_and_one_request_are_written_to_config_and_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs = root / "inputs"
+            inputs.mkdir()
+            for filename in ("eula.txt", "mojang.jar", "server.jar", "probe.jar"):
+                (inputs / filename).write_bytes(b"fixture")
+            java = root / "jdk" / "bin" / "java.exe"
+            java.parent.mkdir(parents=True)
+            java.write_bytes(b"java-fixture")
+            directory = root / "run"
+            directory.mkdir()
+            args = SimpleNamespace(
+                eula=inputs / "eula.txt", mojang=inputs / "mojang.jar", jar=inputs / "server.jar",
+                probe=inputs / "probe.jar", worker_threads=1, port=25620, seed=42,
+                center_x=128, center_z=128, radius=4, initial_heap_gib=4, freeze_simulation=False,
+                request_window_size=1, jdk=java.parents[1], mode="strict", parity_dump_dir=None,
+            )
+            metadata = write_case_files(args, directory, "cpu", "cpu", directory / "artifacts/GPurServer.jar",
+                                        directory / "artifacts/GPurWorldgenProbe.jar")
+            paper_config = (directory / "config" / "paper-global.yml").read_text(encoding="utf-8")
+            self.assertIn("worker-threads: 1", paper_config)
+            self.assertEqual(metadata["worker_threads"], 1)
+            self.assertEqual(metadata["request_window_size"], 1)
+            self.assertEqual(metadata["jvm_system_properties"], ["-Dgpur.worldgen.request-window=1"])
+            self.assertEqual(json.loads((directory / "run.json").read_text(encoding="utf-8")), metadata)
 
     def test_gpu_use_and_strict_parity_metrics_are_extracted_per_device(self):
         status = extract_status([

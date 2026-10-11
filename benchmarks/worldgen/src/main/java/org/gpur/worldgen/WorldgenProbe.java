@@ -40,7 +40,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, Listener {
     private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String MARKER = ".gpurbench-worldgen";
-    private static final int REQUEST_WINDOW = 64;
+    private static final int DEFAULT_REQUEST_WINDOW = 64;
+    private static final int MAX_REQUEST_WINDOW = 64;
+    private static final String REQUEST_WINDOW_PROPERTY = "gpur.worldgen.request-window";
     private static final int LIGHT_SCAN_WINDOW = 64;
     private static final int LIGHT_POLL_TICKS = 5;
     private static final long LIGHT_TIMEOUT_NANOS = 120_000_000_000L;
@@ -48,6 +50,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
     private Run active;
     private TickMetrics tickMetrics;
     private long runSequence;
+    private int requestWindowSize = DEFAULT_REQUEST_WINDOW;
     private boolean freezeSimulationRequested;
     private boolean previousSimulationFrozen;
     private boolean simulationFreezeApplied;
@@ -62,6 +65,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
                     + cwd + " worldContainer=" + container);
             }
             if (getCommand("gpurbench") == null) throw new IllegalStateException("gpurbench command is missing");
+            this.requestWindowSize = configuredRequestWindow();
             this.freezeSimulationRequested = Boolean.getBoolean(FREEZE_SIMULATION_PROPERTY);
             var tickManager = Bukkit.getServer().getServerTickManager();
             this.previousSimulationFrozen = tickManager.isFrozen();
@@ -77,6 +81,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             getCommand("gpurbench").setExecutor(this);
             Bukkit.getPluginManager().registerEvents(this, this);
             getLogger().info("GPURWGEN_READY cwd=" + cwd + " container=" + container
+                + " request_window=" + this.requestWindowSize
                 + " freeze_simulation_requested=" + this.freezeSimulationRequested
                 + " simulation_frozen=" + tickManager.isFrozen()
                 + " simulation_mode=" + simulationMode());
@@ -84,6 +89,22 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             getLogger().severe("GPURWGEN_INVALID " + error);
             Bukkit.getPluginManager().disablePlugin(this);
         }
+    }
+
+    private static int configuredRequestWindow() {
+        String configured = System.getProperty(REQUEST_WINDOW_PROPERTY, Integer.toString(DEFAULT_REQUEST_WINDOW));
+        final int requestWindow;
+        try {
+            requestWindow = Integer.parseInt(configured);
+        } catch (NumberFormatException error) {
+            throw new IllegalArgumentException(REQUEST_WINDOW_PROPERTY + " must be an integer in 1.."
+                + MAX_REQUEST_WINDOW + ": " + configured, error);
+        }
+        if (requestWindow < 1 || requestWindow > MAX_REQUEST_WINDOW) {
+            throw new IllegalArgumentException(REQUEST_WINDOW_PROPERTY + " must be in 1.."
+                + MAX_REQUEST_WINDOW + ": " + requestWindow);
+        }
+        return requestWindow;
     }
 
     private static boolean isValidationPath(Path path) {
@@ -161,6 +182,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         report.put("freeze_simulation_requested", this.freezeSimulationRequested);
         report.put("simulation_frozen", simulationFrozen());
         report.put("simulation_mode", simulationMode());
+        report.put("request_window_size", this.requestWindowSize);
         requireRequestedSimulationFreeze("status-" + stage);
         Map<String, Object> boundaries = new LinkedHashMap<>();
         boundaries.put("gpu_acceleration_enabled", configBoolean("gpuAccelerationEnabled"));
@@ -334,7 +356,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         if (Files.exists(report)) throw new IllegalStateException("report already exists; use a fresh server run directory: " + report);
         long runId = ++this.runSequence;
         Path runDirectory = output;
-        active = new Run(runId, sender, phase, label, seed, centerX, centerZ, radius,
+        active = new Run(runId, sender, phase, label, seed, centerX, centerZ, radius, this.requestWindowSize,
             checkedWorld, coordinates, report,
             runDirectory.resolve(phase + "-tick-samples.csv"),
             runDirectory.resolve(phase + "-tick-metrics.json"));
@@ -346,6 +368,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             ? coordinates.stream().filter(c -> checkedWorld.isChunkGenerated(c.x(), c.z())).count()
             : coordinates.size();
         getLogger().info("GPURWGEN_START phase=" + phase + " label=" + label + " world=" + worldName
+            + " request_window=" + active.requestWindowSize
             + " seed=" + seed + " chunks=" + coordinates.size() + " bounds="
             + (centerX - radius) + "," + (centerZ - radius) + ".." + (centerX + radius) + "," + (centerZ + radius));
         sender.sendMessage("GPURWGEN_START phase=" + phase + " label=" + label + " chunks=" + coordinates.size());
@@ -377,7 +400,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             Bukkit.getScheduler().runTaskLater(this, () -> beginLightingScan(run), 20L);
             return;
         }
-        while (run.inFlight < REQUEST_WINDOW && run.next < run.coordinates.size()) {
+        while (run.inFlight < run.requestWindowSize && run.next < run.coordinates.size()) {
             Coordinate coordinate = run.coordinates.get(run.next++);
             boolean generatedBeforeRequest = run.world.isChunkGenerated(coordinate.x(), coordinate.z());
             run.preGeneratedRequests += generatedBeforeRequest ? 1 : 0;
@@ -573,6 +596,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             result.put("bounds_chunk_inclusive", List.of(run.centerX - run.radius, run.centerZ - run.radius,
                 run.centerX + run.radius, run.centerZ + run.radius));
             result.put("request_order", "chunkX ascending; chunkZ ascending within each X");
+            result.put("request_window_size", run.requestWindowSize);
             result.put("requested_chunks", run.coordinates.size());
             result.put("completed_chunks", run.completed);
             result.put("lighting_complete", run.lightCompleted == run.coordinates.size());
@@ -657,7 +681,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         final CommandSender sender;
         final String phase, label;
         final long seed;
-        final int centerX, centerZ, radius;
+        final int centerX, centerZ, radius, requestWindowSize;
         final World world;
         final List<Coordinate> coordinates;
         final Path report;
@@ -674,7 +698,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         String startedUtc;
 
         Run(long id, CommandSender sender, String phase, String label, long seed, int centerX, int centerZ,
-            int radius, World world, List<Coordinate> coordinates, Path report,
+            int radius, int requestWindowSize, World world, List<Coordinate> coordinates, Path report,
             Path tickMetricsCsv, Path tickMetricsReport) {
             this.id = id;
             this.sender = sender;
@@ -684,6 +708,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             this.centerX = centerX;
             this.centerZ = centerZ;
             this.radius = radius;
+            this.requestWindowSize = requestWindowSize;
             this.world = world;
             this.coordinates = coordinates;
             this.report = report;
