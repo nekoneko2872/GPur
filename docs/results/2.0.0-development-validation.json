@@ -429,6 +429,63 @@
     "note": "Structure pieces execute sequentially with a shared RandomSource; sorting Children/Pieces could mask a semantic difference. Nested custom References also remain compared."
   },
   "latest_candidate": {
+    "implementation_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+    "artifact": {
+      "source_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+      "file": "gpur-server-26.2-SNAPSHOT1.1.0.jar",
+      "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+      "bytes": 92205013,
+      "sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896",
+      "main_class": "io.papermc.paperclip.Main",
+      "version": "SNAPSHOT1.1.0",
+      "build_log_sha256": "0fddaa6761154730e50873609af557fc8059c215b9cb361a39b80e3362288899",
+      "receipt_sha256": "488fb7db23ca728ac9940864b8cf35142d6f88752044dcf489d83697efffaea1"
+    },
+    "server_tests": {
+      "state": "passed",
+      "command": ":purpur-server:test -PgpurGpuTests=true --no-daemon",
+      "exit_code": 0,
+      "tests": 9435,
+      "suites": 153,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 24,
+      "duplicate_suite_names": {},
+      "console_sha256": "b10a773210401c053dc1b8917dc245806965502947c6e4bb4a3fdf5e4c1ba015",
+      "source_manifest_sha256": "93b1c53082b901b19f66f57cc4542c302eba2af2655d20f5600390fe27e13c0a",
+      "source_unchanged_during_run": true,
+      "xml_sha256_manifest_file": "C:\\GPur-validation-20261009\\validation\\w7-validation-20261011\\unfiltered-gpu-enabled-attempt1\\portable-xml-sha256.json",
+      "xml_sha256_manifest_sha256": "8972df1fb980feb9d5a5a41d5afc94a1a1ce6312cd303b989e6254d7d44e0edf"
+    },
+    "density_graph_prototype": {
+      "execution": "Standalone W7 Vulkan prototype",
+      "noise_chunk_connected": false,
+      "complete_default_overworld_closure": false,
+      "validation_receipt": "1.1.0-density-graph-prototype-validation.json"
+    },
+    "runtime_validation": "pending_serial_cpu_controls_and_full_movement_replay",
+    "movement_replay": "not_run_on_this_candidate",
+    "speedup_established": false,
+    "version_bump": false
+  },
+  "historical_record_note": "Top-level artifact/test_runs, post_aquifer_fix and prior_candidate_81cd39cad preserve earlier candidates and failed experiments. latest_candidate identifies the frozen replacement; do not attribute historical tests/timings or movement pilots to it.",
+  "density_graph_gpu_prototype": {
+    "implementation_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+    "validation_receipt": "1.1.0-density-graph-prototype-validation.json",
+    "focused_tests": 145,
+    "unfiltered_tests": 9435,
+    "unfiltered_suites": 153,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 24,
+    "connected_to_noise_chunk": false,
+    "complete_overworld_closure": false,
+    "speedup_established": false,
+    "version_bump": false,
+    "artifact_state": "frozen",
+    "artifact_sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896"
+  },
+  "prior_candidate_81cd39cad": {
     "implementation_commit": "81cd39cad0065edf3fb1e9e9888d5dc2509d9792",
     "artifact": {
       "source_commit": "81cd39cad0065edf3fb1e9e9888d5dc2509d9792",
@@ -478,8 +535,8 @@
       "failures": 0,
       "receipt_sha256": "7f37b0ea46a14a05037c8a9023ed8a34a6a905760bc5e984b92b5a44b24fdbf3"
     },
-    "runtime_validation": "cpu_restart_passed_cross_world_repeatability_failed_diagnosis_pending",
-    "movement_replay": "not_run",
+    "runtime_validation": "cpu_restart_passed_cross_world_control_failed_matching_inputs",
+    "movement_replay": "ten_player_cpu_pilot_passed_full_replay_pending",
     "speedup_established": false,
     "version_bump": false,
     "probe_sha256": "f6ec34fed74b4c14d55c8db3e37958358d8ea91db48442ce445a66fed29221a8",
@@ -523,10 +580,55 @@
           "section_metadata": 0,
           "other_nbt": 11039
         },
-        "diagnosis": "Input/seed and feature-order inspection pending; do not attribute CPU-versus-CPU differences to GPU. No semantic fields suppressed."
+        "diagnosis": "Both CPU worlds have identical candidate/probe, seed 1196459378 in saved world_gen_settings.dat and runner/probe metadata, configurations/cache hashes, and 1754 persisted chunk coordinates and status counts. 1784 block positions differ (158 property-only; 1297 border / 487 interior), including trees, flowers, decorative stone and ore. Evidence does not yet isolate scheduler/order-sensitive feature writes from another path issue; preserve the failure and do not attribute it to GPU.",
+        "changed_block_positions": 1784,
+        "matching_input_and_coverage_check": true,
+        "all_persisted_chunks_per_run": 1754,
+        "border_changed_positions": 1297,
+        "interior_changed_positions": 487
       }
     ],
-    "four_case_frozen_gpu_matrix": "not_run_cpu_repeatability_gate_failed"
-  },
-  "historical_record_note": "Top-level artifact/test_runs and post_aquifer_fix preserve earlier candidates and failed experiments. latest_candidate identifies the currently frozen replacement; do not attribute historical tests/timings to it."
+    "four_case_frozen_gpu_matrix": "not_run_cpu_repeatability_gate_failed",
+    "movement_pilot": {
+      "id": "20261010-142548-170900-cpu",
+      "case": "cpu",
+      "candidate_jar_sha256": "175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a",
+      "plugin_sha256": "99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e",
+      "result_sha256": "303475470f41aef45ed68d2634e715b44b0a25dc367539a39deb07cf98f1ebb2",
+      "movement_validation_sha256": "bc56b14f7e192ce61453f658c02d530615bb7d44bf9cd987526e7ae2425a9796",
+      "actual_players": 10,
+      "actual_mobs": 100,
+      "configured_walking_percent": 20,
+      "simulation_mode": "normal-world-ticks",
+      "completed": true,
+      "server_exit": 0,
+      "movement_validation_pass": true,
+      "phases": [
+        {
+          "phase": "players-10-walk",
+          "players_at_start": 10,
+          "players_at_end": 10,
+          "expected_distinct_movers": 2,
+          "observed_distinct_movers": 2,
+          "observed_mover_names": [
+            "GPurBot0004",
+            "GPurBot0009"
+          ]
+        },
+        {
+          "phase": "players-10-mobs-100",
+          "players_at_start": 10,
+          "players_at_end": 10,
+          "expected_distinct_movers": 2,
+          "observed_distinct_movers": 2,
+          "observed_mover_names": [
+            "GPurBot0004",
+            "GPurBot0009"
+          ]
+        }
+      ],
+      "full_1_0_0_replay": false,
+      "metadata_limit": "result.json player_targets contains configured 50/150/300 defaults, not observed pilot counts; the recorded phases exercised only 10 players."
+    }
+  }
 }

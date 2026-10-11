@@ -1,0 +1,196 @@
+{
+  "schema": 1,
+  "release_version": "1.1.0",
+  "proposed_version": "2.0.0",
+  "version_bump": false,
+  "state": "physical_parity_and_unfiltered_passed_candidate_frozen_runtime_pending",
+  "validation_model": "gpt-6-luna",
+  "reasoning_effort": "xhigh",
+  "base_commit": "c1e1a342fedecc6eca6eb556fe91d192b77d1d0c",
+  "implementation_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+  "artifact": {
+    "source_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+    "file": "gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "bytes": 92205013,
+    "sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896",
+    "main_class": "io.papermc.paperclip.Main",
+    "version": "SNAPSHOT1.1.0",
+    "build_log_sha256": "0fddaa6761154730e50873609af557fc8059c215b9cb361a39b80e3362288899",
+    "receipt_sha256": "488fb7db23ca728ac9940864b8cf35142d6f88752044dcf489d83697efffaea1"
+  },
+  "execution_scope": "Standalone experimental W7 density interpreter; not connected to NoiseChunk or a live worldgen result consumer.",
+  "wire": {
+    "workload": 7,
+    "version": 1,
+    "header_words": 24,
+    "node_words": 16,
+    "sample_xyz_words": 3,
+    "output_double_words": 2,
+    "max_nodes": 8192,
+    "max_edges": 32768,
+    "max_depth": 256,
+    "max_samples": 65536,
+    "max_weighted_batch_work": 8388608,
+    "max_validation_work": 8388608,
+    "max_input_words": 4194304
+  },
+  "focused": {
+    "tests": 145,
+    "suites": 38,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "exit_code": 0,
+    "command": "./gradlew.bat :purpur-server:test --tests org.gpur.GPurRuntimeTestSuite -PgpurGpuTests=true --no-daemon",
+    "console_sha256": "9fbad6b70476dcb96ba9a098820590900b5227af631f09f46d2b437f432a738b",
+    "source_manifest_sha256": "9b271deb3dc0ee1db75db5a7cac4c31396731765dc0eb688d7f8ed3c2cfbebc9"
+  },
+  "unfiltered": {
+    "state": "passed",
+    "command": ":purpur-server:test -PgpurGpuTests=true --no-daemon",
+    "exit_code": 0,
+    "tests": 9435,
+    "suites": 153,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 24,
+    "duplicate_suite_names": {},
+    "console_sha256": "b10a773210401c053dc1b8917dc245806965502947c6e4bb4a3fdf5e4c1ba015",
+    "source_manifest_sha256": "93b1c53082b901b19f66f57cc4542c302eba2af2655d20f5600390fe27e13c0a",
+    "source_unchanged_during_run": true,
+    "xml_sha256_manifest_file": "C:\\GPur-validation-20261009\\validation\\w7-validation-20261011\\unfiltered-gpu-enabled-attempt1\\portable-xml-sha256.json",
+    "xml_sha256_manifest_sha256": "8972df1fb980feb9d5a5a41d5afc94a1a1ce6312cd303b989e6254d7d44e0edf"
+  },
+  "sources": [
+    {
+      "path": "gpur-server/src/main/java/org/gpur/compute/ExactCompute.java",
+      "sha256": "58b9a786c9520dfe04a3db512555a450c27a0881853da9d92826ccca60cb1b2a"
+    },
+    {
+      "path": "gpur-server/src/main/java/org/gpur/compute/VulkanDevice.java",
+      "sha256": "4832db1ffa2a782a90c9bf860cf3095b06d9cd858740cb0cdd2033975d8aa873"
+    },
+    {
+      "path": "gpur-server/src/main/java/org/gpur/compute/VulkanShaderSources.java",
+      "sha256": "123c70631af8cdfa0ffffbfc54dcfe37b11d27c45b4d238e53f120c0debc4e3d"
+    },
+    {
+      "path": "gpur-server/src/main/java/org/gpur/terrain/VanillaDensityGraph.java",
+      "sha256": "a180b489647f389dbad66672b5af38d59619d2443b536d91f8c2de2d0dfd0836"
+    },
+    {
+      "path": "gpur-server/src/main/java/org/gpur/terrain/VanillaDensityGraphBatch.java",
+      "sha256": "1af86ba456caf40861c40c261261f12bda8d8c17d9ce170d7780f6958e095f9d"
+    },
+    {
+      "path": "gpur-server/src/main/resources/shaders/gpur/vanilla-density-graph.comp",
+      "sha256": "aa47423c620766080d800d991482d6a6cf26e565e8a2926d1befcb41b44e85da"
+    },
+    {
+      "path": "gpur-server/src/test/java/org/gpur/compute/VanillaWorldgenKernelHardwareTest.java",
+      "sha256": "b491addaa56b8c622a8def4654b700eaf8f2e4d3de26bb16f22b293c2d87489f"
+    },
+    {
+      "path": "gpur-server/src/test/java/org/gpur/terrain/VanillaDensityGraphBatchTest.java",
+      "sha256": "af0bf9178dca23b9c20cfba443362e412f0293105de4d093b62080ec631157f4"
+    },
+    {
+      "path": "gpur-server/src/test/java/org/gpur/terrain/VanillaDensitySliceCacheAuditTest.java",
+      "sha256": "c4411ae49ded3512ba5b950bee322706c2e61766e2643a431ef8aa2ce5e92d9c"
+    }
+  ],
+  "physical_checks": {
+    "devices": [
+      {
+        "name": "GTX 1080",
+        "uuid": "eefb282294d5f89200f4c2f5f582b223"
+      },
+      {
+        "name": "RTX 3070",
+        "uuid": "543d97381f7f3348a4b0b255385e36f0"
+      }
+    ],
+    "w7_cases": [
+      {
+        "name": "synthetic-density-graph-v1-operators",
+        "samples": 15,
+        "input_bytes": 19064,
+        "output_bytes": 120
+      },
+      {
+        "name": "density-gradient-boundary-fp64",
+        "samples": 9,
+        "input_bytes": 536,
+        "output_bytes": 72
+      }
+    ],
+    "buffer_modes": [
+      "direct",
+      "staging"
+    ],
+    "raw_bit_mismatches": 0,
+    "oracle": "Actual initialized vanilla DensityFunction.compute values, separate from the W7 wire interpreter.",
+    "concurrency_scope": "W5/W6/W7 workload mixing on each physical device; devices are iterated sequentially. This is not simultaneous mixed-GPU server validation.",
+    "combined_native_jobs_per_device": 25,
+    "combined_native_jobs_scope": "W5, W6 and W7 together, excluding separate direct/staging checks.",
+    "mixed_workload_concurrency_test": "org.gpur.compute.VanillaWorldgenKernelHardwareTest#everyPhysicalUuidPassesExactNoiseAquiferAndSyntheticDensityGraphKernelsUnderMixedConcurrency",
+    "mixed_workload_concurrency_evidence": {
+      "cases": "VanillaWorldgenKernelHardwareTest.java:72 includes densityGraphCase() and densityGradientSemanticsCase() as W7 inputs",
+      "concurrent_queue": "VanillaWorldgenKernelHardwareTest.java:159-164 queues the case list for 4 MIXED_ROUNDS on one physical device",
+      "exact_assertion": "VanillaWorldgenKernelHardwareTest.java:168 awaits each queued result and assertKernelResult checks raw output parity",
+      "scope": "same-device mixed workload queue for each enumerated device, executed sequentially per device; not simultaneous cross-device W7"
+    }
+  },
+  "cache_audit": {
+    "tests": 3,
+    "ordinary_overworld_interpolators": 8,
+    "gpu_values_used": false,
+    "corner_source": "Copied untouched CPU NoiseChunk slices, not W7 results.",
+    "positive_scope": "Copied corners with explicit CacheOnce invalidation, raw-bit cell-cache and final-density parity, block classification and fluid flags; positive and negative origins.",
+    "control_scope": "Untouched CPU fixtures agree; a deliberately unchanged CacheOnce scalar epoch retains a prior context value until invalidated.",
+    "limit": "The original attempt assumed the full ordinary fixture must fail without invalidation; it did not. The revised control tests actual stale memo behavior and makes no such universal claim."
+  },
+  "failed_attempts": [
+    {
+      "attempt": 1,
+      "stage": "main compilation",
+      "tests_executed": false,
+      "cause": "Parsed.sampleOffset missing",
+      "console_sha256": "51c42e5447d5d6cdc18539a3d81a934ca6059bec93ebc4ef4c58df26eeb46973",
+      "encoding": "Mixed/ambiguous original capture retained byte-for-byte."
+    },
+    {
+      "attempt": 2,
+      "stage": "test compilation",
+      "tests_executed": false,
+      "cause": "Missing net.minecraft.core.Holder import",
+      "console_sha256": "8d684deb5a0d45c7e6ffde582c021a05120f8e44c161b1a347b26d1a06c56bac"
+    },
+    {
+      "attempt": 3,
+      "stage": "focused tests",
+      "tests": 145,
+      "suites": 38,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 1,
+      "causes": [
+        "GLSL reserved local name half",
+        "IntervalSelect fallback child one past the final branch",
+        "Unsupported negative-control assumption about cache invalidation"
+      ],
+      "console_sha256": "ad423c51d77e182f6c2ee4b73f93b175678a8f6afe748a27a22592f98089fc16"
+    }
+  ],
+  "limits": [
+    "Nested splines and runtime wrappers remain outside W7.",
+    "Complete default Overworld root closure and graph result adoption remain unimplemented.",
+    "No CPU graph evaluation was removed from production worldgen.",
+    "No new end-to-end speedup, saved-world parity, normal SMP stability, GTX 960 or AMD claim."
+  ],
+  "speedup_established": false,
+  "noise_chunk_connected": false,
+  "complete_requested_stage_coverage": false,
+  "raw_evidence_directory": "C:\\GPur-validation-20261009\\validation\\w7-validation-20261011"
+}
