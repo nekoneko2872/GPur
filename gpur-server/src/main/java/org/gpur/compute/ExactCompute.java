@@ -49,6 +49,10 @@ public final class ExactCompute {
             VanillaAquiferBatch.validate(input);
             return;
         }
+        if (input[0] == org.gpur.terrain.VanillaDensityGraphBatch.WORKLOAD) {
+            org.gpur.terrain.VanillaDensityGraphBatch.validate(input);
+            return;
+        }
         throw new IllegalArgumentException("Invalid GPur workload dimensions");
     }
 
@@ -58,6 +62,9 @@ public final class ExactCompute {
         if (input[0] == VanillaTerrainInterpolation.WORKLOAD) return VanillaTerrainInterpolation.outputWords(input);
         if (input[0] == VanillaNoiseBatch.WORKLOAD) return VanillaNoiseBatch.outputWords(input);
         if (input[0] == VanillaAquiferBatch.WORKLOAD) return VanillaAquiferBatch.outputWords(input);
+        if (input[0] == org.gpur.terrain.VanillaDensityGraphBatch.WORKLOAD) {
+            return org.gpur.terrain.VanillaDensityGraphBatch.outputWords(input);
+        }
         return Math.multiplyExact(input[1], input[0] == 1 ? 2 : 1);
     }
 
@@ -67,6 +74,9 @@ public final class ExactCompute {
         if (input[0] == VanillaTerrainInterpolation.WORKLOAD) return VanillaTerrainInterpolation.reference(input);
         if (input[0] == VanillaNoiseBatch.WORKLOAD) return VanillaNoiseBatch.reference(input);
         if (input[0] == VanillaAquiferBatch.WORKLOAD) return VanillaAquiferBatch.reference(input);
+        if (input[0] == org.gpur.terrain.VanillaDensityGraphBatch.WORKLOAD) {
+            return org.gpur.terrain.VanillaDensityGraphBatch.reference(input);
+        }
         if (input.length < 2 || input[1] < 0) throw new IllegalArgumentException("Invalid compute header");
         int count = input[1];
         if (input[0] == 1) {

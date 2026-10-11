@@ -80,10 +80,10 @@ public final class VanillaDensityGraph {
     }
 
     public static final class Snapshot {
-        private final List<Instruction> instructions;
-        private final List<NoiseProfile> profiles;
-        private final int root;
-        private final int edgeCount;
+        final List<Instruction> instructions;
+        final List<NoiseProfile> profiles;
+        final int root;
+        final int edgeCount;
 
         private Snapshot(final List<Instruction> instructions, final List<NoiseProfile> profiles, final int root, final int edgeCount) {
             this.instructions = List.copyOf(instructions);
@@ -211,31 +211,34 @@ public final class VanillaDensityGraph {
         }
     }
 
-    private enum BinaryKind { ADD, MUL, MIN, MAX }
-    private enum ShiftKind { SHIFT, SHIFT_A, SHIFT_B }
-    private enum MapKind { ABS, SQUARE, CUBE, HALF_NEGATIVE, QUARTER_NEGATIVE, INVERT, SQUEEZE }
+    enum BinaryKind { ADD, MUL, MIN, MAX }
+    enum ShiftKind { SHIFT, SHIFT_A, SHIFT_B }
+    enum MapKind { ABS, SQUARE, CUBE, HALF_NEGATIVE, QUARTER_NEGATIVE, INVERT, SQUEEZE }
 
-    private sealed interface Op permits Constant, YGradient, Clamp, Mapped, Binary, MulOrAdd,
+    sealed interface Op permits Constant, YGradient, Clamp, Mapped, Binary, MulOrAdd,
         RangeChoice, IntervalSelect, Noise, Shift, ShiftedNoise, Blended, Alias {}
 
-    private record Instruction(Op op, double minValue, double maxValue) {}
-    private record Constant(double value) implements Op {}
-    private record YGradient(int fromY, int toY, double fromValue, double toValue) implements Op {}
-    private record Clamp(int input, double min, double max) implements Op {}
-    private record Mapped(int input, MapKind kind) implements Op {}
-    private record Binary(BinaryKind kind, int first, int second, double secondMin, double secondMax) implements Op {}
-    private record MulOrAdd(BinaryKind kind, int input, double argument) implements Op {}
-    private record RangeChoice(int input, double minInclusive, double maxExclusive, int whenInRange, int whenOutOfRange) implements Op {}
-    private record IntervalSelect(int input, double[] thresholds, int[] branches) implements Op {
-        private IntervalSelect {
+    record Instruction(Op op, double minValue, double maxValue) {}
+    record Constant(double value) implements Op {}
+    record YGradient(int fromY, int toY, double fromValue, double toValue) implements Op {}
+    record Clamp(int input, double min, double max) implements Op {}
+    record Mapped(int input, MapKind kind) implements Op {}
+    record Binary(BinaryKind kind, int first, int second, double secondMin, double secondMax) implements Op {}
+    record MulOrAdd(BinaryKind kind, int input, double argument) implements Op {}
+    record RangeChoice(int input, double minInclusive, double maxExclusive, int whenInRange, int whenOutOfRange) implements Op {}
+    record IntervalSelect(int input, double[] thresholds, int[] branches) implements Op {
+        IntervalSelect {
             thresholds = thresholds.clone();
             branches = branches.clone();
         }
+
+        public double[] thresholds() { return thresholds.clone(); }
+        public int[] branches() { return branches.clone(); }
     }
-    private record Noise(int profile, double xzScale, double yScale) implements Op {}
-    private record Shift(int profile, ShiftKind kind) implements Op {}
-    private record ShiftedNoise(int shiftX, int shiftY, int shiftZ, int profile, double xzScale, double yScale) implements Op {}
-    private record Blended(int profile) implements Op {}
+    record Noise(int profile, double xzScale, double yScale) implements Op {}
+    record Shift(int profile, ShiftKind kind) implements Op {}
+    record ShiftedNoise(int shiftX, int shiftY, int shiftZ, int profile, double xzScale, double yScale) implements Op {}
+    record Blended(int profile) implements Op {}
 
     private enum VisitState { VISITING, COMPLETE }
 
@@ -495,7 +498,7 @@ public final class VanillaDensityGraph {
         }
     }
 
-    private record Alias(int input) implements Op {}
+    record Alias(int input) implements Op {}
 
     private static Number number(final Object value, final String label) {
         if (!(value instanceof Number number)) throw new UnsupportedGraphException("invalid " + label + " component");

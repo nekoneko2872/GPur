@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
@@ -35,13 +37,15 @@ import net.minecraft.world.level.levelgen.synth.PerlinNoise;
 import org.gpur.GPurConfig;
 import org.gpur.compute.VulkanDevice.DeviceMetrics;
 import org.gpur.compute.VulkanDevice.Info;
+import org.gpur.terrain.VanillaDensityGraph;
+import org.gpur.terrain.VanillaDensityGraphBatch;
 import org.bukkit.support.RegistryHelper;
 import org.bukkit.support.environment.VanillaFeature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.function.Executable;
 
-/** Opt-in physical Vulkan parity checks for exact vanilla noise and aquifer ranking. */
+/** Opt-in physical Vulkan parity checks for exact noise, aquifer ranking and a synthetic density graph. */
 @EnabledIfSystemProperty(named = "gpur.gpu-tests", matches = "true")
 @VanillaFeature
 final class VanillaWorldgenKernelHardwareTest {
@@ -59,11 +63,14 @@ final class VanillaWorldgenKernelHardwareTest {
     private static final Field POSITIONAL_RANDOM_FACTORY = field(Aquifer.NoiseBasedAquifer.class, "positionalRandomFactory");
 
     @Test
-    void everyPhysicalUuidPassesExactNoiseAndLiteralAquiferKernelsUnderMixedConcurrency() throws Exception {
+    void everyPhysicalUuidPassesExactNoiseAquiferAndSyntheticDensityGraphKernelsUnderMixedConcurrency() throws Exception {
         List<Info> devices = VulkanDevice.discover().stream().filter(Info::float64).toList();
         assertFalse(devices.isEmpty(), "Hardware test requires at least one Vulkan FP64 device");
         assertEquals(devices.size(), devices.stream().map(Info::uuid).distinct().count(), "Device UUIDs must be unique");
-        List<KernelCase> cases = List.of(noiseCase(), aquiferFirstTieCase(), aquiferNegativeBoundaryCase());
+        List<KernelCase> cases = List.of(
+            noiseCase(), aquiferFirstTieCase(), aquiferNegativeBoundaryCase(),
+            densityGraphCase(), densityGradientSemanticsCase()
+        );
         KernelCase fullHeight = seededAquiferCase(0, 0, 384);
         KernelCase ordinaryHeightNegativeChunk = seededAquiferCase(-32, -32, 128);
 
@@ -73,12 +80,19 @@ final class VanillaWorldgenKernelHardwareTest {
             for (Info info : devices) {
                 runAndCollect(failures, info, "literal-and-mixed-cases", () -> verifyDevice(info, cases));
                 runAndCollect(failures, info, "full-height-direct",
-                    () -> verifyAquiferBufferMode(info, fullHeight, "full-height-spawn-aquifer-direct", 0, false));
+                    () -> verifyKernelBufferMode(info, fullHeight, "full-height-spawn-aquifer-direct", 0, false));
                 runAndCollect(failures, info, "full-height-staged",
-                    () -> verifyAquiferBufferMode(info, fullHeight, "full-height-spawn-aquifer-staged", 65_536, true));
+                    () -> verifyKernelBufferMode(info, fullHeight, "full-height-spawn-aquifer-staged", 65_536, true));
                 runAndCollect(failures, info, "negative-chunk-128-staged",
-                    () -> verifyAquiferBufferMode(info, ordinaryHeightNegativeChunk,
+                    () -> verifyKernelBufferMode(info, ordinaryHeightNegativeChunk,
                         "negative-chunk-128-aquifer", 65_536, true));
+                for (KernelCase graphCase : cases) {
+                    if (graphCase.input()[0] != VanillaDensityGraphBatch.WORKLOAD) continue;
+                    runAndCollect(failures, info, graphCase.name() + "-direct",
+                        () -> verifyKernelBufferMode(info, graphCase, graphCase.name() + "-direct", 0, false));
+                    runAndCollect(failures, info, graphCase.name() + "-staged",
+                        () -> verifyKernelBufferMode(info, graphCase, graphCase.name() + "-staged", 1, true));
+                }
             }
             assertAll("Every physical UUID must pass all exact worldgen buffer modes",
                 failures.stream().map(failure -> (Executable)() -> { throw failure; }).toList());
@@ -93,7 +107,7 @@ final class VanillaWorldgenKernelHardwareTest {
         }
     }
 
-    private static void verifyAquiferBufferMode(
+    private static void verifyKernelBufferMode(
         Info info, KernelCase kernelCase, String label, int stagingThresholdBytes, boolean expectStaging
     ) throws Exception {
         GPurConfig.gpuDeviceLocalThresholdBytes = stagingThresholdBytes;
@@ -101,6 +115,9 @@ final class VanillaWorldgenKernelHardwareTest {
         GPurConfig.gpuBatchMaxJobs = 1;
         try (VulkanDevice device = VulkanDevice.create(info.uuid())) {
             assertTrue(device.available(), info.name() + " must open by physical UUID " + info.uuid());
+            if (kernelCase.input()[0] == VanillaDensityGraphBatch.WORKLOAD) {
+                device.prepareDensityGraphPipeline();
+            }
             DeviceMetrics before = device.metrics();
             int[] actual = device.computeAsync(
                 kernelCase.input(), ExactCompute.outputWords(kernelCase.input()), kernelCase.input()[1]
@@ -112,7 +129,8 @@ final class VanillaWorldgenKernelHardwareTest {
             assertEquals(1, metrics.completedJobs() - before.completedJobs(), info.name() + " " + label + " native completion");
             assertEquals(0, metrics.failedJobs() - before.failedJobs(), info.name() + " " + label + " failed jobs");
             assertTrue(device.available(), info.name() + " remains available after " + label);
-            System.out.println("GPur aquifer Vulkan " + info.name() + " uuid=" + info.uuid() + " case=" + label
+            System.out.println("GPur exact Vulkan " + info.name() + " uuid=" + info.uuid()
+                + " workload=" + kernelCase.input()[0] + " case=" + label
                 + " queries=" + kernelCase.input()[1] + " inputBytes=" + (long)kernelCase.input().length * Integer.BYTES
                 + " outputBytes=" + (long)kernelCase.expected().length * Integer.BYTES
                 + " bufferMode=" + (expectStaging ? "staging" : "direct") + " exact=true");
@@ -122,10 +140,11 @@ final class VanillaWorldgenKernelHardwareTest {
     private static void verifyDevice(Info info, List<KernelCase> cases) throws Exception {
         try (VulkanDevice device = VulkanDevice.create(info.uuid())) {
             assertTrue(device.available(), info.name() + " must open by physical UUID " + info.uuid());
+            device.prepareDensityGraphPipeline();
             DeviceMetrics before = device.metrics();
             int completedJobs = 0;
 
-            // Require a native result for each workload/profile family; this path has no CPU fallback.
+            // Require a native result for each standalone kernel/profile family; no CPU fallback is used here.
             for (KernelCase kernelCase : cases) {
                 int[] actual = device.computeAsync(
                     kernelCase.input(), ExactCompute.outputWords(kernelCase.input()), kernelCase.input()[1]
@@ -134,7 +153,7 @@ final class VanillaWorldgenKernelHardwareTest {
                 completedJobs++;
             }
 
-            // Mix workload 5 and workload 6 submissions while the Vulkan worker is active.
+            // Mix workloads 5–7 while the Vulkan worker is active.
             List<CompletableFuture<int[]>> pending = new ArrayList<>(cases.size() * MIXED_ROUNDS);
             List<KernelCase> expectedCases = new ArrayList<>(cases.size() * MIXED_ROUNDS);
             for (int round = 0; round < MIXED_ROUNDS; round++) {
@@ -158,7 +177,7 @@ final class VanillaWorldgenKernelHardwareTest {
             assertEquals(0, after.failedJobs() - before.failedJobs(), info.name() + " failed jobs");
             assertTrue(device.available(), info.name() + " remains available after exact parity");
             System.out.println("GPur worldgen Vulkan " + info.name() + " uuid=" + info.uuid()
-                + " workload5Profiles=4 workload6LiteralCases=2 nativeJobs=" + completedJobs
+                + " workload5Profiles=4 workload6LiteralCases=2 workload7SyntheticCases=2 nativeJobs=" + completedJobs
                 + " nativeCompleted=" + (after.completedJobs() - before.completedJobs())
                 + " nullResults=0 rejected=0 timedOut=0 failed=0");
         }
@@ -179,8 +198,26 @@ final class VanillaWorldgenKernelHardwareTest {
                     + input[queryOffset + 1] + "," + input[queryOffset + 2] + " rank=" + rank
                     + " expectedCenter=" + kernelCase.expected()[firstMismatch] + " actualCenter=" + actual[firstMismatch];
             }
+        } else if (kernelCase.input()[0] == VanillaDensityGraphBatch.WORKLOAD
+                && actual.length == kernelCase.expected().length) {
+            int sample = firstDensityMismatch(actual, kernelCase.expected());
+            if (sample >= 0) {
+                int sampleOffset = kernelCase.input()[16] + sample * VanillaDensityGraphBatch.SAMPLE_WORDS;
+                detail += " firstMismatchSample=" + sample + " xyz=" + kernelCase.input()[sampleOffset] + ","
+                    + kernelCase.input()[sampleOffset + 1] + "," + kernelCase.input()[sampleOffset + 2]
+                    + " expectedBits=0x" + Long.toHexString(Double.doubleToRawLongBits(
+                        VanillaDensityGraphBatch.outputValue(kernelCase.expected(), sample)))
+                    + " actualBits=0x" + Long.toHexString(Double.doubleToRawLongBits(
+                        VanillaDensityGraphBatch.outputValue(actual, sample)));
+            }
         }
         assertArrayEquals(kernelCase.expected(), actual, detail);
+    }
+
+    private static int firstDensityMismatch(int[] actual, int[] expected) {
+        int mismatch = 0;
+        while (mismatch < actual.length && actual[mismatch] == expected[mismatch]) mismatch++;
+        return mismatch == actual.length ? -1 : mismatch / VanillaDensityGraphBatch.OUTPUT_WORDS_PER_SAMPLE;
     }
 
     private static KernelCase noiseCase() {
@@ -212,6 +249,86 @@ final class VanillaWorldgenKernelHardwareTest {
         addBlended(samples, expected, blendedProfile, blended, 30_000_000, 255, -30_000_000);
 
         return new KernelCase("noise-4-profiles", VanillaNoiseBatch.input(samples), doubleWords(expected));
+    }
+
+    private static KernelCase densityGraphCase() {
+        NormalNoise normal = NormalNoise.create(RandomSource.create(0x7d1eL), -2, 0.75, 1.0, 0.375, 0.5);
+        Holder<NormalNoise.NoiseParameters> holder = Holder.direct(normal.parameters());
+        DensityFunction y = DensityFunctions.yClampedGradient(-64, 320, -0.3, 0.7);
+        DensityFunction noise = DensityFunctions.noise(holder, 0.125, 0.0625);
+        DensityFunction shifted = DensityFunctions.shiftedNoise2d(
+            DensityFunctions.shift(holder), DensityFunctions.shiftA(holder), 0.03125, holder
+        );
+        DensityFunction ranged = DensityFunctions.rangeChoice(
+            y, -0.1, 0.2, shifted,
+            DensityFunctions.add(DensityFunctions.shiftB(holder), DensityFunctions.mul(noise, DensityFunctions.constant(1.25)))
+        );
+        DensityFunction intervals = DensityFunctions.intervalSelect(
+            y, new DoubleArrayList(new double[] {-0.3, -0.1, 0.0, 0.2}),
+            List.of(noise, DensityFunctions.shift(holder), shifted, ranged, noise.quarterNegative())
+        );
+        DensityFunction graph = DensityFunctions.min(
+            DensityFunctions.max(DensityFunctions.add(intervals, y), DensityFunctions.mul(ranged, shifted)),
+            DensityFunctions.constant(0.75)
+        );
+        DensityFunction mappedInput = DensityFunctions.constant(-0.75);
+        DensityFunction mappedBranches = DensityFunctions.intervalSelect(
+            DensityFunctions.yClampedGradient(0, 6, 0.0, 6.0),
+            new DoubleArrayList(new double[] {0.5, 1.5, 2.5, 3.5, 4.5, 5.5}),
+            List.of(
+                mappedInput.abs(), mappedInput.square(), mappedInput.cube(), mappedInput.halfNegative(),
+                mappedInput.quarterNegative(), mappedInput.invert(), mappedInput.squeeze()
+            )
+        );
+        DensityFunction blended = new BlendedNoise(
+            RandomSource.create(0x991L), 1.0, 1.0, 8.55515, 4.277575, 2.0
+        ).clamp(-0.75, 0.75);
+        graph = DensityFunctions.add(DensityFunctions.add(graph, mappedBranches), blended);
+        DensityFunction initialized = initializeDensityNoise(graph, normal);
+        int[][] points = {
+            {-31, -65, 47}, {-1, -64, -1}, {0, -1, 0}, {73, 64, -911},
+            {17, 320, -19}, {13, 321, -5}, {-16, 128, 16}, {243, 311, -77},
+            {0, 0, 0}, {0, 1, 0}, {0, 2, 0}, {0, 3, 0}, {0, 4, 0}, {0, 5, 0}, {0, 6, 0}
+        };
+        List<VanillaDensityGraphBatch.Sample> samples = new ArrayList<>(points.length);
+        List<Double> expected = new ArrayList<>(points.length);
+        for (int[] point : points) {
+            samples.add(new VanillaDensityGraphBatch.Sample(point[0], point[1], point[2]));
+            expected.add(initialized.compute(context(point[0], point[1], point[2])));
+        }
+        int[] input = VanillaDensityGraphBatch.input(VanillaDensityGraph.snapshot(initialized), samples);
+        return new KernelCase("synthetic-density-graph-v1-operators", input, doubleWords(expected));
+    }
+
+    private static KernelCase densityGradientSemanticsCase() {
+        DensityFunction signedZeroGradient = DensityFunctions.yClampedGradient(0, 1, 0.0, -0.0);
+        double largeFiniteEndpoint = Double.MAX_VALUE / 4.0;
+        DensityFunction extremeGradient = DensityFunctions.yClampedGradient(
+            1, 3, largeFiniteEndpoint, -largeFiniteEndpoint
+        );
+        DensityFunction selector = DensityFunctions.yClampedGradient(0, 1, 1.0, 0.0);
+        DensityFunction graph = DensityFunctions.rangeChoice(selector, 0.5, 1.5, extremeGradient, signedZeroGradient);
+        int[][] points = {
+            {-13, -10, 7}, {-3, 0, -19}, {0, 1, 0}, {9, 2, -27},
+            {15, 3, 44}, {-32, 4, 23}, {81, 0, -7}, {-64, 2, 64}, {27, 10, -93}
+        };
+        List<VanillaDensityGraphBatch.Sample> samples = new ArrayList<>(points.length);
+        List<Double> expected = new ArrayList<>(points.length);
+        for (int[] point : points) {
+            samples.add(new VanillaDensityGraphBatch.Sample(point[0], point[1], point[2]));
+            expected.add(graph.compute(context(point[0], point[1], point[2])));
+        }
+        int[] input = VanillaDensityGraphBatch.input(VanillaDensityGraph.snapshot(graph), samples);
+        return new KernelCase("density-gradient-boundary-fp64", input, doubleWords(expected));
+    }
+
+    private static DensityFunction initializeDensityNoise(DensityFunction graph, NormalNoise normal) {
+        return graph.mapAll(new DensityFunction.Visitor() {
+            @Override public DensityFunction apply(DensityFunction input) { return input; }
+            @Override public DensityFunction.NoiseHolder visitNoise(DensityFunction.NoiseHolder input) {
+                return new DensityFunction.NoiseHolder(input.noiseData(), normal);
+            }
+        });
     }
 
     private static void addImproved(

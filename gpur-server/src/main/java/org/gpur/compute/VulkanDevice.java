@@ -1689,6 +1689,21 @@ public final class VulkanDevice implements AutoCloseable {
         }
     }
 
+    /** Startup/test prototype only: compile the standalone W7 kernel before dispatch deadlines exist. */
+    void prepareDensityGraphPipeline() {
+        this.lifecycle.writeLock().lock();
+        try {
+            synchronized (this.admissionLock) {
+                if (!this.available() || this.admittedJobs.get() != 0) {
+                    throw new IllegalStateException("Density graph pipeline must be prepared before admitting GPU jobs");
+                }
+                this.pipelineFor(org.gpur.terrain.VanillaDensityGraphBatch.WORKLOAD);
+            }
+        } finally {
+            this.lifecycle.writeLock().unlock();
+        }
+    }
+
     /** Separate pipelines keep noise register/loop costs out of distance and interpolation shaders. */
     private long pipelineFor(int workload) {
         if (workload >= 1 && workload <= 4) return this.pipeline;
@@ -1697,6 +1712,7 @@ public final class VulkanDevice implements AutoCloseable {
         String resource = switch (workload) {
             case 5 -> VulkanShaderSources.NOISE;
             case 6 -> VulkanShaderSources.AQUIFER;
+            case 7 -> VulkanShaderSources.DENSITY_GRAPH;
             default -> throw new IllegalArgumentException("Unknown compute workload: " + workload);
         };
         ByteBuffer spirv = compileShader(resource);

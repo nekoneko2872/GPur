@@ -1,0 +1,429 @@
+#version 450
+#extension GL_ARB_gpu_shader_fp64 : require
+
+layout(local_size_x = 64) in;
+layout(std430, binding = 0) readonly buffer Input { uint data[]; };
+layout(std430, binding = 1) writeonly buffer Output { uint result[]; };
+
+double readDouble(uint offset) { return packDouble2x32(uvec2(data[offset], data[offset + 1u])); }
+precise double preciseLerp(double alpha, double p0, double p1) {
+    precise double difference = p1 - p0;
+    precise double scaled = alpha * difference;
+    precise double resultValue = p0 + scaled;
+    return resultValue;
+}
+
+// GPUR_NOISE_HELPERS
+
+const uint DG_HEADER_WORDS = 24u;
+const uint DG_NODE_WORDS = 16u;
+const uint DG_STACK_FRAMES = 257u; // Root depth 0 through the validated maximum depth 256.
+
+const uint DG_CONSTANT = 0u;
+const uint DG_ALIAS = 1u;
+const uint DG_Y_GRADIENT = 2u;
+const uint DG_CLAMP = 3u;
+const uint DG_MAPPED = 4u;
+const uint DG_BINARY = 5u;
+const uint DG_MUL_OR_ADD = 6u;
+const uint DG_RANGE_CHOICE = 7u;
+const uint DG_INTERVAL_SELECT = 8u;
+const uint DG_NOISE = 9u;
+const uint DG_SHIFT = 10u;
+const uint DG_SHIFTED_NOISE = 11u;
+const uint DG_BLENDED = 12u;
+
+const uint DG_ADD = 0u;
+const uint DG_MUL = 1u;
+const uint DG_MIN = 2u;
+const uint DG_MAX = 3u;
+const uint DG_MUL_OR_ADD_MUL = 0u;
+const uint DG_MUL_OR_ADD_ADD = 1u;
+
+const uint DG_MAP_ABS = 0u;
+const uint DG_MAP_SQUARE = 1u;
+const uint DG_MAP_CUBE = 2u;
+const uint DG_MAP_HALF_NEGATIVE = 3u;
+const uint DG_MAP_QUARTER_NEGATIVE = 4u;
+const uint DG_MAP_INVERT = 5u;
+const uint DG_MAP_SQUEEZE = 6u;
+
+const uint DG_SHIFT_XYZ = 0u;
+const uint DG_SHIFT_XZ = 1u;
+const uint DG_SHIFT_ZX = 2u;
+
+struct DensityFrame {
+    uint node;
+    uint state;
+    double first;
+    double second;
+    double third;
+};
+
+int dgSignedWord(uint value) {
+    return value <= 0x7fffffffu ? int(value) : -1 - int(~value);
+}
+
+uint dgNodeWord(uint node, uint field) {
+    return data[data[11] + node * data[17] + field];
+}
+
+uint dgEdge(uint node, uint edgeIndex) {
+    return data[data[12] + dgNodeWord(node, 2u) + edgeIndex];
+}
+
+double dgNodeDouble(uint node, uint field) {
+    return readDouble(data[11] + node * data[17] + field);
+}
+
+double dgNegativeZero() {
+    return packDouble2x32(uvec2(0u, 0x80000000u));
+}
+
+double dgQuietNaN() {
+    return packDouble2x32(uvec2(0u, 0x7ff80000u));
+}
+
+precise double dgMin(double first, double second) {
+    if (isnan(first)) return first;
+    if (isnan(second)) return second;
+    if (first == 0.0 && second == 0.0) {
+        bool firstNegative = (unpackDouble2x32(first).y & 0x80000000u) != 0u;
+        bool secondNegative = (unpackDouble2x32(second).y & 0x80000000u) != 0u;
+        return firstNegative || secondNegative ? dgNegativeZero() : 0.0;
+    }
+    return first <= second ? first : second;
+}
+
+precise double dgMax(double first, double second) {
+    if (isnan(first)) return first;
+    if (isnan(second)) return second;
+    if (first == 0.0 && second == 0.0) {
+        bool firstNegative = (unpackDouble2x32(first).y & 0x80000000u) != 0u;
+        bool secondNegative = (unpackDouble2x32(second).y & 0x80000000u) != 0u;
+        return firstNegative && secondNegative ? dgNegativeZero() : 0.0;
+    }
+    return first >= second ? first : second;
+}
+
+precise double dgClamp(double value, double minimum, double maximum) {
+    if (value < minimum) return minimum;
+    return dgMin(value, maximum);
+}
+
+precise double dgMapped(uint kind, double value) {
+    if (kind == DG_MAP_ABS) return abs(value);
+    if (kind == DG_MAP_SQUARE) {
+        precise double resultValue = value * value;
+        return resultValue;
+    }
+    if (kind == DG_MAP_CUBE) {
+        precise double square = value * value;
+        precise double resultValue = square * value;
+        return resultValue;
+    }
+    if (kind == DG_MAP_HALF_NEGATIVE) return value > 0.0 ? value : value * 0.5;
+    if (kind == DG_MAP_QUARTER_NEGATIVE) return value > 0.0 ? value : value * 0.25;
+    if (kind == DG_MAP_INVERT) return 1.0 / value;
+    if (kind == DG_MAP_SQUEEZE) {
+        precise double clamped = dgClamp(value, -1.0, 1.0);
+        precise double halfValue = clamped / 2.0;
+        precise double square = clamped * clamped;
+        precise double cube = square * clamped;
+        precise double cubic = cube / 24.0;
+        precise double resultValue = halfValue - cubic;
+        return resultValue;
+    }
+    return dgQuietNaN();
+}
+
+precise double dgYGradient(int blockY, uint node) {
+    int fromY = dgSignedWord(dgNodeWord(node, 6u));
+    int toY = dgSignedWord(dgNodeWord(node, 7u));
+    precise double from = dgNodeDouble(node, 10u);
+    precise double to = dgNodeDouble(node, 12u);
+    precise double numerator = double(blockY) - double(fromY);
+    precise double denominator = double(toY) - double(fromY);
+    precise double alpha = numerator / denominator;
+    if (alpha < 0.0) return from;
+    if (alpha > 1.0) return to;
+    return preciseLerp(alpha, from, to);
+}
+
+precise double dgNoise(uint node, int blockX, int blockY, int blockZ) {
+    uint profile = data[data[14] + dgNodeWord(node, 6u)];
+    precise double xScale = dgNodeDouble(node, 10u);
+    precise double yScale = dgNodeDouble(node, 12u);
+    precise double x = double(blockX) * xScale;
+    precise double y = double(blockY) * yScale;
+    precise double z = double(blockZ) * xScale;
+    return evaluateVanillaNoise(profile, x, y, z, 0.0, 0.0);
+}
+
+precise double dgShift(uint node, int blockX, int blockY, int blockZ) {
+    uint profile = data[data[14] + dgNodeWord(node, 6u)];
+    uint kind = dgNodeWord(node, 7u);
+    precise double x;
+    precise double y;
+    precise double z;
+    if (kind == DG_SHIFT_XYZ) {
+        x = double(blockX) * 0.25;
+        y = double(blockY) * 0.25;
+        z = double(blockZ) * 0.25;
+    } else if (kind == DG_SHIFT_XZ) {
+        x = double(blockX) * 0.25;
+        y = 0.0;
+        z = double(blockZ) * 0.25;
+    } else {
+        x = double(blockZ) * 0.25;
+        y = double(blockX) * 0.25;
+        z = 0.0;
+    }
+    precise double sampled = evaluateVanillaNoise(profile, x, y, z, 0.0, 0.0);
+    precise double resultValue = sampled * 4.0;
+    return resultValue;
+}
+
+precise double dgBlended(uint node, int blockX, int blockY, int blockZ) {
+    uint profile = data[data[14] + dgNodeWord(node, 6u)];
+    return evaluateVanillaNoise(profile, double(blockX), double(blockY), double(blockZ), 0.0, 0.0);
+}
+
+precise double dgEvaluate(uint root, int blockX, int blockY, int blockZ) {
+    DensityFrame frames[DG_STACK_FRAMES];
+    uint stackPointer = 0u;
+    frames[0].node = root;
+    frames[0].state = 0u;
+    double returned = 0.0;
+
+    while (true) {
+        uint node = frames[stackPointer].node;
+        uint state = frames[stackPointer].state;
+        uint record = data[11] + node * data[17];
+        uint opcode = data[record];
+
+        if (opcode == DG_CONSTANT) {
+            returned = readDouble(record + 10u);
+            if (stackPointer == 0u) return returned;
+            --stackPointer;
+            continue;
+        }
+        if (opcode == DG_Y_GRADIENT) {
+            returned = dgYGradient(blockY, node);
+            if (stackPointer == 0u) return returned;
+            --stackPointer;
+            continue;
+        }
+        if (opcode == DG_NOISE) {
+            returned = dgNoise(node, blockX, blockY, blockZ);
+            if (stackPointer == 0u) return returned;
+            --stackPointer;
+            continue;
+        }
+        if (opcode == DG_SHIFT) {
+            returned = dgShift(node, blockX, blockY, blockZ);
+            if (stackPointer == 0u) return returned;
+            --stackPointer;
+            continue;
+        }
+        if (opcode == DG_BLENDED) {
+            returned = dgBlended(node, blockX, blockY, blockZ);
+            if (stackPointer == 0u) return returned;
+            --stackPointer;
+            continue;
+        }
+
+        if (opcode == DG_SHIFTED_NOISE) {
+            if (state == 0u) {
+                frames[stackPointer].state = 1u;
+                if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+                ++stackPointer;
+                frames[stackPointer].node = dgEdge(node, 0u);
+                frames[stackPointer].state = 0u;
+                continue;
+            }
+            if (state == 1u) {
+                frames[stackPointer].first = returned;
+                frames[stackPointer].state = 2u;
+                if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+                ++stackPointer;
+                frames[stackPointer].node = dgEdge(node, 1u);
+                frames[stackPointer].state = 0u;
+                continue;
+            }
+            if (state == 2u) {
+                frames[stackPointer].second = returned;
+                frames[stackPointer].state = 3u;
+                if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+                ++stackPointer;
+                frames[stackPointer].node = dgEdge(node, 2u);
+                frames[stackPointer].state = 0u;
+                continue;
+            }
+            if (state == 3u) {
+                frames[stackPointer].third = returned;
+                uint profile = data[data[14] + dgNodeWord(node, 6u)];
+                precise double xzScale = dgNodeDouble(node, 10u);
+                precise double yScale = dgNodeDouble(node, 12u);
+                precise double baseX = double(blockX) * xzScale;
+                precise double x = baseX + frames[stackPointer].first;
+                precise double baseY = double(blockY) * yScale;
+                precise double y = baseY + frames[stackPointer].second;
+                precise double baseZ = double(blockZ) * xzScale;
+                precise double z = baseZ + frames[stackPointer].third;
+                returned = evaluateVanillaNoise(profile, x, y, z, 0.0, 0.0);
+                if (stackPointer == 0u) return returned;
+                --stackPointer;
+                continue;
+            }
+            return dgQuietNaN();
+        }
+
+        if (state == 0u) {
+            uint child = dgEdge(node, 0u);
+            frames[stackPointer].state = 1u;
+            if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+            ++stackPointer;
+            frames[stackPointer].node = child;
+            frames[stackPointer].state = 0u;
+            continue;
+        }
+
+        uint selectedChild = 0u;
+        if (opcode == DG_ALIAS) {
+            // Aliases preserve the child value exactly, including signed zero and NaN payload.
+            if (state != 1u) return dgQuietNaN();
+        } else if (opcode == DG_CLAMP) {
+            if (state != 1u) return dgQuietNaN();
+            returned = dgClamp(returned, dgNodeDouble(node, 10u), dgNodeDouble(node, 12u));
+        } else if (opcode == DG_MAPPED) {
+            if (state != 1u) return dgQuietNaN();
+            returned = dgMapped(dgNodeWord(node, 6u), returned);
+        } else if (opcode == DG_MUL_OR_ADD) {
+            if (state != 1u) return dgQuietNaN();
+            uint kind = dgNodeWord(node, 6u);
+            precise double argument = dgNodeDouble(node, 10u);
+            if (kind == DG_MUL_OR_ADD_MUL) {
+                precise double resultValue = returned * argument;
+                returned = resultValue;
+            } else if (kind == DG_MUL_OR_ADD_ADD) {
+                precise double resultValue = returned + argument;
+                returned = resultValue;
+            } else {
+                return dgQuietNaN();
+            }
+        } else if (opcode == DG_BINARY) {
+            if (state == 1u) {
+                uint kind = dgNodeWord(node, 6u);
+                precise double first = returned;
+                if (kind == DG_MUL && first == 0.0) {
+                    returned = 0.0;
+                    if (stackPointer == 0u) return returned;
+                    --stackPointer;
+                    continue;
+                }
+                if (kind == DG_MIN && first < dgNodeDouble(node, 10u)) {
+                    returned = first;
+                    if (stackPointer == 0u) return returned;
+                    --stackPointer;
+                    continue;
+                }
+                if (kind == DG_MAX && first > dgNodeDouble(node, 12u)) {
+                    returned = first;
+                    if (stackPointer == 0u) return returned;
+                    --stackPointer;
+                    continue;
+                }
+                frames[stackPointer].first = first;
+                frames[stackPointer].state = 2u;
+                selectedChild = dgEdge(node, 1u);
+                if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+                ++stackPointer;
+                frames[stackPointer].node = selectedChild;
+                frames[stackPointer].state = 0u;
+                continue;
+            }
+            if (state == 2u) {
+                uint kind = dgNodeWord(node, 6u);
+                double first = frames[stackPointer].first;
+                double second = returned;
+                if (kind == DG_ADD) returned = first + second;
+                else if (kind == DG_MUL) returned = first * second;
+                else if (kind == DG_MIN) returned = dgMin(first, second);
+                else if (kind == DG_MAX) returned = dgMax(first, second);
+                else return dgQuietNaN();
+                if (stackPointer == 0u) return returned;
+                --stackPointer;
+                continue;
+            }
+            return dgQuietNaN();
+        } else if (opcode == DG_RANGE_CHOICE) {
+            if (state == 1u) {
+                double minimum = dgNodeDouble(node, 10u);
+                double maximum = dgNodeDouble(node, 12u);
+                uint branch = returned >= minimum && returned < maximum ? 1u : 2u;
+                frames[stackPointer].state = 2u;
+                selectedChild = dgEdge(node, branch);
+                if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+                ++stackPointer;
+                frames[stackPointer].node = selectedChild;
+                frames[stackPointer].state = 0u;
+                continue;
+            }
+            if (state == 2u) {
+                if (stackPointer == 0u) return returned;
+                --stackPointer;
+                continue;
+            }
+            return dgQuietNaN();
+        } else if (opcode == DG_INTERVAL_SELECT) {
+            if (state == 1u) {
+                uint thresholdCount = dgNodeWord(node, 3u) - 2u;
+                uint branch = thresholdCount;
+                uint thresholdBase = data[13] + dgNodeWord(node, 4u);
+                for (uint thresholdIndex = 0u; thresholdIndex < thresholdCount; ++thresholdIndex) {
+                    double threshold = readDouble(thresholdBase + thresholdIndex * 2u);
+                    if (returned < threshold) {
+                        branch = thresholdIndex;
+                        break;
+                    }
+                }
+                frames[stackPointer].state = 2u;
+                selectedChild = dgEdge(node, branch + 1u);
+                if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+                ++stackPointer;
+                frames[stackPointer].node = selectedChild;
+                frames[stackPointer].state = 0u;
+                continue;
+            }
+            if (state == 2u) {
+                if (stackPointer == 0u) return returned;
+                --stackPointer;
+                continue;
+            }
+            return dgQuietNaN();
+        } else if (opcode == DG_SHIFTED_NOISE) {
+            // Handled by its staged child-evaluation state machine above.
+            return dgQuietNaN();
+        } else {
+            return dgQuietNaN();
+        }
+
+        if (stackPointer == 0u) return returned;
+        --stackPointer;
+    }
+}
+
+void main() {
+    uint sampleIndex = gl_GlobalInvocationID.x;
+    if (data[0] != 7u || data[3] != 1u || sampleIndex >= data[1]) return;
+    uint offset = data[16] + sampleIndex * data[18];
+    int x = dgSignedWord(data[offset]);
+    int y = dgSignedWord(data[offset + 1u]);
+    int z = dgSignedWord(data[offset + 2u]);
+    precise double value = dgEvaluate(data[5], x, y, z);
+    uvec2 bits = unpackDouble2x32(value);
+    uint outputOffset = sampleIndex * data[19];
+    result[outputOffset] = bits.x;
+    result[outputOffset + 1u] = bits.y;
+}

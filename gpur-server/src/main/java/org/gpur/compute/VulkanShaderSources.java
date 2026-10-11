@@ -10,7 +10,8 @@ final class VulkanShaderSources {
     static final String LEGACY = "shaders/gpur/exact.comp";
     static final String NOISE = "shaders/gpur/vanilla-noise.comp";
     static final String AQUIFER = "shaders/gpur/vanilla-aquifer.comp";
-    static final List<String> ENTRY_POINTS = List.of(LEGACY, NOISE, AQUIFER);
+    static final String DENSITY_GRAPH = "shaders/gpur/vanilla-density-graph.comp";
+    static final List<String> ENTRY_POINTS = List.of(LEGACY, NOISE, AQUIFER, DENSITY_GRAPH);
 
     private VulkanShaderSources() {}
 
@@ -21,6 +22,8 @@ final class VulkanShaderSources {
             source = include(source, "// GPUR_NOISE_HELPERS", "shaders/gpur/vanilla-noise.glsl");
         } else if (entryPoint.equals(AQUIFER)) {
             source = include(source, "// GPUR_AQUIFER_HELPERS", "shaders/gpur/vanilla-aquifer.glsl");
+        } else if (entryPoint.equals(DENSITY_GRAPH)) {
+            source = include(source, "// GPUR_NOISE_HELPERS", "shaders/gpur/vanilla-noise.glsl");
         }
         return source;
     }
