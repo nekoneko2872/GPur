@@ -66,6 +66,27 @@ class StrictReferenceTests(unittest.TestCase):
         self.assertEqual(result["mode"], "strict")
         self.assertEqual(len(result["sha256"]), 64)
 
+    def test_corner_graph_reference_cannot_reuse_leaf_only_case_evidence(self):
+        corpus = {"seed": 42, "center_chunk": [8, 9], "radius_chunks": 4,
+                  "expected_chunks": 81, "require_structure_starts": False}
+        cases = ["cpu", "rtx3070", "gtx1080", "mixed"]
+        corner_runtime = {**self.runtime, "corner_graphs": True}
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.make_report(Path(directory))
+            report = json.loads(path.read_text(encoding="utf-8"))
+            report["runtime"] = corner_runtime
+            path.write_text(json.dumps(report), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "corner-graph boundary"):
+                validate_strict_reference(path, "candidate-hash", cases, corpus, corner_runtime)
+            for row in report["cases"].values():
+                row["corner_graphs"] = True
+            path.write_text(json.dumps(report), encoding="utf-8")
+            self.assertEqual(validate_strict_reference(path, "candidate-hash", cases, corpus, corner_runtime)["mode"], "strict")
+            report["cases"]["gtx1080"]["corner_graphs"] = False
+            path.write_text(json.dumps(report), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "corner-graph boundary"):
+                validate_strict_reference(path, "candidate-hash", cases, corpus, corner_runtime)
+
     def test_request_window_one_worker_one_reference_requires_matching_property_and_metadata(self):
         corpus = {"seed": 42, "center_chunk": [8, 9], "radius_chunks": 4,
                   "expected_chunks": 81, "require_structure_starts": False}
@@ -128,6 +149,7 @@ class StrictReferenceTests(unittest.TestCase):
         self.assertEqual(Path(command[index + 1]),
                          Path("C:/GPur-validation-20261009/validation/parity-captures/matrix-1/rtx3070"))
         self.assertIn("--freeze-simulation", command)
+        self.assertNotIn("--corner-graphs", command)
 
         args.parity_dump_dir = None
         with patch("run_matrix.subprocess.run", return_value=completed) as run:
@@ -141,6 +163,11 @@ class StrictReferenceTests(unittest.TestCase):
             invoke_case(args, Path("C:/GPur-validation-20261009/validation/matrices/matrix-1"), "cpu")
             command = run.call_args.args[0]
         self.assertNotIn("--freeze-simulation", command)
+        args.corner_graphs = True
+        with patch("run_matrix.subprocess.run", return_value=completed) as run:
+            invoke_case(args, Path("C:/GPur-validation-20261009/validation/matrices/matrix-1"), "rtx3070")
+            command = run.call_args.args[0]
+        self.assertIn("--corner-graphs", command)
 
     def test_case_jvm_command_adds_freeze_property_only_when_requested(self):
         base = build_java_command(Path("C:/jdk/bin/java.exe"), Path("C:/validation/server.jar"),

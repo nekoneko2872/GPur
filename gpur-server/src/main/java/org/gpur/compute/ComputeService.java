@@ -23,7 +23,7 @@ public final class ComputeService implements AutoCloseable {
     private final AtomicLong vanillaParityFailures = new AtomicLong();
     private final AtomicLong vanillaResultEpoch = new AtomicLong();
     private final AtomicLong vanillaSnapshotBytes = new AtomicLong();
-    private final AtomicLongArray worldgenFallbacks = new AtomicLongArray(7);
+    private final AtomicLongArray worldgenFallbacks = new AtomicLongArray(8);
     private final java.util.Set<WorldgenResult> worldgenFrames = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final java.util.Set<CompletableFuture<WorldgenResult>> pendingWorldgen = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final java.util.Set<CompletableFuture<int[]>> pendingVanilla = java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -41,6 +41,7 @@ public final class ComputeService implements AutoCloseable {
     private final boolean vanillaAsync = GPurConfig.gpuAsyncSubmit;
     private final boolean noiseEnabled = GPurConfig.vanillaNoiseGpuEnabled;
     private final boolean aquiferEnabled = GPurConfig.vanillaAquiferGpuEnabled;
+    private final boolean cornerGraphsEnabled = GPurConfig.vanillaCornerGraphsGpuEnabled;
     private final int vanillaMaxInterpolators = GPurConfig.vanillaTerrainMaxInterpolators;
     private final int vanillaMaxValues = GPurConfig.vanillaTerrainMaxSlabValues;
     private final int vanillaMinimumValues = GPurConfig.vanillaTerrainMinValues;
@@ -64,11 +65,17 @@ public final class ComputeService implements AutoCloseable {
                     VulkanDevice device = null;
                     try {
                         device = VulkanDevice.create(info.uuid());
-                        if (this.vanillaEnabled) device.prepareWorldgenPipelines(this.noiseEnabled, this.aquiferEnabled);
+                        if (this.vanillaEnabled) {
+                            device.prepareWorldgenPipelines(this.noiseEnabled, this.aquiferEnabled);
+                            if (this.cornerGraphsEnabled) device.prepareDensityGraphPipeline();
+                        }
                         selfTest(device);
                         if (this.vanillaEnabled) {
                             for (int[] corpus : ExactStartupCorpus.workloads()) check(device, corpus);
                             for (int[] corpus : WorldgenStartupCorpus.workloads(this.noiseEnabled, this.aquiferEnabled)) check(device, corpus);
+                            if (this.cornerGraphsEnabled) {
+                                for (int[] corpus : WorldgenStartupCorpus.densityGraphs()) check(device, corpus);
+                            }
                         }
                         // The former custom terrain generator is retired. Do not calibrate its kernel.
                         int terrainBatchSize = 1;
@@ -284,9 +291,15 @@ public final class ComputeService implements AutoCloseable {
     }
 
     public boolean worldgenEligible(int workload) {
-        return this.vanillaTerrainAsyncEligible() && switch (workload) {
+        return this.worldgenBoundaryEnabled(workload) && this.activeDeviceCount() > 0;
+    }
+
+    /** Immutable configuration state, independent from device health or previous accepted work. */
+    public boolean worldgenBoundaryEnabled(int workload) {
+        return this.vanillaEnabled && this.vanillaAsync && switch (workload) {
             case VanillaNoiseBatch.WORKLOAD -> this.noiseEnabled;
             case VanillaAquiferBatch.WORKLOAD -> this.aquiferEnabled;
+            case org.gpur.terrain.VanillaDensityGraphBatch.WORKLOAD -> this.cornerGraphsEnabled;
             default -> false;
         };
     }
@@ -299,12 +312,15 @@ public final class ComputeService implements AutoCloseable {
     public CompletableFuture<WorldgenResult> prepareWorldgenAsync(int[] input, Executor continuation, long ownerBytes) {
         ExactCompute.validate(input);
         int workload = input[0];
-        if (workload != VanillaNoiseBatch.WORKLOAD && workload != VanillaAquiferBatch.WORKLOAD) {
-            throw new IllegalArgumentException("Not a noise or aquifer workload");
+        if (!isWorldgenWorkload(workload)) {
+            throw new IllegalArgumentException("Not a supported vanilla worldgen workload");
         }
         java.util.Objects.requireNonNull(continuation, "continuation");
         if (ownerBytes < 0) throw new IllegalArgumentException("Negative owner byte reservation");
-        if (!this.worldgenEligible(workload) || input[1] < this.vanillaMinimumValues || input[1] > this.vanillaMaxValues) {
+        // A graph sample can evaluate thousands of nodes. Its bounded, whole-column batches
+        // must not inherit the leaf-noise minimum, which would reject ordinary 49-point columns.
+        int minimumValues = workload == org.gpur.terrain.VanillaDensityGraphBatch.WORKLOAD ? 1 : this.vanillaMinimumValues;
+        if (!this.worldgenEligible(workload) || input[1] < minimumValues || input[1] > this.vanillaMaxValues) {
             this.worldgenFallbacks.incrementAndGet(workload);
             return CompletableFuture.completedFuture(null);
         }
@@ -431,9 +447,9 @@ public final class ComputeService implements AutoCloseable {
                                       long paritySamples, long averageDispatchNanos) {}
 
     public List<WorldgenDeviceStatus> worldgenDevices() {
-        List<WorldgenDeviceStatus> status = new ArrayList<>(this.devices.size() * 2);
+        List<WorldgenDeviceStatus> status = new ArrayList<>(this.devices.size() * 3);
         for (DeviceState state : this.devices) {
-            for (int workload = 5; workload <= 6; workload++) {
+            for (int workload = 5; workload <= 7; workload++) {
                 WorldgenState metrics = state.worldgen[workload];
                 long dispatches = metrics.dispatches.get();
                 status.add(new WorldgenDeviceStatus(state.device.uuid(), state.device.name(), workload, dispatches,
@@ -445,8 +461,13 @@ public final class ComputeService implements AutoCloseable {
     }
 
     public long worldgenFallbacks(int workload) {
-        if (workload != 5 && workload != 6) throw new IllegalArgumentException("Unknown worldgen workload");
+        if (!isWorldgenWorkload(workload)) throw new IllegalArgumentException("Unknown worldgen workload");
         return this.worldgenFallbacks.get(workload);
+    }
+
+    private static boolean isWorldgenWorkload(int workload) {
+        return workload == VanillaNoiseBatch.WORKLOAD || workload == VanillaAquiferBatch.WORKLOAD
+            || workload == org.gpur.terrain.VanillaDensityGraphBatch.WORKLOAD;
     }
 
     /** Called after vanilla has sampled both density slices, before it starts the current cell slab. */
@@ -850,7 +871,7 @@ public final class ComputeService implements AutoCloseable {
         private final AtomicLong vanillaObservedSlabs = new AtomicLong();
         private final AtomicLong vanillaVerificationNanos = new AtomicLong();
         private final DeviceLoadEstimator load = new DeviceLoadEstimator();
-        private final WorldgenState[] worldgen = {null, null, null, null, null, new WorldgenState(), new WorldgenState()};
+        private final WorldgenState[] worldgen = {null, null, null, null, null, new WorldgenState(), new WorldgenState(), new WorldgenState()};
         private final VanillaVerificationPolicy verification = new VanillaVerificationPolicy(GPurConfig.vanillaTerrainMode,
             GPurConfig.gpuFullFirstBatches, GPurConfig.gpuVerificationSampleOneIn);
 

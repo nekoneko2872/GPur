@@ -13,6 +13,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
+import java.util.function.LongConsumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
@@ -34,8 +38,12 @@ import net.minecraft.world.level.levelgen.synth.NormalNoise;
 import org.bukkit.support.RegistryHelper;
 import org.bukkit.support.environment.VanillaFeature;
 import org.gpur.compute.ComputeService;
+import org.gpur.compute.VanillaAquiferBatch;
+import org.gpur.compute.VanillaNoiseBatch;
 import org.gpur.compute.VanillaTerrainInterpolation;
 import org.gpur.compute.VanillaTerrainSlab;
+import org.gpur.compute.WorldgenResult;
+import org.gpur.terrain.VanillaDensityGraphBatch;
 import org.gpur.terrain.VanillaNoiseContinuation;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +52,9 @@ import org.junit.jupiter.api.Test;
 public class NoiseBasedAsyncFillParityTest {
     private static final int FALLBACK_SLAB = 1;
     private static final Field ACTIVE_SLAB = field(NoiseChunk.class, "gpurSlab");
+    private static final Field ACTIVE_CORNER_GRAPHS = field(NoiseChunk.class, "gpurCornerGraphs");
     private static final Constructor<VanillaTerrainSlab> SLAB_CONSTRUCTOR = slabConstructor();
+    private static final Constructor<WorldgenResult> WORLDGEN_RESULT_CONSTRUCTOR = worldgenResultConstructor();
 
     @Test
     void delayedSlabsResumeOnCpuExecutorAndMatchVanillaFill() throws Exception {
@@ -104,7 +114,7 @@ public class NoiseBasedAsyncFillParityTest {
         assertEquals(1, cpuExecutor.size(), "preflight installation should be serialized on the CPU continuation executor");
         assertAllAir(asyncChunk, chunkX, chunkZ, "before the first simulated GPU completion");
         cpuExecutor.runNext();
-        assertEquals(1, pendingSlabs.size(), "only the first X slab should be submitted before a slab CPU continuation runs");
+        assertEquals(1, pendingSlabs.size(), "the all-of preflight should enqueue one serialized owner continuation");
         assertAllAir(asyncChunk, chunkX, chunkZ, "after preflight and before the first simulated GPU completion");
 
         int nextSlab = 0;
@@ -134,10 +144,223 @@ public class NoiseBasedAsyncFillParityTest {
         assertNull(ACTIVE_SLAB.get(noiseChunk), "the active slab must be cleared after fill completion");
     }
 
+    @Test
+    void generatorAdoptsExactPreparedCornerFramesAndMatchesVanilla() throws Exception {
+        WorldgenFixture fixture = worldgenFixture();
+        NoiseGeneratorSettings settings = smallOverworldSettings(fixture.overworldSettings());
+        Holder<NoiseGeneratorSettings> settingsHolder = Holder.direct(settings);
+        BiomeSource biomeSource = new FixedBiomeSource(fixture.plains());
+        NoiseBasedChunkGenerator vanillaGenerator = new NoiseBasedChunkGenerator(biomeSource, settingsHolder);
+        NoiseBasedChunkGenerator asyncGenerator = new NoiseBasedChunkGenerator(biomeSource, settingsHolder);
+        long seed = 0x1462_26L;
+        int chunkX = -11;
+        int chunkZ = 17;
+        RandomState vanillaRandomState = RandomState.create(settings, fixture.noiseLookup(), seed);
+        RandomState asyncRandomState = RandomState.create(settings, fixture.noiseLookup(), seed);
+        StructureManager structureManager = emptyStructureManager();
+        ProtoChunk vanillaChunk = protoChunk(chunkX, chunkZ, fixture);
+        ProtoChunk asyncChunk = protoChunk(chunkX, chunkZ, fixture);
+        assertSame(vanillaChunk, vanillaGenerator.fillFromNoise(Blender.empty(), vanillaRandomState, structureManager, vanillaChunk).join());
+
+        ComputeService service = mock(ComputeService.class);
+        when(service.tryAcquireVanillaContinuation()).thenReturn(true);
+        when(service.worldgenEligible(anyInt())).thenAnswer(invocation ->
+            invocation.<Integer>getArgument(0) == VanillaDensityGraphBatch.WORKLOAD
+        );
+        ManualExecutor cpuExecutor = new ManualExecutor();
+        List<PendingWorldgen> pendingGraphs = new ArrayList<>();
+        AtomicInteger closedGraphResults = new AtomicInteger();
+        AtomicLong consumedGraphValues = new AtomicLong();
+        doAnswer(invocation -> {
+            int[] input = invocation.getArgument(0);
+            assertEquals(VanillaDensityGraphBatch.WORKLOAD, input[0]);
+            assertSame(cpuExecutor, invocation.getArgument(1), "W7 must use the serialized CPU continuation executor");
+            PendingWorldgen pending = new PendingWorldgen(input, 0L, new NonCancellingFuture<>(), closedGraphResults, consumedGraphValues);
+            pendingGraphs.add(pending);
+            return pending.future();
+        }).when(service).prepareWorldgenAsync(any(int[].class), any(Executor.class));
+        configureCompletedSlabs(service);
+
+        CompletableFuture<ChunkAccess> fillFuture;
+        try (VanillaNoiseContinuation continuation = VanillaNoiseContinuation.enter(service, cpuExecutor)) {
+            fillFuture = asyncGenerator.fillFromNoise(Blender.empty(), asyncRandomState, structureManager, asyncChunk);
+            assertTrue(continuation.used(), "the standard generator should enter the asynchronous owner path");
+        }
+
+        assertFalse(fillFuture.isDone(), "the generator waits for the complete W7 root set");
+        assertTrue(pendingGraphs.size() >= 8, "W7 should submit every original corner root");
+        assertEquals(0, cpuExecutor.size(), "the single owner preflight waits for all W7 requests");
+        assertAllAir(asyncChunk, chunkX, chunkZ, "before the W7 results are ready");
+
+        completeWorldgenRequestsOnSimulatedGpuThread(pendingGraphs);
+        assertFalse(fillFuture.isDone(), "GPU completion must not run chunk mutation inline");
+        assertEquals(1, cpuExecutor.size(), "the completed aggregate must queue its CPU owner continuation");
+        assertAllAir(asyncChunk, chunkX, chunkZ, "after W7 completion and before CPU adoption");
+        cpuExecutor.runNext();
+
+        assertTrue(fillFuture.isDone());
+        assertSame(asyncChunk, fillFuture.join());
+        assertChunksEqual(vanillaChunk, asyncChunk, chunkX, chunkZ);
+        assertEquals(pendingGraphs.size(), closedGraphResults.get(), "the adopted aggregate releases every W7 result after fill");
+        assertEquals(3_400L, consumedGraphValues.get(), "complete eight-root corner frames must supply all small-height lattice values");
+        NoiseChunk noiseChunk = asyncChunk.getOrCreateNoiseChunk(ignored -> fail("the async fill should retain its NoiseChunk"));
+        assertNull(ACTIVE_CORNER_GRAPHS.get(noiseChunk), "the complete graph lease must close after interpolation");
+        assertNull(ACTIVE_SLAB.get(noiseChunk), "the interpolation slab must close after fill");
+    }
+
+    @Test
+    void cancellingGeneratorFillCancelsW5W6W7SourcesAndClosesCompletedAndLateResults() throws Exception {
+        boolean priorAquiferGpuEnabled = org.gpur.GPurConfig.vanillaAquiferGpuEnabled;
+        org.gpur.GPurConfig.vanillaAquiferGpuEnabled = true;
+        try {
+            WorldgenFixture fixture = worldgenFixture();
+            NoiseGeneratorSettings settings = smallOverworldSettings(fixture.overworldSettings());
+            NoiseBasedChunkGenerator generator = new NoiseBasedChunkGenerator(
+                new FixedBiomeSource(fixture.plains()), Holder.direct(settings)
+            );
+            int chunkX = 4;
+            int chunkZ = -9;
+            RandomState randomState = RandomState.create(settings, fixture.noiseLookup(), 0x7c_26L);
+            ProtoChunk chunk = protoChunk(chunkX, chunkZ, fixture);
+            ComputeService service = mock(ComputeService.class);
+            when(service.tryAcquireVanillaContinuation()).thenReturn(true);
+            when(service.worldgenEligible(anyInt())).thenAnswer(invocation -> {
+                int workload = invocation.getArgument(0);
+                return workload == VanillaNoiseBatch.WORKLOAD
+                    || workload == VanillaAquiferBatch.WORKLOAD
+                    || workload == VanillaDensityGraphBatch.WORKLOAD;
+            });
+            ManualExecutor cpuExecutor = new ManualExecutor();
+            List<PendingWorldgen> pendingWorldgen = new ArrayList<>();
+            AtomicInteger closedResults = new AtomicInteger();
+            AtomicLong consumedValues = new AtomicLong();
+            doAnswer(invocation -> {
+                int[] input = invocation.getArgument(0);
+                assertSame(cpuExecutor, invocation.getArgument(1));
+                assertNotEquals(VanillaNoiseBatch.WORKLOAD, input[0], "W5 must use the owner-byte-accounted overload");
+                PendingWorldgen pending = new PendingWorldgen(input, 0L, new NonCancellingFuture<>(), closedResults, consumedValues);
+                pendingWorldgen.add(pending);
+                return pending.future();
+            }).when(service).prepareWorldgenAsync(any(int[].class), any(Executor.class));
+            doAnswer(invocation -> {
+                int[] input = invocation.getArgument(0);
+                long ownerBytes = invocation.getArgument(2);
+                assertEquals(VanillaNoiseBatch.WORKLOAD, input[0], "the three-argument service call is the W5 static-noise cache");
+                assertTrue(ownerBytes > 0L, "W5 must account for its retained cache before dispatch");
+                assertSame(cpuExecutor, invocation.getArgument(1));
+                PendingWorldgen pending = new PendingWorldgen(input, ownerBytes, new NonCancellingFuture<>(), closedResults, consumedValues);
+                pendingWorldgen.add(pending);
+                return pending.future();
+            }).when(service).prepareWorldgenAsync(any(int[].class), any(Executor.class), anyLong());
+
+            CompletableFuture<ChunkAccess> fillFuture;
+            try (VanillaNoiseContinuation continuation = VanillaNoiseContinuation.enter(service, cpuExecutor)) {
+                fillFuture = generator.fillFromNoise(Blender.empty(), randomState, emptyStructureManager(), chunk);
+                assertTrue(continuation.used());
+            }
+            List<PendingWorldgen> staticNoise = pendingWorldgen.stream()
+                .filter(pending -> pending.input()[0] == VanillaNoiseBatch.WORKLOAD).toList();
+            List<PendingWorldgen> aquifer = pendingWorldgen.stream()
+                .filter(pending -> pending.input()[0] == VanillaAquiferBatch.WORKLOAD).toList();
+            List<PendingWorldgen> cornerGraphs = pendingWorldgen.stream()
+                .filter(pending -> pending.input()[0] == VanillaDensityGraphBatch.WORKLOAD).toList();
+            assertFalse(staticNoise.isEmpty(), "W5 static-noise preparation should be pending before cancellation");
+            assertEquals(1, aquifer.size(), "W6 aquifer ranking should be pending before cancellation");
+            assertTrue(cornerGraphs.size() >= 8, "W7 should prepare every corner root before cancellation");
+            assertEquals(pendingWorldgen.size(), staticNoise.size() + aquifer.size() + cornerGraphs.size());
+            assertTrue(staticNoise.stream().allMatch(pending -> pending.ownerBytes() > 0L),
+                "every W5 source must use the owner-byte-accounted service overload");
+            assertEquals(0, cpuExecutor.size(), "all three preparation stages remain held by their source futures");
+
+            completeWorldgenRequestOnSimulatedGpuThread(cornerGraphs.get(0));
+            assertTrue(cornerGraphs.get(0).future().isDone());
+            assertEquals(0, closedResults.get(), "the partial W7 aggregate retains its result until cancellation");
+            assertAllAir(chunk, chunkX, chunkZ, "before cancelling the pending generator fill");
+            BlockState[] beforeCancellation = snapshotBlocks(chunk, chunkX, chunkZ);
+            int[] heightsBeforeCancellation = snapshotHeightmaps(chunk);
+            List<List<Short>> fluidFlagsBeforeCancellation = postProcessing(chunk);
+            assertTrue(fillFuture.cancel(false), "the outer chunk-fill future should accept cancellation");
+            assertTrue(fillFuture.isCancelled());
+            assertEquals(1, closedResults.get(), "cancellation closes the completed partial W7 result");
+            assertEquals(0L, consumedValues.get(), "cancelled preparations supply no numeric values");
+            for (PendingWorldgen pending : pendingWorldgen) {
+                if (pending != cornerGraphs.get(0)) {
+                    assertTrue(pending.future().cancellationCalls() > 0,
+                        "outer cancellation must reach each held W5, W6, and W7 numeric source");
+                }
+            }
+
+            for (PendingWorldgen pending : staticNoise) completeWorldgenRequestOnSimulatedGpuThread(pending);
+            assertEquals(0, cpuExecutor.size(), "late W5 completion closes through the already-cancelled cache owner");
+            for (PendingWorldgen pending : aquifer) completeWorldgenRequestOnSimulatedGpuThread(pending);
+            assertEquals(0, cpuExecutor.size(),
+                "the cancelled all-of continuation must not enqueue an owner task when late W6 completes the preparation set");
+            for (PendingWorldgen pending : cornerGraphs) {
+                if (pending != cornerGraphs.get(0)) completeWorldgenRequestOnSimulatedGpuThread(pending);
+            }
+            assertEquals(pendingWorldgen.size(), closedResults.get(), "late numeric results close instead of being adopted");
+            assertEquals(0L, consumedValues.get(), "late results remain unconsumed after cancellation");
+            assertEquals(0, cpuExecutor.size(), "late W7 completions must not queue chunk work after cancellation");
+            assertTrue(fillFuture.isCancelled(), "draining the already-registered join cannot revive the owner future");
+            verify(service, never()).prepareVanillaSlabAsync(
+                anyInt(), anyInt(), anyInt(), any(double[][][].class), any(double[][][].class), any(Executor.class)
+            );
+            assertBlockSnapshot(chunk, chunkX, chunkZ, beforeCancellation, "after cancellation and late W5/W6/W7 completions");
+            assertArrayEquals(heightsBeforeCancellation, snapshotHeightmaps(chunk), "heightmaps must stay unchanged after cancellation");
+            assertEquals(fluidFlagsBeforeCancellation, postProcessing(chunk), "fluid post-processing flags must stay unchanged after cancellation");
+            NoiseChunk noiseChunk = chunk.getOrCreateNoiseChunk(ignored -> fail("the async fill should retain its NoiseChunk"));
+            assertNull(ACTIVE_CORNER_GRAPHS.get(noiseChunk), "cancelled graph ownership must not remain installed");
+        } finally {
+            org.gpur.GPurConfig.vanillaAquiferGpuEnabled = priorAquiferGpuEnabled;
+        }
+    }
+
     private static void completeOnSimulatedGpuThread(PendingSlab pending) throws InterruptedException {
         Thread simulatedGpu = new Thread(() -> pending.future().complete(pending.result()), "test-simulated-gpu-completion");
         simulatedGpu.start();
         simulatedGpu.join();
+    }
+
+    private static void configureCompletedSlabs(ComputeService service) throws Exception {
+        doAnswer(invocation -> {
+            int width = invocation.getArgument(0);
+            int height = invocation.getArgument(1);
+            int cellsY = invocation.getArgument(2);
+            double[][][] slice0 = invocation.getArgument(3);
+            double[][][] slice1 = invocation.getArgument(4);
+            int[] encoded = VanillaTerrainInterpolation.input(width, height, cellsY, slice0, slice1);
+            VanillaTerrainSlab slab = SLAB_CONSTRUCTOR.newInstance(
+                VanillaTerrainInterpolation.reference(encoded), width, height, cellsY
+            );
+            return CompletableFuture.completedFuture(slab);
+        }).when(service).prepareVanillaSlabAsync(
+            anyInt(), anyInt(), anyInt(), any(double[][][].class), any(double[][][].class), any(Executor.class)
+        );
+    }
+
+    private static void completeWorldgenRequestsOnSimulatedGpuThread(List<PendingWorldgen> requests) throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread simulatedGpu = new Thread(() -> {
+            try {
+                for (PendingWorldgen request : requests) request.complete();
+            } catch (Throwable thrown) {
+                failure.set(thrown);
+            }
+        }, "test-simulated-gpu-completion");
+        simulatedGpu.start();
+        simulatedGpu.join();
+        if (failure.get() != null) throw new AssertionError("simulated W7 completion failed", failure.get());
+    }
+
+    private static void completeWorldgenRequestOnSimulatedGpuThread(PendingWorldgen request) throws Exception {
+        completeWorldgenRequestsOnSimulatedGpuThread(List.of(request));
+    }
+
+    private static WorldgenResult worldgenResult(int[] output, AtomicInteger closed, AtomicLong consumed) throws Exception {
+        BooleanSupplier valid = () -> true;
+        Runnable release = closed::incrementAndGet;
+        LongConsumer consumption = consumed::addAndGet;
+        return WORLDGEN_RESULT_CONSTRUCTOR.newInstance(output, valid, release, consumption);
     }
 
     private static void assertChunksEqual(ChunkAccess expected, ChunkAccess actual, int chunkX, int chunkZ) {
@@ -181,6 +404,18 @@ public class NoiseBasedAsyncFillParityTest {
             snapshot.add(List.copyOf(flags));
         }
         return snapshot;
+    }
+
+    private static int[] snapshotHeightmaps(ChunkAccess chunk) {
+        int[] values = new int[2 * 16 * 16];
+        int offset = 0;
+        for (Heightmap.Types type : List.of(Heightmap.Types.OCEAN_FLOOR_WG, Heightmap.Types.WORLD_SURFACE_WG)) {
+            Heightmap heightmap = chunk.getOrCreateHeightmapUnprimed(type);
+            for (int z = 0; z < 16; z++) {
+                for (int x = 0; x < 16; x++) values[offset++] = heightmap.getFirstAvailable(x, z);
+            }
+        }
+        return values;
     }
 
     private static void assertAllAir(ChunkAccess chunk, int chunkX, int chunkZ, String when) {
@@ -285,7 +520,49 @@ public class NoiseBasedAsyncFillParityTest {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static Constructor<WorldgenResult> worldgenResultConstructor() {
+        try {
+            Constructor<?> constructor = WorldgenResult.class.getDeclaredConstructor(
+                int[].class, java.util.function.BooleanSupplier.class, Runnable.class, java.util.function.LongConsumer.class
+            );
+            constructor.setAccessible(true);
+            return (Constructor<WorldgenResult>)constructor;
+        } catch (ReflectiveOperationException exception) {
+            throw new ExceptionInInitializerError(exception);
+        }
+    }
+
     private record PendingSlab(CompletableFuture<VanillaTerrainSlab> future, VanillaTerrainSlab result) {}
+
+    private record PendingWorldgen(
+        int[] input, long ownerBytes, NonCancellingFuture<WorldgenResult> future, AtomicInteger closed, AtomicLong consumed
+    ) {
+        private void complete() throws Exception {
+            int[] output = switch (this.input[0]) {
+                case VanillaNoiseBatch.WORKLOAD -> VanillaNoiseBatch.reference(this.input);
+                case VanillaAquiferBatch.WORKLOAD -> VanillaAquiferBatch.reference(this.input);
+                case VanillaDensityGraphBatch.WORKLOAD -> VanillaDensityGraphBatch.reference(this.input);
+                default -> throw new IllegalArgumentException("unexpected worldgen workload " + this.input[0]);
+            };
+            WorldgenResult result = worldgenResult(output, this.closed, this.consumed);
+            if (!this.future.complete(result)) result.close();
+        }
+    }
+
+    private static final class NonCancellingFuture<T> extends CompletableFuture<T> {
+        private final AtomicInteger cancellationCalls = new AtomicInteger();
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            this.cancellationCalls.incrementAndGet();
+            return false;
+        }
+
+        private int cancellationCalls() {
+            return this.cancellationCalls.get();
+        }
+    }
 
     private record WorldgenFixture(
         NoiseGeneratorSettings overworldSettings,

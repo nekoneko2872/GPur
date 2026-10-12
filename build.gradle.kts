@@ -97,6 +97,8 @@ subprojects {
     }
     tasks.withType<Test> {
         systemProperty("gpur.gpu-tests", providers.gradleProperty("gpurGpuTests").orElse("false").get())
+        systemProperty("gpur.gpu-test-device-uuids", providers.gradleProperty("gpurGpuTestDeviceUuids").orElse("").get())
+        systemProperty("gpur.gpu-live-corner-adoption-tests", providers.gradleProperty("gpurGpuLiveCornerAdoptionTests").orElse("false").get())
         testLogging {
             showStackTraces = true
             exceptionFormat = TestExceptionFormat.FULL

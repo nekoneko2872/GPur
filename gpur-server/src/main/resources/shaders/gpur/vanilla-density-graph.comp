@@ -12,6 +12,164 @@ precise double preciseLerp(double alpha, double p0, double p1) {
     precise double resultValue = p0 + scaled;
     return resultValue;
 }
+// Java spline arithmetic rounds every operation to binary32, including gradual
+// underflow. Some Vulkan devices flush native float subnormals even with precise.
+// Keep binary32 values in binary64 registers, round their bits explicitly, and
+// never pass a spline operand through a native float instruction. Binary32
+// products need at most 48 significant bits; binary64 also has sufficient guard
+// bits for the sum of two binary32 values. Division uses an integer quotient so
+// neither native division error nor double rounding can change a binary32 bit.
+double dgFloatWiden(uint bits) {
+    uint sign = bits & 0x80000000u;
+    uint exponent = (bits >> 23u) & 0xffu;
+    uint fraction = bits & 0x7fffffu;
+    if (exponent == 0xffu) {
+        return packDouble2x32(uvec2(0u, sign | 0x7ff00000u | (fraction == 0u ? 0u : 0x80000u)));
+    }
+    if (exponent == 0u) {
+        if (fraction == 0u) return packDouble2x32(uvec2(0u, sign));
+        int leading = findMSB(fraction);
+        fraction = (fraction << uint(23 - leading)) & 0x7fffffu;
+        exponent = uint(leading + 874); // A subnormal is fraction * 2^-149.
+    } else {
+        exponent += 896u;
+    }
+    return packDouble2x32(uvec2(fraction << 29u, sign | (exponent << 20u) | (fraction >> 3u)));
+}
+
+uint dgFloatRoundBits(double value) {
+    uvec2 bits = unpackDouble2x32(value);
+    uint sign = bits.y & 0x80000000u;
+    uint exponent = (bits.y >> 20u) & 0x7ffu;
+    uint high = bits.y & 0xfffffu;
+    if (exponent == 0x7ffu) {
+        return sign | 0x7f800000u | ((high | bits.x) == 0u ? 0u : 0x400000u);
+    }
+    if (exponent == 0u) return sign;
+    int singleExponent = int(exponent) - 896;
+    high |= 0x100000u;
+    uint significand;
+    bool guard;
+    bool sticky;
+    if (singleExponent > 0) {
+        if (singleExponent >= 255) return sign | 0x7f800000u;
+        significand = (high << 3u) | (bits.x >> 29u);
+        guard = (bits.x & 0x10000000u) != 0u;
+        sticky = (bits.x & 0xfffffffu) != 0u;
+        if (guard && (sticky || (significand & 1u) != 0u)) ++significand;
+        if (significand == 0x1000000u) {
+            significand >>= 1u;
+            ++singleExponent;
+        }
+        return sign | (uint(singleExponent) << 23u) | (significand & 0x7fffffu);
+    }
+    if (singleExponent < -23) return sign;
+    uint shift = uint(30 - singleExponent); // 30..53, including the half-MIN_VALUE tie.
+    if (shift < 32u) {
+        significand = (bits.x >> shift) | (high << (32u - shift));
+        guard = ((bits.x >> (shift - 1u)) & 1u) != 0u;
+        sticky = (bits.x & ((1u << (shift - 1u)) - 1u)) != 0u;
+    } else if (shift == 32u) {
+        significand = high;
+        guard = (bits.x & 0x80000000u) != 0u;
+        sticky = (bits.x & 0x7fffffffu) != 0u;
+    } else {
+        significand = high >> (shift - 32u);
+        guard = ((high >> (shift - 33u)) & 1u) != 0u;
+        sticky = bits.x != 0u || (high & ((1u << (shift - 33u)) - 1u)) != 0u;
+    }
+    if (guard && (sticky || (significand & 1u) != 0u)) ++significand;
+    // Carry into bit 23 is exactly the smallest normal binary32 value.
+    return sign | significand;
+}
+
+double dgFloatRound(double value) { return dgFloatWiden(dgFloatRoundBits(value)); }
+
+precise double dgFloatAdd(double first, double second) {
+    if (first == 0.0 && second == 0.0) {
+        uint sign = unpackDouble2x32(first).y & unpackDouble2x32(second).y & 0x80000000u;
+        return dgFloatWiden(sign);
+    }
+    precise double sum = first + second;
+    return dgFloatRound(sum);
+}
+
+precise double dgFloatSubtract(double first, double second) { return dgFloatAdd(first, -second); }
+
+precise double dgFloatMultiply(double first, double second) {
+    if (first == 0.0 || second == 0.0) {
+        uint sign = (unpackDouble2x32(first).y ^ unpackDouble2x32(second).y) & 0x80000000u;
+        return dgFloatWiden(sign);
+    }
+    precise double product = first * second;
+    return dgFloatRound(product);
+}
+
+double dgFloatDivide(double first, double second) {
+    uint numerator = dgFloatRoundBits(first);
+    uint denominator = dgFloatRoundBits(second);
+    uint sign = (numerator ^ denominator) & 0x80000000u;
+    numerator &= 0x7fffffffu;
+    denominator &= 0x7fffffffu;
+    if (numerator > 0x7f800000u || denominator > 0x7f800000u
+        || (numerator == 0u && denominator == 0u)
+        || (numerator == 0x7f800000u && denominator == 0x7f800000u)) return dgFloatWiden(0x7fc00000u);
+    if (denominator == 0u || numerator == 0x7f800000u) return dgFloatWiden(sign | 0x7f800000u);
+    if (numerator == 0u || denominator == 0x7f800000u) return dgFloatWiden(sign);
+    int numeratorExponent = int(numerator >> 23u) - 127;
+    int denominatorExponent = int(denominator >> 23u) - 127;
+    uint numeratorSignificand = numerator & 0x7fffffu;
+    uint denominatorSignificand = denominator & 0x7fffffu;
+    if ((numerator >> 23u) == 0u) {
+        int shift = 23 - findMSB(numeratorSignificand);
+        numeratorSignificand <<= uint(shift);
+        numeratorExponent = -126 - shift;
+    } else numeratorSignificand |= 0x800000u;
+    if ((denominator >> 23u) == 0u) {
+        int shift = 23 - findMSB(denominatorSignificand);
+        denominatorSignificand <<= uint(shift);
+        denominatorExponent = -126 - shift;
+    } else denominatorSignificand |= 0x800000u;
+    int exponent = numeratorExponent - denominatorExponent;
+    if (numeratorSignificand < denominatorSignificand) {
+        numeratorSignificand <<= 1u;
+        --exponent;
+    }
+    if (exponent > 127) return dgFloatWiden(sign | 0x7f800000u);
+    if (exponent < -150) return dgFloatWiden(sign);
+    uint quotient = 1u;
+    uint remainder = numeratorSignificand - denominatorSignificand;
+    for (uint digit = 0u; digit < 23u; ++digit) {
+        quotient <<= 1u;
+        remainder <<= 1u;
+        if (remainder >= denominatorSignificand) {
+            remainder -= denominatorSignificand;
+            quotient |= 1u;
+        }
+    }
+    if (exponent >= -126) {
+        uint twiceRemainder = remainder << 1u;
+        if (twiceRemainder > denominatorSignificand
+            || (twiceRemainder == denominatorSignificand && (quotient & 1u) != 0u)) ++quotient;
+        if (quotient == 0x1000000u) {
+            quotient >>= 1u;
+            ++exponent;
+        }
+        return dgFloatWiden(sign | (uint(exponent + 127) << 23u) | (quotient & 0x7fffffu));
+    }
+    uint shift = uint(-126 - exponent); // 1..24.
+    uint rounded = quotient >> shift;
+    bool guard = ((quotient >> (shift - 1u)) & 1u) != 0u;
+    bool sticky = (quotient & ((1u << (shift - 1u)) - 1u)) != 0u || remainder != 0u;
+    if (guard && (sticky || (rounded & 1u) != 0u)) ++rounded;
+    return dgFloatWiden(sign | rounded);
+}
+
+precise double dgFloatLerp(double alpha, double first, double second) {
+    precise double difference = dgFloatSubtract(second, first);
+    precise double scaled = dgFloatMultiply(alpha, difference);
+    return dgFloatAdd(first, scaled);
+}
 
 // GPUR_NOISE_HELPERS
 
@@ -32,6 +190,9 @@ const uint DG_NOISE = 9u;
 const uint DG_SHIFT = 10u;
 const uint DG_SHIFTED_NOISE = 11u;
 const uint DG_BLENDED = 12u;
+const uint DG_SPLINE_CONSTANT = 13u;
+const uint DG_SPLINE_MULTIPOINT = 14u;
+const uint DG_TABLE_LOOKUP = 15u;
 
 const uint DG_ADD = 0u;
 const uint DG_MUL = 1u;
@@ -76,12 +237,36 @@ double dgNodeDouble(uint node, uint field) {
     return readDouble(data[11] + node * data[17] + field);
 }
 
+double dgSplineLocation(uint node, uint point) {
+    uint auxWord = data[13] + dgNodeWord(node, 4u) + point * 2u;
+    return dgFloatWiden(data[auxWord]);
+}
+
+double dgSplineDerivative(uint node, uint point) {
+    uint auxWord = data[13] + dgNodeWord(node, 4u) + point * 2u + 1u;
+    return dgFloatWiden(data[auxWord]);
+}
+
 double dgNegativeZero() {
     return packDouble2x32(uvec2(0u, 0x80000000u));
 }
 
 double dgQuietNaN() {
     return packDouble2x32(uvec2(0u, 0x7ff80000u));
+}
+
+precise double dgTableLookup(uint node, int blockX, int blockZ) {
+    int quartX = blockX >> 2;
+    int quartZ = blockZ >> 2;
+    int firstQuartX = dgSignedWord(dgNodeWord(node, 6u));
+    int firstQuartZ = dgSignedWord(dgNodeWord(node, 7u));
+    uint sizeXZ = dgNodeWord(node, 8u);
+    int x = quartX - firstQuartX;
+    int z = quartZ - firstQuartZ;
+    if (x < 0 || z < 0 || uint(x) >= sizeXZ || uint(z) >= sizeXZ) return dgQuietNaN();
+    uint tableIndex = uint(x) + uint(z) * sizeXZ;
+    uint auxWord = data[13] + dgNodeWord(node, 4u) + tableIndex * 2u;
+    return readDouble(auxWord);
 }
 
 precise double dgMin(double first, double second) {
@@ -204,6 +389,18 @@ precise double dgEvaluate(uint root, int blockX, int blockY, int blockZ) {
 
         if (opcode == DG_CONSTANT) {
             returned = readDouble(record + 10u);
+            if (stackPointer == 0u) return returned;
+            --stackPointer;
+            continue;
+        }
+        if (opcode == DG_SPLINE_CONSTANT) {
+            returned = dgFloatWiden(dgNodeWord(node, 6u));
+            if (stackPointer == 0u) return returned;
+            --stackPointer;
+            continue;
+        }
+        if (opcode == DG_TABLE_LOOKUP) {
+            returned = dgTableLookup(node, blockX, blockZ);
             if (stackPointer == 0u) return returned;
             --stackPointer;
             continue;
@@ -402,6 +599,90 @@ precise double dgEvaluate(uint root, int blockX, int blockY, int blockZ) {
                 continue;
             }
             return dgQuietNaN();
+        } else if (opcode == DG_SPLINE_MULTIPOINT) {
+            uint pointCount = dgNodeWord(node, 6u);
+            if (state == 1u) {
+                precise double coordinate = dgFloatRound(returned);
+                if (isnan(coordinate) || isinf(coordinate)) return dgQuietNaN();
+                uint low = 0u;
+                uint high = pointCount;
+                while (low < high) {
+                    uint middle = low + (high - low) / 2u;
+                    if (coordinate < dgSplineLocation(node, middle)) high = middle;
+                    else low = middle + 1u;
+                }
+                int start = int(low) - 1;
+                frames[stackPointer].second = coordinate;
+                if (start < 0) {
+                    frames[stackPointer].third = 0.0;
+                    frames[stackPointer].state = 4u;
+                    selectedChild = dgEdge(node, 1u);
+                } else if (start == int(pointCount) - 1) {
+                    frames[stackPointer].third = double(pointCount - 1u);
+                    frames[stackPointer].state = 4u;
+                    selectedChild = dgEdge(node, pointCount);
+                } else {
+                    frames[stackPointer].third = double(start);
+                    frames[stackPointer].state = 2u;
+                    selectedChild = dgEdge(node, uint(start) + 1u);
+                }
+                if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+                ++stackPointer;
+                frames[stackPointer].node = selectedChild;
+                frames[stackPointer].state = 0u;
+                continue;
+            }
+            if (state == 2u) {
+                frames[stackPointer].first = dgFloatRound(returned);
+                frames[stackPointer].state = 3u;
+                if (stackPointer + 1u >= DG_STACK_FRAMES) return dgQuietNaN();
+                ++stackPointer;
+                frames[stackPointer].node = dgEdge(node, uint(frames[stackPointer - 1u].third) + 2u);
+                frames[stackPointer].state = 0u;
+                continue;
+            }
+            if (state == 3u) {
+                uint point = uint(frames[stackPointer].third);
+                precise double coordinate = frames[stackPointer].second;
+                precise double x1 = dgSplineLocation(node, point);
+                precise double x2 = dgSplineLocation(node, point + 1u);
+                precise double y1 = frames[stackPointer].first;
+                precise double y2 = dgFloatRound(returned);
+                precise double d1 = dgSplineDerivative(node, point);
+                precise double d2 = dgSplineDerivative(node, point + 1u);
+                precise double xDifference = dgFloatSubtract(x2, x1);
+                precise double tNumerator = dgFloatSubtract(coordinate, x1);
+                precise double t = dgFloatDivide(tNumerator, xDifference);
+                precise double yDifference = dgFloatSubtract(y2, y1);
+                precise double firstProduct = dgFloatMultiply(d1, xDifference);
+                precise double a = dgFloatSubtract(firstProduct, yDifference);
+                precise double secondProduct = dgFloatMultiply(-d2, xDifference);
+                precise double b = dgFloatAdd(secondProduct, yDifference);
+                precise double linearValues = dgFloatLerp(t, y1, y2);
+                precise double oneMinusT = dgFloatSubtract(1.0, t);
+                precise double correctionScale = dgFloatMultiply(t, oneMinusT);
+                precise double linearDerivatives = dgFloatLerp(t, a, b);
+                precise double correction = dgFloatMultiply(correctionScale, linearDerivatives);
+                returned = dgFloatAdd(linearValues, correction);
+                if (stackPointer == 0u) return returned;
+                --stackPointer;
+                continue;
+            }
+            if (state == 4u) {
+                uint point = uint(frames[stackPointer].third);
+                precise double value = dgFloatRound(returned);
+                precise double derivative = dgSplineDerivative(node, point);
+                if (derivative != 0.0) {
+                    precise double difference = dgFloatSubtract(frames[stackPointer].second, dgSplineLocation(node, point));
+                    precise double scaled = dgFloatMultiply(derivative, difference);
+                    value = dgFloatAdd(value, scaled);
+                }
+                returned = value;
+                if (stackPointer == 0u) return returned;
+                --stackPointer;
+                continue;
+            }
+            return dgQuietNaN();
         } else if (opcode == DG_SHIFTED_NOISE) {
             // Handled by its staged child-evaluation state machine above.
             return dgQuietNaN();
@@ -416,7 +697,7 @@ precise double dgEvaluate(uint root, int blockX, int blockY, int blockZ) {
 
 void main() {
     uint sampleIndex = gl_GlobalInvocationID.x;
-    if (data[0] != 7u || data[3] != 1u || sampleIndex >= data[1]) return;
+    if (data[0] != 7u || data[3] != 2u || sampleIndex >= data[1]) return;
     uint offset = data[16] + sampleIndex * data[18];
     int x = dgSignedWord(data[offset]);
     int y = dgSignedWord(data[offset + 1u]);

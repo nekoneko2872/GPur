@@ -23,6 +23,14 @@ final class GPurStatusDisplay {
         TerrainOverview { devices = List.copyOf(devices); }
     }
 
+    record WorldgenOverview(List<org.gpur.compute.ComputeService.WorldgenDeviceStatus> devices,
+                            java.util.Set<Integer> enabledWorkloads, String mode) {
+        WorldgenOverview {
+            devices = List.copyOf(devices);
+            enabledWorkloads = java.util.Set.copyOf(enabledWorkloads);
+        }
+    }
+
     static List<Component> render(StatusSnapshot snapshot, Options options, boolean detail) {
         return render(snapshot, options, detail, null);
     }
@@ -33,6 +41,11 @@ final class GPurStatusDisplay {
 
     static List<Component> render(StatusSnapshot snapshot, Options options, boolean detail, TerrainOverview terrain,
                                   org.gpur.compute.ComputeService.VanillaStatus vanilla) {
+        return render(snapshot, options, detail, terrain, vanilla, null);
+    }
+
+    static List<Component> render(StatusSnapshot snapshot, Options options, boolean detail, TerrainOverview terrain,
+                                  org.gpur.compute.ComputeService.VanillaStatus vanilla, WorldgenOverview worldgen) {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.text("GPur 26.2 | Compute status", NamedTextColor.AQUA).decorate(TextDecoration.BOLD));
         List<DeviceWorkloadStatus> devices = snapshot == null ? List.of() : snapshot.workloads().stream()
@@ -81,7 +94,7 @@ final class GPurStatusDisplay {
                         vanilla.enabled() && device.available() ? NamedTextColor.GREEN : NamedTextColor.GRAY)
                         .append(Component.text(" | " + count(workload.slabs()) + " slabs", NamedTextColor.GRAY))
                         .hoverEvent(Component.text("Exact interpolation of vanilla CPU-sampled density corners. Existing worlds use their original generator.\n"
-                            + "Density noise, biomes, surfaces, carvers, aquifers, structures, and saving remain CPU.\n"
+                            + "Separate rows report corner density, noise leaves, and aquifer ranking. Remaining worldgen stages and writes use CPU.\n"
                             + "A slab is one X cell width, not a complete chunk.")));
                     if (detail) {
                         lines.add(row("    Values / full parity checks: ", count(workload.values()) + " / "
@@ -106,6 +119,43 @@ final class GPurStatusDisplay {
                             lines.add(row("    Device timeouts / rejected jobs: ", count(nativeMetrics.timedOutJobs()) + " / "
                                 + count(nativeMetrics.rejectedJobs()), NamedTextColor.WHITE));
                         }
+                    }
+                }
+            }
+            if (worldgen != null) {
+                for (var workload : worldgen.devices()) {
+                    if (!workload.uuid().equals(device.uuid())) continue;
+                    String label = switch (workload.workload()) {
+                        case 5 -> "Noise leaves";
+                        case 6 -> "Aquifer ranking";
+                        case 7 -> "Corner density graph";
+                        default -> "Worldgen workload " + workload.workload();
+                    };
+                    String stateText = !worldgen.enabledWorkloads().contains(workload.workload()) ? "CPU (disabled in config)"
+                        : !device.available() || snapshot.stopped() ? "CPU (GPU unavailable)"
+                        : worldgen.mode().equals("observe") ? "Observe (results discarded)"
+                        : workload.acceptedBatches() == 0 ? "Ready (no accepted batches yet)"
+                        : workload.consumedValues() == 0 ? "Computed (not consumed)" : "GPU results used";
+                    NamedTextColor color = stateText.equals("GPU results used") ? NamedTextColor.GREEN
+                        : stateText.startsWith("Computed") || stateText.startsWith("Observe") ? NamedTextColor.YELLOW
+                        : stateText.startsWith("Ready") ? NamedTextColor.AQUA : NamedTextColor.GRAY;
+                    String scope = switch (workload.workload()) {
+                        case 5 -> "Initialized vanilla noise leaves at captured corner coordinates; graph composition remains on CPU.";
+                        case 6 -> "Nearest four aquifer centers only; fluid status and pressure decisions remain on CPU.";
+                        case 7 -> "Complete supported density roots at chunk corners; block interpolation and later worldgen stages are separate.";
+                        default -> "Optional vanilla worldgen calculation.";
+                    };
+                    lines.add(row("  " + label + ": ", stateText, color)
+                        .append(Component.text(" | " + count(workload.consumedValues()) + " values used", NamedTextColor.GRAY))
+                        .hoverEvent(Component.text(scope + "\nCounters are totals since reload; completed GPU work alone does not prove CPU adoption or speedup.")));
+                    if (detail) {
+                        lines.add(row("    Accepted batches / computed values: ", count(workload.acceptedBatches()) + " / "
+                            + count(workload.computedValues()), NamedTextColor.WHITE));
+                        lines.add(row("    Dispatches / full parity checks: ", count(workload.dispatches()) + " / "
+                            + count(workload.paritySamples()), NamedTextColor.WHITE));
+                        lines.add(row("    Result latency avg: ", workload.dispatches() == 0 ? "Not recorded"
+                            : millis(workload.averageDispatchNanos()) + " ms", NamedTextColor.WHITE)
+                            .hoverEvent(Component.text("Time from submission to the start of CPU verification, including transfer, GPU work, readback and the CPU continuation queue. CPU verification time is excluded.")));
                     }
                 }
             }

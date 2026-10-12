@@ -146,6 +146,23 @@ class RunnerConfigurationTests(unittest.TestCase):
         self.assertIn('aquifer-ranking: false', strict_cpu)
         self.assertIn('enabled: false', strict_cpu)
 
+    def test_corner_graph_boundary_replaces_leaf_work_and_keeps_cpu_control_disabled(self):
+        parser = argparse.ArgumentParser()
+        add_runtime_arguments(parser)
+        self.assertFalse(parser.parse_args([]).corner_graphs)
+        self.assertTrue(parser.parse_args(['--corner-graphs', '--worldgen-mode', 'strict']).corner_graphs)
+        for case in ('rtx3070', 'gtx1080', 'mixed'):
+            config = render_gpur_config(case, False, 'verified-exact', corner_graphs=True)
+            self.assertIn('corner-graphs: true', config)
+            self.assertIn('noise-batches: false', config)
+            self.assertIn('aquifer-ranking: true', config)
+        cpu = render_gpur_config('cpu', False, 'strict', corner_graphs=True)
+        self.assertIn('corner-graphs: false', cpu)
+        self.assertIn('noise-batches: false', cpu)
+        self.assertIn('aquifer-ranking: false', cpu)
+        with self.assertRaisesRegex(ValueError, 'requires'):
+            render_gpur_config('rtx3070', False, 'disabled', corner_graphs=True)
+
     def test_case_metadata_records_heap_mode_and_unfrozen_runtime(self):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)

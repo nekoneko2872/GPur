@@ -24,7 +24,7 @@ import org.gpur.compute.VanillaNoiseBatch.PerlinNoiseProfile;
  */
 public final class VanillaDensityGraphBatch {
     public static final int WORKLOAD = 7;
-    public static final int WIRE_VERSION = 1;
+    public static final int WIRE_VERSION = 2;
     public static final int HEADER_WORDS = 24;
     public static final int NODE_WORDS = 16;
     public static final int SAMPLE_WORDS = 3;
@@ -34,6 +34,10 @@ public final class VanillaDensityGraphBatch {
     public static final int MAX_DEPTH = 256;
     public static final int MAX_PROFILE_ROOTS = 2_048;
     public static final int MAX_INTERVAL_BRANCHES = 1_024;
+    public static final int MAX_SPLINE_POINTS_PER_NODE = 1_024;
+    public static final int MAX_SPLINE_POINTS = 8_192;
+    public static final int MAX_TABLE_DIMENSION = 64;
+    public static final int MAX_TABLE_VALUES = 4_096;
     public static final int MAX_PROFILE_RECORDS = VanillaNoiseBatch.MAX_PROFILE_RECORDS;
     public static final int MAX_PROFILE_WORDS = VanillaNoiseBatch.MAX_PROFILE_WORDS;
     public static final int MAX_SAMPLES = VanillaNoiseBatch.MAX_SAMPLES;
@@ -56,6 +60,10 @@ public final class VanillaDensityGraphBatch {
     private static final int OP_SHIFT = 10;
     private static final int OP_SHIFTED_NOISE = 11;
     private static final int OP_BLENDED = 12;
+    private static final int OP_SPLINE_CONSTANT = 13;
+    private static final int OP_SPLINE_MULTIPOINT = 14;
+    private static final int OP_TABLE_LOOKUP = 15;
+    private static final int SPLINE_INTERPOLATION_WORK = 16;
 
     private static final int PROFILE_IMPROVED = 1;
     private static final int PROFILE_PERLIN = 2;
@@ -64,7 +72,6 @@ public final class VanillaDensityGraphBatch {
     private static final int W5_HEADER_WORDS = 6;
     private static final int W5_SAMPLE_WORDS = VanillaNoiseBatch.SAMPLE_WORDS;
     private static final int W5_PROFILE_START = W5_HEADER_WORDS;
-    private static final int W5_PROFILE_SAMPLE_OFFSET = 1;
     private static final int W5_RECORD_IMPROVED_WORDS = 72;
     private static final int W5_RECORD_PERLIN_HEADER_WORDS = 7;
     private static final int W5_RECORD_NORMAL_WORDS = 6;
@@ -88,7 +95,8 @@ public final class VanillaDensityGraphBatch {
             throw invalid("density batch requires 1..65536 samples");
         }
         if (snapshot.nodeCount() < 1 || snapshot.nodeCount() > MAX_NODES
-            || snapshot.edgeCount() > MAX_EDGES || snapshot.noiseProfileCount() > MAX_PROFILE_ROOTS) {
+            || snapshot.edgeCount() > MAX_EDGES || snapshot.noiseProfileCount() > MAX_PROFILE_ROOTS
+            || snapshot.splinePointCount() > MAX_SPLINE_POINTS || snapshot.tableValueCount() > MAX_TABLE_VALUES) {
             throw invalid("density snapshot exceeds W7 graph limits");
         }
         for (Sample sample : samples) {
@@ -103,26 +111,40 @@ public final class VanillaDensityGraphBatch {
         int[] remap = new int[nodeCount];
         for (int id = 0; id < nodeCount; id++) remap[postorder.get(id)] = id;
 
-        long thresholdWords = 0L;
+        long variableAuxWords = 0L;
         int countedEdges = 0;
+        int countedSplinePoints = 0;
+        int countedTableValues = 0;
         for (int oldId : postorder) {
             VanillaDensityGraph.Op op = snapshot.instructions.get(oldId).op();
             countedEdges = Math.addExact(countedEdges, childCount(op));
             if (op instanceof VanillaDensityGraph.IntervalSelect interval) {
-                thresholdWords = Math.addExact(thresholdWords, Math.multiplyExact((long)interval.thresholds().length, 2L));
+                variableAuxWords = Math.addExact(variableAuxWords, Math.multiplyExact((long)interval.thresholds().length, 2L));
+            } else if (op instanceof VanillaDensityGraph.SplineMultipoint spline) {
+                int points = spline.locations().length;
+                countedSplinePoints = Math.addExact(countedSplinePoints, points);
+                variableAuxWords = Math.addExact(variableAuxWords, Math.multiplyExact((long)points, 2L));
+            } else if (op instanceof VanillaDensityGraph.TableLookup table) {
+                int values = table.values().length;
+                countedTableValues = Math.addExact(countedTableValues, values);
+                variableAuxWords = Math.addExact(variableAuxWords, Math.multiplyExact((long)values, 2L));
             }
         }
-        if (countedEdges != snapshot.edgeCount() || countedEdges > MAX_EDGES || thresholdWords > Integer.MAX_VALUE) {
-            throw invalid("density snapshot edge or interval count is inconsistent");
+        if (countedEdges != snapshot.edgeCount() || countedEdges > MAX_EDGES
+            || countedSplinePoints != snapshot.splinePointCount() || countedSplinePoints > MAX_SPLINE_POINTS
+            || countedTableValues != snapshot.tableValueCount() || countedTableValues > MAX_TABLE_VALUES
+            || variableAuxWords > Integer.MAX_VALUE) {
+            throw invalid("density snapshot edge or auxiliary word count is inconsistent");
         }
 
         int edgeCount = countedEdges;
-        int auxWords = Math.toIntExact(Math.addExact(Math.multiplyExact((long)nodeCount, 4L), thresholdWords));
+        int auxWords = Math.toIntExact(Math.addExact(Math.multiplyExact((long)nodeCount, 4L), variableAuxWords));
         int[] nodeRecords = new int[Math.multiplyExact(nodeCount, NODE_WORDS)];
         int[] edgeWords = new int[edgeCount];
         int[] aux = new int[auxWords];
         int edgeCursor = 0;
         int auxCursor = nodeCount * 4;
+        int tableValueCount = 0;
         for (int id = 0; id < nodeCount; id++) {
             int oldId = postorder.get(id);
             VanillaDensityGraph.Instruction instruction = snapshot.instructions.get(oldId);
@@ -132,6 +154,10 @@ public final class VanillaDensityGraphBatch {
                 instruction.op(), remap);
             if (instruction.op() instanceof VanillaDensityGraph.IntervalSelect interval) {
                 auxCursor += interval.thresholds().length * 2;
+            } else if (instruction.op() instanceof VanillaDensityGraph.SplineMultipoint spline) {
+                auxCursor += spline.locations().length * 2;
+            } else if (instruction.op() instanceof VanillaDensityGraph.TableLookup table) {
+                auxCursor += table.values().length * 2;
             }
         }
         if (edgeCursor != edgeCount || auxCursor != auxWords) {
@@ -232,12 +258,12 @@ public final class VanillaDensityGraphBatch {
         Parsed parsed = parse(input);
         int[] output = new int[Math.multiplyExact(parsed.sampleCount, OUTPUT_WORDS_PER_SAMPLE)];
         List<NoiseProfile> profiles = decodeProfiles(input, parsed);
+        NoiseOracle noise = new NoiseOracle(profiles);
         for (int sample = 0; sample < parsed.sampleCount; sample++) {
             int sampleOffset = parsed.sampleOffset + sample * SAMPLE_WORDS;
             int x = input[sampleOffset];
             int y = input[sampleOffset + 1];
             int z = input[sampleOffset + 2];
-            NoiseOracle noise = new NoiseOracle(profiles);
             double value = evaluateNode(input, parsed, parsed.root, x, y, z, noise, new double[parsed.nodeCount], new byte[parsed.nodeCount]);
             putDouble(output, sample * OUTPUT_WORDS_PER_SAMPLE, value);
         }
@@ -304,6 +330,8 @@ public final class VanillaDensityGraphBatch {
         int auxOffset = input[13];
         int edgeCursor = 0;
         int auxCursor = nodeCount * 4;
+        int splinePointCount = 0;
+        int tableValueCount = 0;
         int[] depth = new int[nodeCount];
         long[] work = new long[nodeCount];
         byte[] profileTypes = new byte[profileRootCount];
@@ -441,6 +469,50 @@ public final class VanillaDensityGraphBatch {
                     usedProfiles[profileId] = true;
                     nodeWeight = Math.addExact(nodeWeight, 40);
                 }
+                case OP_SPLINE_CONSTANT -> {
+                    float value = Float.intBitsToFloat(data0);
+                    requireNodeShape(edgeSize == 0 && auxStart == 0 && auxSize == 0
+                        && data1 == 0 && data2 == 0 && data3 == 0 && zeroParameters(p0, p1)
+                        && Float.isFinite(value), "spline constant");
+                }
+                case OP_SPLINE_MULTIPOINT -> {
+                    requireNodeShape(data0 >= 1 && data0 <= MAX_SPLINE_POINTS_PER_NODE
+                        && edgeSize == data0 + 1 && auxStart == auxCursor && auxSize == data0 * 2
+                        && data1 == 0 && data2 == 0 && data3 == 0 && zeroParameters(p0, p1), "spline multipoint");
+                    splinePointCount = Math.addExact(splinePointCount, data0);
+                    if (splinePointCount > MAX_SPLINE_POINTS) throw invalid("density graph exceeds W7 spline point limit");
+                    float previousLocation = 0.0F;
+                    for (int point = 0; point < data0; point++) {
+                        int locationWord = auxOffset + auxStart + point * 2;
+                        float location = Float.intBitsToFloat(input[locationWord]);
+                        float derivative = Float.intBitsToFloat(input[locationWord + 1]);
+                        if (!Float.isFinite(location) || !Float.isFinite(derivative)
+                            || (point > 0 && location <= previousLocation)) {
+                            throw invalid("spline locations and derivatives must be finite with strictly increasing locations");
+                        }
+                        if (point > 0 && !Float.isFinite(location - previousLocation)) {
+                            throw invalid("spline location span overflows binary32");
+                        }
+                        previousLocation = location;
+                    }
+                    auxCursor += auxSize;
+                    children = edgeSize;
+                    nodeWeight = Math.addExact(nodeWeight, splineSearchSteps(data0) + SPLINE_INTERPOLATION_WORK);
+                }
+                case OP_TABLE_LOOKUP -> {
+                    long tableValues = (long)data2 * data2;
+                    requireNodeShape(data2 >= 1 && data2 <= MAX_TABLE_DIMENSION && tableValues <= MAX_TABLE_VALUES
+                        && edgeSize == 0 && auxStart == auxCursor && auxSize == tableValues * 2L
+                        && data3 == 0 && zeroParameters(p0, p1), "FlatCache table lookup");
+                    tableValueCount = Math.addExact(tableValueCount, (int)tableValues);
+                    if (tableValueCount > MAX_TABLE_VALUES) throw invalid("density graph exceeds W7 FlatCache value limit");
+                    for (int value = 0; value < tableValues; value++) {
+                        if (!Double.isFinite(getDouble(input, auxOffset + auxStart + value * 2))) {
+                            throw invalid("FlatCache table values must be finite");
+                        }
+                    }
+                    auxCursor += auxSize;
+                }
                 default -> throw invalid("unknown density opcode " + opcode);
             }
 
@@ -457,13 +529,21 @@ public final class VanillaDensityGraphBatch {
                     branchWork = Math.max(work[input[edgeOffset + edgeStart + 1]], work[child]);
                 } else if (opcode == OP_INTERVAL_SELECT && childIndex >= 1) {
                     branchWork = Math.max(branchWork, work[child]);
+                } else if (opcode == OP_SPLINE_MULTIPOINT && childIndex == 0) {
+                    childWork = saturatedAdd(childWork, work[child]);
+                } else if (opcode == OP_SPLINE_MULTIPOINT && childIndex >= 1) {
+                    branchWork = Math.max(branchWork, work[child]);
+                    if (childIndex + 1 < edgeSize) {
+                        int nextBranch = input[edgeOffset + edgeStart + childIndex + 1];
+                        branchWork = Math.max(branchWork, saturatedAdd(work[child], work[nextBranch]));
+                    }
                 } else {
                     childWork = saturatedAdd(childWork, work[child]);
                 }
             }
 
             Bounds expectedBounds = deriveBounds(input, offset, edgeOffset + edgeStart,
-                derivedMin, derivedMax, profiles);
+                minValue, maxValue, derivedMin, derivedMax, profiles);
             if (!Double.isFinite(expectedBounds.minimum) || !Double.isFinite(expectedBounds.maximum)
                 || expectedBounds.minimum > expectedBounds.maximum
                 || Double.doubleToRawLongBits(expectedBounds.minimum) != Double.doubleToRawLongBits(minValue)
@@ -477,6 +557,8 @@ public final class VanillaDensityGraphBatch {
                 childWork = saturatedAdd(work[input[edgeOffset + edgeStart]], branchWork);
             } else if (opcode == OP_INTERVAL_SELECT) {
                 childWork = saturatedAdd(work[input[edgeOffset + edgeStart]], branchWork);
+            } else if (opcode == OP_SPLINE_MULTIPOINT) {
+                childWork = saturatedAdd(childWork, branchWork);
             }
             depth[node] = maxChildDepth + 1;
             if (depth[node] > MAX_DEPTH) throw invalid("density graph exceeds explicit interpreter depth");
@@ -512,6 +594,8 @@ public final class VanillaDensityGraphBatch {
         final int[] input,
         final int record,
         final int edge,
+        final double declaredMinimum,
+        final double declaredMaximum,
         final double[] minimum,
         final double[] maximum,
         final NoiseProfile[] profiles
@@ -562,8 +646,119 @@ public final class VanillaDensityGraphBatch {
             case OP_SHIFT -> symmetricNoiseBounds(profiles[data0], true);
             case OP_SHIFTED_NOISE -> symmetricNoiseBounds(profiles[data0], false);
             case OP_BLENDED -> blendedNoiseBounds(profiles[data0]);
+            case OP_SPLINE_CONSTANT -> {
+                float value = Float.intBitsToFloat(data0);
+                yield new Bounds(value, value);
+            }
+            case OP_SPLINE_MULTIPOINT -> splineMetadataBounds(input, record, edge, minimum, maximum);
+            case OP_TABLE_LOOKUP -> tableMetadataBounds(input, record, declaredMinimum, declaredMaximum);
             default -> throw invalid("cannot derive bounds for density opcode " + opcode);
         };
+    }
+
+    private static Bounds tableMetadataBounds(
+        final int[] input, final int record, final double declaredMinimum, final double declaredMaximum
+    ) {
+        // FlatCache reports the wrapped density's vanilla metadata, which may understate the
+        // actual table values (for example, a cached SQUARE whose input is in [0.25, 0.5]).
+        // Preserve that metadata for MIN/MAX shortcut semantics; coordinate-domain proofs use
+        // tableValueBounds and per-sample lookups instead.
+        return new Bounds(declaredMinimum, declaredMaximum);
+    }
+
+    private static Bounds tableValueBounds(final int[] input, final int record) {
+        int sizeXZ = input[record + 8];
+        int valueCount = Math.multiplyExact(sizeXZ, sizeXZ);
+        int auxOffset = input[13] + input[record + 4];
+        double minimum = Double.POSITIVE_INFINITY;
+        double maximum = Double.NEGATIVE_INFINITY;
+        for (int value = 0; value < valueCount; value++) {
+            double sample = getDouble(input, auxOffset + value * 2);
+            if (!Double.isFinite(sample)) throw invalid("FlatCache table values must be finite");
+            minimum = Math.min(minimum, sample);
+            maximum = Math.max(maximum, sample);
+        }
+        return new Bounds(minimum, maximum);
+    }
+
+    /** Repeats CubicSpline.Multipoint's binary32 metadata calculation to validate forged wires. */
+    private static Bounds splineMetadataBounds(
+        final int[] input,
+        final int record,
+        final int edge,
+        final double[] minimum,
+        final double[] maximum
+    ) {
+        int pointCount = input[record + 6];
+        int auxOffset = input[13] + input[record + 4];
+        int coordinate = input[edge];
+        float minInput = metadataFloat(minimum[coordinate]);
+        float maxInput = metadataFloat(maximum[coordinate]);
+        float[] locations = new float[pointCount];
+        float[] derivatives = new float[pointCount];
+        float[] valueMin = new float[pointCount];
+        float[] valueMax = new float[pointCount];
+        for (int point = 0; point < pointCount; point++) {
+            locations[point] = Float.intBitsToFloat(input[auxOffset + point * 2]);
+            derivatives[point] = Float.intBitsToFloat(input[auxOffset + point * 2 + 1]);
+            int child = input[edge + point + 1];
+            valueMin[point] = metadataFloat(minimum[child]);
+            valueMax[point] = metadataFloat(maximum[child]);
+        }
+
+        int lastIndex = pointCount - 1;
+        float minValue = Float.POSITIVE_INFINITY;
+        float maxValue = Float.NEGATIVE_INFINITY;
+        if (minInput < locations[0]) {
+            float edge1 = splineLinearExtend(minInput, locations[0], valueMin[0], derivatives[0]);
+            float edge2 = splineLinearExtend(minInput, locations[0], valueMax[0], derivatives[0]);
+            minValue = Math.min(minValue, Math.min(edge1, edge2));
+            maxValue = Math.max(maxValue, Math.max(edge1, edge2));
+        }
+        if (maxInput > locations[lastIndex]) {
+            float edge1 = splineLinearExtend(maxInput, locations[lastIndex], valueMin[lastIndex], derivatives[lastIndex]);
+            float edge2 = splineLinearExtend(maxInput, locations[lastIndex], valueMax[lastIndex], derivatives[lastIndex]);
+            minValue = Math.min(minValue, Math.min(edge1, edge2));
+            maxValue = Math.max(maxValue, Math.max(edge1, edge2));
+        }
+        for (int point = 0; point < pointCount; point++) {
+            minValue = Math.min(minValue, valueMin[point]);
+            maxValue = Math.max(maxValue, valueMax[point]);
+        }
+        for (int point = 0; point < lastIndex; point++) {
+            float xDiff = locations[point + 1] - locations[point];
+            float firstMin = valueMin[point];
+            float firstMax = valueMax[point];
+            float secondMin = valueMin[point + 1];
+            float secondMax = valueMax[point + 1];
+            float firstDerivative = derivatives[point];
+            float secondDerivative = derivatives[point + 1];
+            if (firstDerivative != 0.0F || secondDerivative != 0.0F) {
+                float p1 = firstDerivative * xDiff;
+                float p2 = secondDerivative * xDiff;
+                float minLerp1 = Math.min(firstMin, secondMin);
+                float maxLerp1 = Math.max(firstMax, secondMax);
+                float minA = p1 - secondMax + firstMin;
+                float maxA = p1 - secondMin + firstMax;
+                float minB = -p2 + secondMin - firstMax;
+                float maxB = -p2 + secondMax - firstMin;
+                float minLerp2 = Math.min(minA, minB);
+                float maxLerp2 = Math.max(maxA, maxB);
+                minValue = Math.min(minValue, minLerp1 + 0.25F * minLerp2);
+                maxValue = Math.max(maxValue, maxLerp1 + 0.25F * maxLerp2);
+            }
+        }
+        return new Bounds(minValue, maxValue);
+    }
+
+    private static float metadataFloat(final double value) {
+        float result = (float)value;
+        if (!Float.isFinite(result)) throw invalid("spline metadata cannot be represented as a finite binary32 value");
+        return result;
+    }
+
+    private static float splineLinearExtend(final float input, final float location, final float value, final float derivative) {
+        return derivative == 0.0F ? value : value + derivative * (input - location);
     }
 
     /**
@@ -618,8 +813,171 @@ public final class VanillaDensityGraphBatch {
             case OP_SHIFT -> widenNoiseRange(symmetricNoiseBounds(profiles[data0], true));
             case OP_SHIFTED_NOISE -> widenNoiseRange(symmetricNoiseBounds(profiles[data0], false));
             case OP_BLENDED -> widenNoiseRange(blendedNoiseBounds(profiles[data0]));
+            case OP_SPLINE_CONSTANT -> {
+                float value = Float.intBitsToFloat(input[record + 6]);
+                yield new Bounds(value, value);
+            }
+            case OP_SPLINE_MULTIPOINT -> splineDomainBounds(input, record, edge, minimum, maximum);
+            case OP_TABLE_LOOKUP -> tableValueBounds(input, record);
             default -> throw invalid("cannot derive coordinate-domain bounds for density opcode " + opcode);
         };
+    }
+
+    /**
+     * Conservatively encloses CubicSpline's actual binary32 evaluation over the input range.
+     * Vanilla metadata is checked separately; it is not used as proof of evaluated values.
+     */
+    private static Bounds splineDomainBounds(
+        final int[] input,
+        final int record,
+        final int edge,
+        final double[] minimum,
+        final double[] maximum
+    ) {
+        int pointCount = input[record + 6];
+        int coordinateNode = input[edge];
+        FloatRange coordinate = floatDomain(minimum[coordinateNode], maximum[coordinateNode]);
+        int auxBase = input[13] + input[record + 4];
+        float[] locations = new float[pointCount];
+        float[] derivatives = new float[pointCount];
+        FloatRange[] values = new FloatRange[pointCount];
+        for (int point = 0; point < pointCount; point++) {
+            locations[point] = Float.intBitsToFloat(input[auxBase + point * 2]);
+            derivatives[point] = Float.intBitsToFloat(input[auxBase + point * 2 + 1]);
+            int valueNode = input[edge + point + 1];
+            values[point] = floatDomain(minimum[valueNode], maximum[valueNode]);
+        }
+
+        FloatRange result = null;
+        int last = pointCount - 1;
+        if (coordinate.minimum < locations[0]) {
+            float upper = Math.min(coordinate.maximum, Math.nextDown(locations[0]));
+            if (coordinate.minimum <= upper) {
+                result = unionFloatRanges(result, splineLinearExtendDomain(
+                    new FloatRange(coordinate.minimum, upper), values[0], locations[0], derivatives[0]));
+            }
+        }
+        if (coordinate.maximum >= locations[last]) {
+            float lower = Math.max(coordinate.minimum, locations[last]);
+            if (lower <= coordinate.maximum) {
+                result = unionFloatRanges(result, splineLinearExtendDomain(
+                    new FloatRange(lower, coordinate.maximum), values[last], locations[last], derivatives[last]));
+            }
+        }
+        for (int point = 0; point < last; point++) {
+            float lower = Math.max(coordinate.minimum, locations[point]);
+            float upper = Math.min(coordinate.maximum, locations[point + 1]);
+            if (lower <= upper) {
+                result = unionFloatRanges(result, splineSegmentDomain(
+                    new FloatRange(lower, upper), locations[point], locations[point + 1],
+                    values[point], values[point + 1], derivatives[point], derivatives[point + 1]));
+            }
+        }
+        if (result == null) throw invalid("spline coordinate domain does not intersect an admitted spline segment");
+        return new Bounds(result.minimum, result.maximum);
+    }
+
+    private static FloatRange splineLinearExtendDomain(
+        final FloatRange input,
+        final FloatRange value,
+        final float location,
+        final float derivative
+    ) {
+        if (derivative == 0.0F) return value;
+        FloatRange distance = floatSubtract(input, floatPoint(location));
+        FloatRange offset = floatMultiply(distance, floatPoint(derivative));
+        return floatAdd(value, offset);
+    }
+
+    private static FloatRange splineSegmentDomain(
+        final FloatRange input,
+        final float x1,
+        final float x2,
+        final FloatRange y1,
+        final FloatRange y2,
+        final float d1,
+        final float d2
+    ) {
+        float xDifference = x2 - x1;
+        if (!Float.isFinite(xDifference) || xDifference <= 0.0F) {
+            throw invalid("spline segment has an invalid binary32 coordinate span");
+        }
+        FloatRange t = floatDivide(floatSubtract(input, floatPoint(x1)), floatPoint(xDifference));
+        FloatRange difference = floatSubtract(y2, y1);
+        FloatRange a = floatSubtract(floatMultiply(floatPoint(d1), floatPoint(xDifference)), difference);
+        FloatRange b = floatAdd(floatMultiply(floatPoint(-d2), floatPoint(xDifference)), difference);
+        FloatRange interpolatedValues = floatLerp(t, y1, y2);
+        FloatRange interpolatedDerivative = floatLerp(t, a, b);
+        FloatRange oneMinusT = floatSubtract(floatPoint(1.0F), t);
+        FloatRange correctionScale = floatMultiply(floatMultiply(t, oneMinusT), interpolatedDerivative);
+        return floatAdd(interpolatedValues, correctionScale);
+    }
+
+    private static FloatRange floatLerp(final FloatRange alpha, final FloatRange first, final FloatRange second) {
+        return floatAdd(first, floatMultiply(alpha, floatSubtract(second, first)));
+    }
+
+    private static FloatRange floatDomain(final double minimum, final double maximum) {
+        if (!Double.isFinite(minimum) || !Double.isFinite(maximum) || minimum > maximum
+            || minimum < -Float.MAX_VALUE || maximum > Float.MAX_VALUE) {
+            throw invalid("spline coordinate or value domain cannot be represented by finite binary32 values");
+        }
+        float low = (float)minimum;
+        float high = (float)maximum;
+        if (!Float.isFinite(low) || !Float.isFinite(high) || low > high) {
+            throw invalid("spline coordinate or value domain cannot be represented by finite binary32 values");
+        }
+        return new FloatRange(low, high);
+    }
+
+    private static FloatRange floatPoint(final float value) {
+        if (!Float.isFinite(value)) throw invalid("spline arithmetic operand is not finite");
+        return new FloatRange(value, value);
+    }
+
+    private static FloatRange floatAdd(final FloatRange first, final FloatRange second) {
+        return outwardFloatRange((double)first.minimum + second.minimum, (double)first.maximum + second.maximum);
+    }
+
+    private static FloatRange floatSubtract(final FloatRange first, final FloatRange second) {
+        return outwardFloatRange((double)first.minimum - second.maximum, (double)first.maximum - second.minimum);
+    }
+
+    private static FloatRange floatMultiply(final FloatRange first, final FloatRange second) {
+        double a = (double)first.minimum * second.minimum;
+        double b = (double)first.minimum * second.maximum;
+        double c = (double)first.maximum * second.minimum;
+        double d = (double)first.maximum * second.maximum;
+        return outwardFloatRange(Math.min(Math.min(a, b), Math.min(c, d)), Math.max(Math.max(a, b), Math.max(c, d)));
+    }
+
+    private static FloatRange floatDivide(final FloatRange numerator, final FloatRange denominator) {
+        if (denominator.minimum <= 0.0F && denominator.maximum >= 0.0F) {
+            throw invalid("spline binary32 interval division may divide by zero");
+        }
+        double a = (double)numerator.minimum / denominator.minimum;
+        double b = (double)numerator.minimum / denominator.maximum;
+        double c = (double)numerator.maximum / denominator.minimum;
+        double d = (double)numerator.maximum / denominator.maximum;
+        return outwardFloatRange(Math.min(Math.min(a, b), Math.min(c, d)), Math.max(Math.max(a, b), Math.max(c, d)));
+    }
+
+    private static FloatRange outwardFloatRange(final double minimum, final double maximum) {
+        if (!Double.isFinite(minimum) || !Double.isFinite(maximum) || minimum > maximum
+            || minimum < -Float.MAX_VALUE || maximum > Float.MAX_VALUE) {
+            throw invalid("spline binary32 arithmetic may become non-finite");
+        }
+        float low = (float)minimum;
+        float high = (float)maximum;
+        if ((double)low > minimum) low = Math.nextDown(low);
+        if ((double)high < maximum) high = Math.nextUp(high);
+        if (!Float.isFinite(low) || !Float.isFinite(high)) throw invalid("spline binary32 arithmetic may become non-finite");
+        return new FloatRange(low, high);
+    }
+
+    private static FloatRange unionFloatRanges(final FloatRange first, final FloatRange second) {
+        if (first == null) return second;
+        return new FloatRange(Math.min(first.minimum, second.minimum), Math.max(first.maximum, second.maximum));
     }
 
     private static Bounds mappedDomainBounds(final int kind, final Bounds input) {
@@ -992,7 +1350,7 @@ public final class VanillaDensityGraphBatch {
                 int offset = nodeOffset + node * NODE_WORDS;
                 int opcode = input[offset];
                 int edgeStart = input[offset + 2];
-                Bounds sampledBounds = sampledDomainBounds(input, offset, edgeOffset + edgeStart, blockY,
+                Bounds sampledBounds = sampledDomainBounds(input, offset, edgeOffset + edgeStart, blockX, blockY, blockZ,
                     valueMin, valueMax, metadataEnclosesValues, profiles);
                 valueMin[node] = sampledBounds.minimum;
                 valueMax[node] = sampledBounds.maximum;
@@ -1037,7 +1395,9 @@ public final class VanillaDensityGraphBatch {
         final int[] input,
         final int record,
         final int edge,
+        final int blockX,
         final int blockY,
+        final int blockZ,
         final double[] minimum,
         final double[] maximum,
         final boolean[] metadataEnclosesValues,
@@ -1048,7 +1408,25 @@ public final class VanillaDensityGraphBatch {
                 getDouble(input, record + 10), getDouble(input, record + 12));
             return new Bounds(value, value);
         }
+        if (input[record] == OP_TABLE_LOOKUP) {
+            double value = tableLookupValue(input, record, blockX, blockZ);
+            return new Bounds(value, value);
+        }
         return deriveDomainBounds(input, record, edge, minimum, maximum, metadataEnclosesValues, profiles);
+    }
+
+    private static double tableLookupValue(final int[] input, final int record, final int blockX, final int blockZ) {
+        int quartX = Math.floorDiv(blockX, 4);
+        int quartZ = Math.floorDiv(blockZ, 4);
+        long x = (long)quartX - input[record + 6];
+        long z = (long)quartZ - input[record + 7];
+        int sizeXZ = input[record + 8];
+        if (x < 0L || z < 0L || x >= sizeXZ || z >= sizeXZ) {
+            throw invalid("FlatCache table sample lies outside captured quart bounds");
+        }
+        int tableIndex = Math.toIntExact(x + z * sizeXZ);
+        int auxWord = input[13] + input[record + 4] + tableIndex * 2;
+        return getDouble(input, auxWord);
     }
 
     private static void requireNoiseRange(final double base, final double minimum, final double maximum, final String label) {
@@ -1210,11 +1588,78 @@ public final class VanillaDensityGraphBatch {
                 value = noise.sample(data0, x, y, z);
             }
             case OP_BLENDED -> value = noise.sample(data0, blockX, blockY, blockZ);
+            case OP_SPLINE_CONSTANT -> value = (double)Float.intBitsToFloat(data0);
+            case OP_SPLINE_MULTIPOINT -> value = evaluateSplineMultipoint(
+                input, parsed, record, edge, blockX, blockY, blockZ, noise, values, states);
+            case OP_TABLE_LOOKUP -> value = tableLookupValue(input, record, blockX, blockZ);
             default -> throw new IllegalStateException("validated density opcode changed");
         }
         states[node] = 2;
         values[node] = value;
         return value;
+    }
+
+    private static double evaluateSplineMultipoint(
+        final int[] input,
+        final Parsed parsed,
+        final int record,
+        final int edge,
+        final int blockX,
+        final int blockY,
+        final int blockZ,
+        final NoiseOracle noise,
+        final double[] values,
+        final byte[] states
+    ) {
+        int pointCount = input[record + 6];
+        int auxOffset = parsed.auxOffset + input[record + 4];
+        int coordinateNode = input[edge];
+        float coordinate = (float)evaluateNode(input, parsed, coordinateNode,
+            blockX, blockY, blockZ, noise, values, states);
+        int low = 0;
+        int length = pointCount;
+        while (length > 0) {
+            int half = length / 2;
+            int middle = low + half;
+            float location = Float.intBitsToFloat(input[auxOffset + middle * 2]);
+            if (coordinate < location) {
+                length = half;
+            } else {
+                low = middle + 1;
+                length -= half + 1;
+            }
+        }
+        int start = low - 1;
+        int last = pointCount - 1;
+        if (start < 0) {
+            float child = (float)evaluateNode(input, parsed, input[edge + 1],
+                blockX, blockY, blockZ, noise, values, states);
+            float location = Float.intBitsToFloat(input[auxOffset]);
+            float derivative = Float.intBitsToFloat(input[auxOffset + 1]);
+            return (double)splineLinearExtend(coordinate, location, child, derivative);
+        }
+        if (start == last) {
+            float child = (float)evaluateNode(input, parsed, input[edge + 1 + last],
+                blockX, blockY, blockZ, noise, values, states);
+            float location = Float.intBitsToFloat(input[auxOffset + last * 2]);
+            float derivative = Float.intBitsToFloat(input[auxOffset + last * 2 + 1]);
+            return (double)splineLinearExtend(coordinate, location, child, derivative);
+        }
+
+        float x1 = Float.intBitsToFloat(input[auxOffset + start * 2]);
+        float x2 = Float.intBitsToFloat(input[auxOffset + (start + 1) * 2]);
+        float t = (coordinate - x1) / (x2 - x1);
+        float y1 = (float)evaluateNode(input, parsed, input[edge + 1 + start],
+            blockX, blockY, blockZ, noise, values, states);
+        float y2 = (float)evaluateNode(input, parsed, input[edge + 2 + start],
+            blockX, blockY, blockZ, noise, values, states);
+        float d1 = Float.intBitsToFloat(input[auxOffset + start * 2 + 1]);
+        float d2 = Float.intBitsToFloat(input[auxOffset + (start + 1) * 2 + 1]);
+        float xDifference = x2 - x1;
+        float a = d1 * xDifference - (y2 - y1);
+        float b = -d2 * xDifference + (y2 - y1);
+        float value = Mth.lerp(t, y1, y2) + t * (1.0F - t) * Mth.lerp(t, a, b);
+        return (double)value;
     }
 
     private static double mapped(final int id, final double input) {
@@ -1330,6 +1775,41 @@ public final class VanillaDensityGraphBatch {
         } else if (op instanceof VanillaDensityGraph.Blended value) {
             records[record] = OP_BLENDED;
             records[record + 6] = value.profile();
+        } else if (op instanceof VanillaDensityGraph.SplineConstant value) {
+            records[record] = OP_SPLINE_CONSTANT;
+            records[record + 6] = Float.floatToRawIntBits(value.value());
+        } else if (op instanceof VanillaDensityGraph.SplineMultipoint value) {
+            float[] locations = value.locations();
+            float[] derivatives = value.derivatives();
+            if (locations.length != derivatives.length || locations.length != value.values().length) {
+                throw invalid("spline snapshot arrays changed length during export");
+            }
+            records[record] = OP_SPLINE_MULTIPOINT;
+            records[record + 6] = locations.length;
+            records[record + 4] = auxCursor;
+            records[record + 5] = locations.length * 2;
+            int offset = auxCursor;
+            for (int point = 0; point < locations.length; point++) {
+                aux[offset++] = Float.floatToRawIntBits(locations[point]);
+                aux[offset++] = Float.floatToRawIntBits(derivatives[point]);
+            }
+        } else if (op instanceof VanillaDensityGraph.TableLookup value) {
+            double[] table = value.values();
+            int sizeXZ = value.sizeXZ();
+            if (sizeXZ < 1 || sizeXZ > MAX_TABLE_DIMENSION || table.length != sizeXZ * sizeXZ) {
+                throw invalid("FlatCache table snapshot dimensions changed during export");
+            }
+            records[record] = OP_TABLE_LOOKUP;
+            records[record + 6] = value.firstQuartX();
+            records[record + 7] = value.firstQuartZ();
+            records[record + 8] = sizeXZ;
+            records[record + 4] = auxCursor;
+            records[record + 5] = table.length * 2;
+            int offset = auxCursor;
+            for (double entry : table) {
+                putDouble(aux, offset, entry);
+                offset += 2;
+            }
         } else {
             throw invalid("unsupported snapshot operation " + op.getClass().getName());
         }
@@ -1342,7 +1822,8 @@ public final class VanillaDensityGraphBatch {
 
     private static int[] children(final VanillaDensityGraph.Op op) {
         if (op instanceof VanillaDensityGraph.Constant || op instanceof VanillaDensityGraph.Noise
-            || op instanceof VanillaDensityGraph.Shift || op instanceof VanillaDensityGraph.Blended) return new int[0];
+            || op instanceof VanillaDensityGraph.Shift || op instanceof VanillaDensityGraph.Blended
+            || op instanceof VanillaDensityGraph.SplineConstant || op instanceof VanillaDensityGraph.TableLookup) return new int[0];
         if (op instanceof VanillaDensityGraph.Alias value) return new int[] {value.input()};
         if (op instanceof VanillaDensityGraph.YGradient) return new int[0];
         if (op instanceof VanillaDensityGraph.Clamp value) return new int[] {value.input()};
@@ -1357,6 +1838,13 @@ public final class VanillaDensityGraphBatch {
             return result;
         }
         if (op instanceof VanillaDensityGraph.ShiftedNoise value) return new int[] {value.shiftX(), value.shiftY(), value.shiftZ()};
+        if (op instanceof VanillaDensityGraph.SplineMultipoint value) {
+            int[] values = value.values();
+            int[] result = new int[values.length + 1];
+            result[0] = value.coordinate();
+            System.arraycopy(values, 0, result, 1, values.length);
+            return result;
+        }
         throw invalid("unsupported snapshot operation " + op.getClass().getName());
     }
 
@@ -1398,6 +1886,18 @@ public final class VanillaDensityGraphBatch {
         return first * second;
     }
 
+    /** Maximum comparisons on any path through Mth.binarySearch over this point count. */
+    private static int splineSearchSteps(final int pointCount) {
+        int length = pointCount;
+        int steps = 0;
+        while (length > 0) {
+            int half = length / 2;
+            length = Math.max(half, length - half - 1);
+            steps++;
+        }
+        return steps;
+    }
+
     private static int profileSectionOffset(final int[] input) {
         return input[15];
     }
@@ -1408,6 +1908,13 @@ public final class VanillaDensityGraphBatch {
 
     private record RecordInfo(int type, int words) {}
     private record Bounds(double minimum, double maximum) {}
+    private record FloatRange(float minimum, float maximum) {
+        private FloatRange {
+            if (!Float.isFinite(minimum) || !Float.isFinite(maximum) || minimum > maximum) {
+                throw invalid("invalid finite binary32 interval");
+            }
+        }
+    }
     private record ProfileSection(Map<Integer, RecordInfo> records, byte[] recordTypes) {}
     private record Parsed(
         int sampleCount,
@@ -1424,25 +1931,14 @@ public final class VanillaDensityGraphBatch {
     ) {}
 
     private static final class NoiseOracle {
-        private final List<NoiseProfile> profiles;
-        private final int[][] wires;
+        private final List<VanillaNoiseBatch.ExactSampler> samplers;
 
         private NoiseOracle(final List<NoiseProfile> profiles) {
-            this.profiles = profiles;
-            this.wires = new int[profiles.size()][];
+            this.samplers = VanillaNoiseBatch.exactSamplers(profiles);
         }
 
         private double sample(final int profileId, final double x, final double y, final double z) {
-            int[] wire = this.wires[profileId];
-            if (wire == null) {
-                wire = VanillaNoiseBatch.input(new NoiseSample(this.profiles.get(profileId), 0.0, 0.0, 0.0, 0.0, 0.0));
-                this.wires[profileId] = wire;
-            }
-            int offset = wire[4] + W5_PROFILE_SAMPLE_OFFSET;
-            putDouble(wire, offset, x);
-            putDouble(wire, offset + 2, y);
-            putDouble(wire, offset + 4, z);
-            return VanillaNoiseBatch.outputValue(VanillaNoiseBatch.reference(wire), 0);
+            return this.samplers.get(profileId).sample(x, y, z);
         }
     }
 }

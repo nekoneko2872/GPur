@@ -11,16 +11,21 @@ import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.util.RandomSource;
+import net.minecraft.util.CubicSpline;
+import net.minecraft.data.worldgen.TerrainProvider;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Aquifer;
 import net.minecraft.world.level.levelgen.DensityFunction;
@@ -39,13 +44,14 @@ import org.gpur.compute.VulkanDevice.DeviceMetrics;
 import org.gpur.compute.VulkanDevice.Info;
 import org.gpur.terrain.VanillaDensityGraph;
 import org.gpur.terrain.VanillaDensityGraphBatch;
+import org.gpur.terrain.VanillaOverworldCornerGraphFixture;
 import org.bukkit.support.RegistryHelper;
 import org.bukkit.support.environment.VanillaFeature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.function.Executable;
 
-/** Opt-in physical Vulkan parity checks for exact noise, aquifer ranking and a synthetic density graph. */
+/** Opt-in physical Vulkan parity for exact worldgen kernels, vanilla spline and table graphs, and live corner adoption. */
 @EnabledIfSystemProperty(named = "gpur.gpu-tests", matches = "true")
 @VanillaFeature
 final class VanillaWorldgenKernelHardwareTest {
@@ -63,13 +69,17 @@ final class VanillaWorldgenKernelHardwareTest {
     private static final Field POSITIONAL_RANDOM_FACTORY = field(Aquifer.NoiseBasedAquifer.class, "positionalRandomFactory");
 
     @Test
-    void everyPhysicalUuidPassesExactNoiseAquiferAndSyntheticDensityGraphKernelsUnderMixedConcurrency() throws Exception {
+    void everyPhysicalUuidPassesExactNoiseAquiferDensityGraphAndSplineKernelsUnderMixedConcurrency() throws Exception {
         List<Info> devices = VulkanDevice.discover().stream().filter(Info::float64).toList();
         assertFalse(devices.isEmpty(), "Hardware test requires at least one Vulkan FP64 device");
         assertEquals(devices.size(), devices.stream().map(Info::uuid).distinct().count(), "Device UUIDs must be unique");
+        requireExpectedDeviceUuids(devices);
         List<KernelCase> cases = List.of(
             noiseCase(), aquiferFirstTieCase(), aquiferNegativeBoundaryCase(),
-            densityGraphCase(), densityGradientSemanticsCase()
+            densityGraphCase(), densityGradientSemanticsCase(),
+            densityNoiseSplineCase(), terrainProviderSplineCase(),
+            splineFp32SubnormalCase(), splineFp32AdversarialCase(), splineNegativeZeroExtensionCase(), splineFp32RoundingBoundaryCase(),
+            defaultOverworldTableCase()
         );
         KernelCase fullHeight = seededAquiferCase(0, 0, 384);
         KernelCase ordinaryHeightNegativeChunk = seededAquiferCase(-32, -32, 128);
@@ -99,12 +109,89 @@ final class VanillaWorldgenKernelHardwareTest {
         }
     }
 
+    @Test
+    void everyPhysicalUuidPassesAllDefaultOverworldCornerRootsDirectAndStaged() throws Exception {
+        List<Info> devices = VulkanDevice.discover().stream().filter(Info::float64).toList();
+        assertFalse(devices.isEmpty(), "Hardware test requires at least one Vulkan FP64 device");
+        assertEquals(devices.size(), devices.stream().map(Info::uuid).distinct().count(), "Device UUIDs must be unique");
+        requireExpectedDeviceUuids(devices);
+        List<KernelCase> cornerCases = defaultOverworldCornerCases();
+
+        try (ConfigSnapshot config = ConfigSnapshot.capture()) {
+            configureHardwareTest();
+            List<Throwable> failures = new ArrayList<>();
+            for (Info info : devices) {
+                runAndCollect(failures, info, "all-eight-overworld-roots-direct",
+                    () -> verifyCornerBufferMode(info, cornerCases, "all-eight-overworld-roots-direct", 0, false));
+                runAndCollect(failures, info, "all-eight-overworld-roots-staged",
+                    () -> verifyCornerBufferMode(info, cornerCases, "all-eight-overworld-roots-staged", 1, true));
+            }
+            assertAll("Every physical UUID must pass all default Overworld root corners in both buffer modes",
+                failures.stream().map(failure -> (Executable)() -> { throw failure; }).toList());
+        }
+    }
+
+    @EnabledIfSystemProperty(named = "gpur.gpu-live-corner-adoption-tests", matches = "true")
+    @Test
+    void everyPhysicalUuidAdoptsCompleteOverworldChunksThroughTheLiveNoiseChunkConsumer() throws Exception {
+        List<Info> devices = VulkanDevice.discover().stream().filter(Info::float64).toList();
+        assertFalse(devices.isEmpty(), "Hardware test requires at least one Vulkan FP64 device");
+        assertEquals(devices.size(), devices.stream().map(Info::uuid).distinct().count(), "Device UUIDs must be unique");
+        requireExpectedDeviceUuids(devices);
+
+        try (ConfigSnapshot config = ConfigSnapshot.capture()) {
+            for (Info info : devices) {
+                configureHardwareTest();
+                GPurConfig.gpuDevices = List.of(info.uuid());
+                GPurConfig.terrainGpuEnabled = true;
+                GPurConfig.vanillaTerrainEnabled = true;
+                GPurConfig.vanillaTerrainMode = VanillaVerificationPolicy.Mode.STRICT;
+                GPurConfig.vanillaTerrainVerifyEveryBatch = true;
+                GPurConfig.vanillaTerrainMinValues = 1_024;
+                GPurConfig.vanillaTerrainMaxSlabValues = 65_536;
+                GPurConfig.vanillaNoiseGpuEnabled = false;
+                GPurConfig.vanillaAquiferGpuEnabled = false;
+                GPurConfig.vanillaCornerGraphsGpuEnabled = true;
+                try (ComputeService service = new ComputeService(Logger.getLogger("gpur-corner-graph-physical-" + info.uuid()))) {
+                    assertTrue(service.worldgenEligible(VanillaDensityGraphBatch.WORKLOAD),
+                        info.name() + " must initialize the opt-in W7 service for its physical UUID");
+                    long consumedBefore = service.worldgenDevices().stream()
+                        .filter(status -> status.uuid().equals(info.uuid()) && status.workload() == VanillaDensityGraphBatch.WORKLOAD)
+                        .mapToLong(ComputeService.WorldgenDeviceStatus::consumedValues).sum();
+                    NoiseChunkCornerGraphAdoptionParityTest.compareCompleteChunk(service, 0, 0, false);
+                    NoiseChunkCornerGraphAdoptionParityTest.compareCompleteChunk(service, -32, -48, false);
+                    ComputeService.WorldgenDeviceStatus status = service.worldgenDevices().stream()
+                        .filter(candidate -> candidate.uuid().equals(info.uuid())
+                            && candidate.workload() == VanillaDensityGraphBatch.WORKLOAD)
+                        .findFirst().orElseThrow(() -> new AssertionError("Missing W7 status for " + info.uuid()));
+                    assertEquals(19_600, status.consumedValues() - consumedBefore,
+                        info.name() + " must consume all eight root lattices from both complete chunks");
+                    assertTrue(status.dispatches() > 0 && status.acceptedBatches() > 0,
+                        info.name() + " must produce accepted physical W7 submissions");
+                }
+            }
+        }
+    }
+
     private static void runAndCollect(List<Throwable> failures, Info info, String label, CheckedAction action) {
         try {
             action.run();
         } catch (Exception | AssertionError failure) {
             failures.add(new AssertionError(info.name() + " " + label, failure));
         }
+    }
+
+    private static void requireExpectedDeviceUuids(final List<Info> devices) {
+        String expectedProperty = System.getProperty("gpur.gpu-test-device-uuids", "").trim();
+        if (expectedProperty.isEmpty()) return;
+        Set<String> expected = Arrays.stream(expectedProperty.split(","))
+            .map(String::trim)
+            .filter(uuid -> !uuid.isEmpty())
+            .collect(java.util.stream.Collectors.toSet());
+        assertFalse(expected.isEmpty(), "Expected Vulkan device UUID property must contain at least one UUID");
+        Set<String> discovered = devices.stream().map(Info::uuid).collect(java.util.stream.Collectors.toSet());
+        assertTrue(discovered.containsAll(expected), "Missing required Vulkan FP64 device UUIDs: "
+            + expected.stream().filter(uuid -> !discovered.contains(uuid)).toList());
     }
 
     private static void verifyKernelBufferMode(
@@ -153,7 +240,7 @@ final class VanillaWorldgenKernelHardwareTest {
                 completedJobs++;
             }
 
-            // Mix workloads 5–7 while the Vulkan worker is active.
+            // Mix workloads 5, 6 and 7 while the Vulkan worker is active.
             List<CompletableFuture<int[]>> pending = new ArrayList<>(cases.size() * MIXED_ROUNDS);
             List<KernelCase> expectedCases = new ArrayList<>(cases.size() * MIXED_ROUNDS);
             for (int round = 0; round < MIXED_ROUNDS; round++) {
@@ -177,9 +264,41 @@ final class VanillaWorldgenKernelHardwareTest {
             assertEquals(0, after.failedJobs() - before.failedJobs(), info.name() + " failed jobs");
             assertTrue(device.available(), info.name() + " remains available after exact parity");
             System.out.println("GPur worldgen Vulkan " + info.name() + " uuid=" + info.uuid()
-                + " workload5Profiles=4 workload6LiteralCases=2 workload7SyntheticCases=2 nativeJobs=" + completedJobs
+                + " workload5Profiles=4 workload6LiteralCases=2 workload7GraphAndSplineCases="
+                + cases.stream().filter(kernelCase -> kernelCase.input()[0] == VanillaDensityGraphBatch.WORKLOAD).count()
+                + " nativeJobs=" + completedJobs
                 + " nativeCompleted=" + (after.completedJobs() - before.completedJobs())
                 + " nullResults=0 rejected=0 timedOut=0 failed=0");
+        }
+    }
+
+    private static void verifyCornerBufferMode(
+        Info info, List<KernelCase> cases, String label, int stagingThresholdBytes, boolean expectStaging
+    ) throws Exception {
+        GPurConfig.gpuDeviceLocalThresholdBytes = stagingThresholdBytes;
+        GPurConfig.gpuExecutionContexts = 1;
+        GPurConfig.gpuBatchMaxJobs = 1;
+        try (VulkanDevice device = VulkanDevice.create(info.uuid())) {
+            assertTrue(device.available(), info.name() + " must open by physical UUID " + info.uuid());
+            device.prepareDensityGraphPipeline();
+            DeviceMetrics before = device.metrics();
+            int completedJobs = 0;
+            for (KernelCase kernelCase : cases) {
+                int[] actual = device.computeAsync(
+                    kernelCase.input(), ExactCompute.outputWords(kernelCase.input()), kernelCase.input()[1]
+                ).get(FUTURE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                assertKernelResult(info, kernelCase, actual, label);
+                assertEquals(expectStaging, deviceLocalMode(device), info.name() + " " + label + " buffer mode");
+                completedJobs++;
+            }
+            DeviceMetrics after = device.metrics();
+            assertEquals(completedJobs, after.submittedJobs() - before.submittedJobs(), info.name() + " native submissions");
+            assertEquals(completedJobs, after.completedJobs() - before.completedJobs(), info.name() + " native completions");
+            assertEquals(0, after.failedJobs() - before.failedJobs(), info.name() + " failed jobs");
+            assertTrue(device.available(), info.name() + " remains available after default corner graph parity");
+            System.out.println("GPur default Overworld W7 corner closure " + info.name() + " uuid=" + info.uuid()
+                + " cases=" + cases.size() + " nativeJobs=" + completedJobs + " bufferMode="
+                + (expectStaging ? "staging" : "direct") + " rawBitsExact=true");
         }
     }
 
@@ -320,6 +439,312 @@ final class VanillaWorldgenKernelHardwareTest {
         }
         int[] input = VanillaDensityGraphBatch.input(VanillaDensityGraph.snapshot(graph), samples);
         return new KernelCase("density-gradient-boundary-fp64", input, doubleWords(expected));
+    }
+
+    private static KernelCase densityNoiseSplineCase() {
+        NormalNoise normal = NormalNoise.create(RandomSource.create(0x7a91L), -2, 0.75, 1.0, 0.375, 0.5);
+        Holder<NormalNoise.NoiseParameters> holder = Holder.direct(normal.parameters());
+        DensityFunction noiseCoordinate = DensityFunctions.add(
+            DensityFunctions.noise(holder, 0.125, 0.0625),
+            DensityFunctions.yClampedGradient(-64, 64, -0.5, 0.5)
+        );
+        DensityFunctions.Spline.Coordinate noisy = new DensityFunctions.Spline.Coordinate(noiseCoordinate);
+        DensityFunctions.Spline.Coordinate vertical = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.yClampedGradient(-64, 64, -2.0, 2.0)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> nested = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(noisy)
+            .addPoint(-1.0F, -0.75F, 0.125F)
+            .addPoint(0.0F, 0.25F, -0.375F)
+            .addPoint(1.0F, 0.875F, 0.25F)
+            .build();
+        CubicSpline<DensityFunctions.Spline.Coordinate> outer = new CubicSpline.Multipoint<>(
+            vertical,
+            new float[] {-1.0F, -0.5F, 0.0F, 0.5F, 1.0F},
+            List.of(
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(-0.5F),
+                nested,
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(0.25F),
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(-0.0F),
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(1.25F)
+            ),
+            new float[] {0.125F, 0.25F, -0.5F, -0.0F, 0.25F}
+        );
+        DensityFunction initialized = initializeDensityNoise(new DensityFunctions.Spline(outer), normal);
+        int[][] points = {
+            {-911, -64, 47}, {-1, -32, -1}, {73, -24, -911}, {17, -16, -19},
+            {-16, 0, 16}, {243, 16, -77}, {0, 32, 0}, {-13, 48, 7}, {9, 64, -27}
+        };
+        List<VanillaDensityGraphBatch.Sample> samples = new ArrayList<>(points.length);
+        List<Double> expected = new ArrayList<>(points.length);
+        for (int[] point : points) {
+            samples.add(new VanillaDensityGraphBatch.Sample(point[0], point[1], point[2]));
+            expected.add(initialized.compute(context(point[0], point[1], point[2])));
+        }
+        int[] input = VanillaDensityGraphBatch.input(VanillaDensityGraph.snapshot(initialized), samples);
+        return new KernelCase("initialized-noise-nested-spline-v2", input, doubleWords(expected));
+    }
+
+    private static KernelCase terrainProviderSplineCase() {
+        DensityFunctions.Spline.Coordinate continents = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.yClampedGradient(-128, 128, -1.1, 1.0)
+        );
+        DensityFunctions.Spline.Coordinate erosion = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.yClampedGradient(-128, 128, -1.0, 1.0)
+        );
+        DensityFunctions.Spline.Coordinate weirdness = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.yClampedGradient(-96, 96, -1.0, 1.0)
+        );
+        DensityFunctions.Spline.Coordinate ridges = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.yClampedGradient(-80, 80, -1.0, 1.0)
+        );
+        DensityFunction offset = new DensityFunctions.Spline(
+            TerrainProvider.overworldOffset(continents, erosion, ridges, false));
+        DensityFunction factor = new DensityFunctions.Spline(
+            TerrainProvider.overworldFactor(continents, erosion, weirdness, ridges, false));
+        DensityFunction jaggedness = new DensityFunctions.Spline(
+            TerrainProvider.overworldJaggedness(continents, erosion, weirdness, ridges, false));
+        DensityFunction root = DensityFunctions.add(DensityFunctions.add(offset, factor), jaggedness);
+        int[] ys = {-140, -128, -100, -80, -50, -30, -15, 0, 25, 50, 75, 100, 130};
+        List<VanillaDensityGraphBatch.Sample> samples = new ArrayList<>(ys.length);
+        List<Double> expected = new ArrayList<>(ys.length);
+        for (int i = 0; i < ys.length; i++) {
+            int x = -113 + i * 17;
+            int z = 257 - i * 31;
+            samples.add(new VanillaDensityGraphBatch.Sample(x, ys[i], z));
+            expected.add(root.compute(context(x, ys[i], z)));
+        }
+        int[] input = VanillaDensityGraphBatch.input(VanillaDensityGraph.snapshot(root), samples);
+        return new KernelCase("terrain-provider-spline-synthetic-coordinates-v2", input, doubleWords(expected));
+    }
+
+    private static KernelCase splineFp32SubnormalCase() {
+        DensityFunctions.Spline.Coordinate coordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(0.75)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> spline = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(coordinate)
+            .addPoint(0.0F, 0.0F)
+            .addPoint(1.0F, Float.MIN_VALUE)
+            .build();
+        DensityFunction root = new DensityFunctions.Spline(spline);
+        int[][] positions = {{0, 0, 0}, {-31, -64, 47}, {911, 64, -243}};
+        KernelCase kernelCase = densitySplineCase("spline-fp32-subnormal-interpolation-v2", root, positions);
+        long expectedBits = Double.doubleToRawLongBits((double)Float.MIN_VALUE);
+        assertEquals(expectedBits, Integer.toUnsignedLong(kernelCase.expected()[0])
+            | ((long)kernelCase.expected()[1] << 32), "actual Mache interpolation must retain the least positive float subnormal");
+        return kernelCase;
+    }
+
+    private static KernelCase splineFp32AdversarialCase() {
+        List<DensityFunction> branches = new ArrayList<>();
+        branches.add(new DensityFunctions.Spline(CubicSpline.<DensityFunctions.Spline.Coordinate>constant(Float.MIN_VALUE)));
+        branches.add(new DensityFunctions.Spline(CubicSpline.<DensityFunctions.Spline.Coordinate>constant(-Float.MIN_VALUE)));
+
+        DensityFunctions.Spline.Coordinate subnormalCoordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant((double)Float.MIN_VALUE)
+        );
+        branches.add(new DensityFunctions.Spline(new CubicSpline.Multipoint<>(
+            subnormalCoordinate,
+            new float[] {-2.0F * Float.MIN_VALUE, 2.0F * Float.MIN_VALUE},
+            List.of(
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(-Float.MIN_VALUE),
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(Float.MIN_VALUE)
+            ),
+            new float[] {Float.MIN_VALUE, -Float.MIN_VALUE}
+        )));
+
+        DensityFunctions.Spline.Coordinate extensionCoordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(-1.0)
+        );
+        branches.add(new DensityFunctions.Spline(new CubicSpline.Multipoint<>(
+            extensionCoordinate,
+            new float[] {0.0F, 1.0F},
+            List.of(
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(0.0F),
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(0.0F)
+            ),
+            new float[] {Float.MIN_VALUE, 0.0F}
+        )));
+
+        DensityFunctions.Spline.Coordinate transitionCoordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(0.5)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> normalTransition = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(transitionCoordinate)
+            .addPoint(0.0F, 0.0F)
+            .addPoint(1.0F, Float.MIN_NORMAL)
+            .build();
+        branches.add(new DensityFunctions.Spline(normalTransition));
+
+        DensityFunctions.Spline.Coordinate upperTransitionCoordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(1.0)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> normalEndpoint = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(upperTransitionCoordinate)
+            .addPoint(0.0F, 0.0F)
+            .addPoint(1.0F, Float.MIN_NORMAL)
+            .build();
+        branches.add(new DensityFunctions.Spline(normalEndpoint));
+
+        DensityFunctions.Spline.Coordinate zeroDivisionCoordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(0.0)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> zeroFraction = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(zeroDivisionCoordinate)
+            .addPoint(0.0F, 0.0F)
+            .addPoint(3.0F, 1.0F)
+            .build();
+        branches.add(new DensityFunctions.Spline(zeroFraction));
+
+        DensityFunctions.Spline.Coordinate oneThirdCoordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(1.0)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> oneThirdFraction = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(oneThirdCoordinate)
+            .addPoint(0.0F, 0.0F, 1.0F / 3.0F)
+            .addPoint(3.0F, 1.0F, 1.0F / 3.0F)
+            .build();
+        branches.add(new DensityFunctions.Spline(oneThirdFraction));
+
+        DensityFunctions.Spline.Coordinate halfwayCoordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(0.5)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> subnormalMidpoint = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(halfwayCoordinate)
+            .addPoint(0.0F, 0.0F)
+            .addPoint(1.0F, Float.MIN_VALUE)
+            .build();
+        branches.add(new DensityFunctions.Spline(subnormalMidpoint));
+
+        float wide = Float.MAX_VALUE / 4.0F;
+        DensityFunctions.Spline.Coordinate wideCoordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(0.0)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> wideFinite = new CubicSpline.Multipoint<>(
+            wideCoordinate,
+            new float[] {-wide, wide},
+            List.of(
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(wide),
+                CubicSpline.<DensityFunctions.Spline.Coordinate>constant(wide * 2.0F)
+            ),
+            new float[] {0.0F, 0.0F}
+        );
+        branches.add(new DensityFunctions.Spline(wideFinite));
+
+        int branchCount = branches.size();
+        double[] thresholds = new double[branchCount - 1];
+        int[][] positions = new int[branchCount][3];
+        for (int branch = 0; branch < branchCount; branch++) {
+            positions[branch] = new int[] {branch - 7, branch, 11 - branch};
+            if (branch < thresholds.length) thresholds[branch] = branch + 0.5;
+        }
+        DensityFunction selector = DensityFunctions.yClampedGradient(0, branchCount - 1, 0.0, branchCount - 1.0);
+        DensityFunction root = DensityFunctions.intervalSelect(selector, new DoubleArrayList(thresholds), branches);
+        KernelCase result = densitySplineCase("spline-fp32-adversarial-mache-v2", root, positions);
+        assertEquals(Double.doubleToRawLongBits((double)Float.MIN_VALUE), rawBits(result.expected(), 0),
+            "positive spline constant must preserve a subnormal binary32 value");
+        assertEquals(Double.doubleToRawLongBits((double)-Float.MIN_VALUE), rawBits(result.expected(), 1),
+            "negative spline constant must preserve a subnormal binary32 value");
+        assertEquals(Double.doubleToRawLongBits((double)(Float.MIN_NORMAL / 2.0F)), rawBits(result.expected(), 4),
+            "normal-to-subnormal interpolation must retain its binary32 midpoint");
+        assertEquals(Double.doubleToRawLongBits((double)Float.MIN_NORMAL), rawBits(result.expected(), 5),
+            "subnormal-to-normal transition must retain the least normal binary32 value");
+        assertEquals(Double.doubleToRawLongBits((double)(1.0F / 3.0F)), rawBits(result.expected(), 7),
+            "spline division must round the one-third fraction as binary32");
+        assertEquals(Double.doubleToRawLongBits(0.0), rawBits(result.expected(), 8),
+            "half of the least subnormal must round to even zero");
+        assertEquals(Double.doubleToRawLongBits((double)(wide * 1.5F)), rawBits(result.expected(), 9),
+            "wide finite spline knots and values must remain finite and overflow-safe");
+        return result;
+    }
+
+    private static long rawBits(int[] words, int sample) {
+        return Integer.toUnsignedLong(words[sample * 2]) | ((long)words[sample * 2 + 1] << 32);
+    }
+
+    private static KernelCase splineNegativeZeroExtensionCase() {
+        DensityFunctions.Spline.Coordinate coordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.constant(-1.0)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> spline = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(coordinate)
+            .addPoint(0.0F, -0.0F, -0.0F)
+            .addPoint(1.0F, 1.0F)
+            .build();
+        DensityFunction root = new DensityFunctions.Spline(spline);
+        KernelCase kernelCase = densitySplineCase("spline-negative-zero-derivative-extension-v2", root,
+            new int[][] {{0, 0, 0}, {-31, -64, 47}});
+        assertEquals(Double.doubleToRawLongBits(-0.0), Integer.toUnsignedLong(kernelCase.expected()[0])
+            | ((long)kernelCase.expected()[1] << 32), "actual Mache zero-derivative extension must preserve negative zero");
+        return kernelCase;
+    }
+
+    private static KernelCase splineFp32RoundingBoundaryCase() {
+        float firstLocation = 0.5F;
+        float secondLocation = Math.nextUp(Math.nextUp(firstLocation));
+        double halfway = ((double)firstLocation + (double)Math.nextUp(firstLocation)) * 0.5;
+        double justAboveHalfway = Math.nextUp(halfway);
+        DensityFunctions.Spline.Coordinate coordinate = new DensityFunctions.Spline.Coordinate(
+            DensityFunctions.yClampedGradient(0, 1, halfway, justAboveHalfway)
+        );
+        CubicSpline<DensityFunctions.Spline.Coordinate> spline = CubicSpline.<DensityFunctions.Spline.Coordinate>builder(coordinate)
+            .addPoint(firstLocation, 0.0F)
+            .addPoint(secondLocation, 1.0F)
+            .build();
+        DensityFunction root = new DensityFunctions.Spline(spline);
+        KernelCase kernelCase = densitySplineCase("spline-fp32-rounding-boundary-v2", root,
+            new int[][] {{0, -1, 0}, {0, 0, 0}, {0, 1, 0}, {0, 2, 0}});
+        int[] expected = kernelCase.expected();
+        assertEquals(Double.doubleToRawLongBits(0.0), Integer.toUnsignedLong(expected[0]) | ((long)expected[1] << 32),
+            "midpoint must round to the even lower binary32 coordinate");
+        assertEquals(Double.doubleToRawLongBits(0.0), Integer.toUnsignedLong(expected[2]) | ((long)expected[3] << 32),
+            "midpoint sample must remain on the lower knot");
+        assertEquals(Double.doubleToRawLongBits(0.5), Integer.toUnsignedLong(expected[4]) | ((long)expected[5] << 32),
+            "next-up midpoint must round to the adjacent binary32 coordinate");
+        assertEquals(Double.doubleToRawLongBits(0.5), Integer.toUnsignedLong(expected[6]) | ((long)expected[7] << 32),
+            "clamped upper coordinate must preserve the adjacent-float spline result");
+        return kernelCase;
+    }
+
+    private static KernelCase densitySplineCase(String name, DensityFunction root, int[][] positions) {
+        List<VanillaDensityGraphBatch.Sample> samples = new ArrayList<>(positions.length);
+        List<Double> expected = new ArrayList<>(positions.length);
+        for (int[] position : positions) {
+            samples.add(new VanillaDensityGraphBatch.Sample(position[0], position[1], position[2]));
+            expected.add(root.compute(context(position[0], position[1], position[2])));
+        }
+        int[] input = VanillaDensityGraphBatch.input(VanillaDensityGraph.snapshot(root), samples);
+        return new KernelCase(name, input, doubleWords(expected));
+    }
+
+    private static KernelCase defaultOverworldTableCase() throws Exception {
+        VanillaOverworldCornerGraphFixture.RootCase tableRoot = VanillaOverworldCornerGraphFixture.capture(0, 0).stream()
+            .filter(root -> root.graph().tableValueCount() > 0)
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("Default Overworld fixture must contain a captured FlatCache table"));
+        List<VanillaDensityGraphBatch.Sample> samples = tableRoot.samples().subList(0, 49);
+        int[] expected = Arrays.copyOfRange(tableRoot.expectedWords(), 0, samples.size() * 2);
+        int[] input = VanillaDensityGraphBatch.input(tableRoot.graph(), samples);
+        return new KernelCase("default-overworld-flatcache-root-" + tableRoot.rootIndex(), input, expected);
+    }
+
+    private static List<KernelCase> defaultOverworldCornerCases() throws Exception {
+        List<KernelCase> cases = new ArrayList<>();
+        int[][] origins = {{0, 0}, {-32, -48}};
+        final int samplesPerColumn = 49;
+        final int columnsPerBatch = 4;
+        final int samplesPerBatch = samplesPerColumn * columnsPerBatch;
+        for (int[] origin : origins) {
+            List<VanillaOverworldCornerGraphFixture.RootCase> roots =
+                VanillaOverworldCornerGraphFixture.capture(origin[0], origin[1]);
+            assertEquals(8, roots.size(), "the complete default Overworld graph fixture has eight roots");
+            for (VanillaOverworldCornerGraphFixture.RootCase root : roots) {
+                assertEquals(1_225, root.samples().size(), "default Overworld fixture keeps all 1,225 corners per root");
+                int[] expectedWords = root.expectedWords();
+                for (int first = 0; first < root.samples().size(); first += samplesPerBatch) {
+                    int end = Math.min(root.samples().size(), first + samplesPerBatch);
+                    List<VanillaDensityGraphBatch.Sample> samples = root.samples().subList(first, end);
+                    int[] input = VanillaDensityGraphBatch.input(root.graph(), samples);
+                    int[] expected = Arrays.copyOfRange(expectedWords, first * 2, end * 2);
+                    cases.add(new KernelCase("overworld-root-" + root.rootIndex() + "-origin-" + origin[0] + "-" + origin[1]
+                        + "-samples-" + first + "-" + end, input, expected));
+                }
+            }
+        }
+        return List.copyOf(cases);
     }
 
     private static DensityFunction initializeDensityNoise(DensityFunction graph, NormalNoise normal) {

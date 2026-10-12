@@ -237,6 +237,7 @@ def write_case_files(args, directory: Path, case: str, label: str, jar_copy: Pat
     )
     settings = CASES[case]
     gpu_enabled = case != "cpu"
+    corner_graphs = bool(getattr(args, "corner_graphs", False))
     device_yaml = json.dumps(settings["devices"])
     (directory / "gpur.yml").write_text(
         "config-version: 2\n"
@@ -244,7 +245,9 @@ def write_case_files(args, directory: Path, case: str, label: str, jar_copy: Pat
         f"  gpu-acceleration:\n    enabled: {str(gpu_enabled).lower()}\n    terrain-enabled: true\n"
         "  vanilla-terrain:\n"
         f"    enabled: {str(gpu_enabled).lower()}\n    mode: {args.mode if gpu_enabled else 'disabled'}\n"
-        f"    noise-batches: {str(gpu_enabled).lower()}\n    aquifer-ranking: {str(gpu_enabled).lower()}\n"
+        f"    noise-batches: {str(gpu_enabled and not corner_graphs).lower()}\n"
+        f"    aquifer-ranking: {str(gpu_enabled).lower()}\n"
+        f"    corner-graphs: {str(gpu_enabled and corner_graphs).lower()}\n"
         f"    verify-every-batch: {str(args.mode == 'strict' if gpu_enabled else True).lower()}\n"
         "    minimum-values: 1024\n"
         f"gpu:\n  multi-gpu:\n    enabled: {str(settings['multi']).lower()}\n    devices: {device_yaml}\n"
@@ -256,6 +259,7 @@ def write_case_files(args, directory: Path, case: str, label: str, jar_copy: Pat
     metadata = {
         "case": case,
         "mode": args.mode,
+        "corner_graphs": corner_graphs,
         "label": label,
         "seed": args.seed,
         "center_chunk": [args.center_x, args.center_z],
@@ -438,7 +442,8 @@ def validate_simulation_status(report: dict, freeze_requested: bool, stage: str,
         raise RuntimeError(f"probe request-window readback does not match at {stage}: {report}")
 
 
-def validate_worldgen_consumption(before: dict, after: dict, case: str, mode: str = "strict") -> dict:
+def validate_worldgen_consumption(before: dict, after: dict, case: str, mode: str = "strict", *,
+                                 corner_graphs: bool = False) -> dict:
     if mode not in ("strict", "verified-exact"):
         raise ValueError(f"unsupported validation mode: {mode}")
     if case == "cpu":
@@ -450,10 +455,14 @@ def validate_worldgen_consumption(before: dict, after: dict, case: str, mode: st
     }[case]
     before_boundaries = before.get("configured_boundaries", {})
     after_boundaries = after.get("configured_boundaries", {})
-    for name in ("gpu_acceleration_enabled", "terrain_gpu_enabled", "vanilla_terrain_enabled",
-                 "noise_batches_enabled", "aquifer_ranking_enabled"):
+    boundaries = ("gpu_acceleration_enabled", "terrain_gpu_enabled", "vanilla_terrain_enabled",
+                  "aquifer_ranking_enabled", "corner_graphs_enabled" if corner_graphs else "noise_batches_enabled")
+    for name in boundaries:
         if before_boundaries.get(name) is not True or after_boundaries.get(name) is not True:
             raise RuntimeError(f"worldgen GPU boundary {name} was not enabled for {case}")
+    if corner_graphs and (before_boundaries.get("noise_batches_enabled") is not False
+                          or after_boundaries.get("noise_batches_enabled") is not False):
+        raise RuntimeError("corner-graph validation must disable redundant leaf-noise precomputation")
     if before.get("compute_service_present") is not True or after.get("compute_service_present") is not True:
         raise RuntimeError(f"ComputeService telemetry is unavailable for {case}")
 
@@ -463,8 +472,9 @@ def validate_worldgen_consumption(before: dict, after: dict, case: str, mode: st
 
     old, new = index(before), index(after)
     deltas = []
+    required_workloads = (6, 7) if corner_graphs else (5, 6)
     for expected_name in expected_names:
-        for workload in (5, 6):
+        for workload in required_workloads:
             matches = [(key, value) for key, value in new.items()
                        if expected_name.lower() in key[0].lower() and key[1] == workload]
             if len(matches) != 1:
@@ -489,12 +499,13 @@ def validate_worldgen_consumption(before: dict, after: dict, case: str, mode: st
     before_fallbacks = before.get("fallbacks_by_workload", {})
     after_fallbacks = after.get("fallbacks_by_workload", {})
     fallback_deltas = {}
-    for workload in ("5", "6"):
+    for workload in map(str, required_workloads):
         if workload in before_fallbacks and workload in after_fallbacks:
             fallback_deltas[workload] = int(after_fallbacks[workload]) - int(before_fallbacks[workload])
             if fallback_deltas[workload] < 0:
                 raise RuntimeError(f"worldgen workload {workload} fallback counter moved backwards")
-    return {"required": True, "mode": mode, "device_workload_deltas": deltas,
+    return {"required": True, "mode": mode, "required_workloads": list(required_workloads),
+            "device_workload_deltas": deltas,
             "fallback_attempt_deltas_by_workload": fallback_deltas}
 
 
@@ -545,6 +556,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", choices=sorted(CASES), required=True)
     parser.add_argument("--mode", choices=("strict", "verified-exact"), default="strict")
+    parser.add_argument("--corner-graphs", action="store_true",
+                        help="validate W7 corner-graph adoption plus W6 aquifer ranking; disable redundant W5 leaf batches")
     parser.add_argument("--output", type=Path, default=SAFE_ROOT / "worldgen")
     parser.add_argument("--jar", type=Path, default=ROOT / "gpur-server/build/libs/gpur-server-26.2-SNAPSHOT1.1.0.jar")
     parser.add_argument("--probe", type=Path, default=SAFE_ROOT / "worldgen-plugin/GPurWorldgenProbe.jar")
@@ -573,6 +586,7 @@ def main() -> int:
     args = parser.parse_args()
 
     result = {"schema": 1, "case": args.case, "mode": args.mode, "pass": False,
+              "corner_graphs": args.corner_graphs,
               "server_heap_gib": 16, "initial_heap_gib": args.initial_heap_gib,
               "worker_threads": args.worker_threads, "request_window_size": args.request_window_size,
               "freeze_simulation": args.freeze_simulation,
@@ -636,7 +650,7 @@ def main() -> int:
         validate_simulation_status(worldgen_after, args.freeze_simulation, "after-generate",
                                    args.request_window_size)
         worldgen_consumption = validate_worldgen_consumption(
-            worldgen_before_corpus, worldgen_after, args.case, args.mode)
+            worldgen_before_corpus, worldgen_after, args.case, args.mode, corner_graphs=args.corner_graphs)
         status, exit_code, generation_freeze_restore = capture_status_and_stop(server, args.freeze_simulation)
         server = None
         if exit_code != 0:
@@ -702,6 +716,8 @@ def main() -> int:
         expected_chunks = expected * expected
         if status["vanilla_mode"] != ("disabled" if args.case == "cpu" else args.mode):
             raise RuntimeError(f"unexpected vanilla terrain verification mode: {status['vanilla_mode']}")
+        if args.case != "cpu" and status["parity_failures"] is None:
+            raise RuntimeError("GPU vanilla interpolation parity-failure counter was not recorded")
         if status["parity_failures"] not in (0, None):
             raise RuntimeError(f"GPU vanilla interpolation parity failed: {status['parity_failures']}")
         accepted = sum(device["accepted_values"] for device in status["devices"])
@@ -748,6 +764,7 @@ def main() -> int:
         result.update(metadata)
         atomic_json(directory / "result.json", result)
         summary = {"case": args.case, "mode": args.mode, "pass": True, "workspace": str(directory),
+                   "corner_graphs": args.corner_graphs,
                    "jar_sha256": metadata["jar_sha256"], "seed": args.seed,
                    "center_chunk": [args.center_x, args.center_z], "radius_chunks": args.radius,
                    "worker_threads": metadata["worker_threads"], "io_threads": metadata["io_threads"],

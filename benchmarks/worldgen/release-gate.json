@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "updated_utc": "2026-10-12T01:56:48.887822Z",
+  "updated_utc": "2026-10-12T11:59:47.516718+00:00",
   "current_version": "1.1.0",
   "proposed_version": "2.0.0",
   "release_decision": "BLOCKED",
   "release_rule": "Do not change the version to 2.0.0 until every blocking stage below passes on the same source and artifacts intended for release.",
-  "runtime_execution_this_plan": "The immutable W7 candidate 456e864d73d08fe0b9ea32f6374a97a65996a7dd (JAR SHA-256 1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896) passed 9,435 unfiltered tests. The standalone worldgen probe compiled (SHA-256 6bc7972a90cace93572cd55fe71487278b84604cb2becdf001b9567e8a34da29); worldgen Python tests passed 44/44 and movement harness tests 9/9. Two fresh frozen CPU controls at request-window 1 / worker-threads 1 each passed their own 81-chunk roundtrip; the unfiltered cross-world comparison fails only on 70 entity NBT leaves while blocks and eight other non-entity categories match. The independent unfrozen normal 50/150/300 movement replay is complete on candidate 456 using the explicit current GPurBench plugin. CPU and mixed passed in the first cohort; the initial RTX 3070/GTX 1080 attempts failed and are retained, then clean GPU retries completed. All four completed cases passed six server-observed movement phases with exact 10/10/30/30/60/60 mover UUID counts and nonzero displacement. Full per-phase TPS/MSPT, all recorded phase metrics, raw evidence hashes and failed attempts are in docs/results/1.1.0-normal-movement-validation.json. This is descriptive load behavior, not a speedup, stability, worldgen-parity or 2.0.0 pass. No candidate worldgen GPU matrix has run.",
+  "runtime_execution_this_plan": "The immutable W7 candidate 456e864d73d08fe0b9ea32f6374a97a65996a7dd (JAR SHA-256 1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896) passed 9,435 unfiltered tests. The standalone worldgen probe compiled (SHA-256 6bc7972a90cace93572cd55fe71487278b84604cb2becdf001b9567e8a34da29); worldgen Python tests passed 44/44 and movement harness tests 9/9. Two fresh frozen CPU controls at request-window 1 / worker-threads 1 each passed their own 81-chunk roundtrip; the unfiltered cross-world comparison fails only on 70 entity NBT leaves while blocks and eight other non-entity categories match. The independent unfrozen normal 50/150/300 movement replay is complete on candidate 456 using the explicit current GPurBench plugin. CPU and mixed passed in the first cohort; the initial RTX 3070/GTX 1080 attempts failed and are retained, then clean GPU retries completed. All four completed cases passed six server-observed movement phases with exact 10/10/30/30/60/60 mover UUID counts and nonzero displacement. Full per-phase TPS/MSPT, all recorded phase metrics, raw evidence hashes and failed attempts are in docs/results/1.1.0-normal-movement-validation.json. This is descriptive load behavior, not a speedup, stability, worldgen-parity or 2.0.0 pass. No candidate worldgen GPU matrix has run. W7v2 now adopts the complete eight-root default Overworld corner graph. Focused 190 and full 9,480 XML-reported executions passed (160 full suites, 0 failures/errors, 23 skips). The full physical fixture consumed 19,600 GPU corner values per card across two complete NoiseChunks; it uses an empty Beardifier. The 41 source hashes, compiled outputs and XML/log hashes were independently audited by Luna xhigh. This is live-consumer fixture evidence, not new-candidate saved-world or throughput proof. New runtime JAR build and runs remain pending.",
   "semantic_mismatch_policy": "Preserve every CPU-vs-GPU mismatch. Run a second fresh CPU world against the CPU reference as a repeatability control before attributing it. Do not normalize generated UUIDs or other semantic NBT fields to force equality.",
   "production_worldgen_gpu_integration": {
     "status": "incomplete",
@@ -16,12 +16,12 @@
       "id": "validation-harness-unit-tests",
       "status": "pass; probe compiled; serial CPU diagnostic completed with strict cross-world entity mismatch",
       "blocking": true,
-      "evidence": "Worldgen Python source suite passed 44/44 and movement harness suite passed 9/9. Portable controls receipt: C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\request-window-worker-controls-python-tests.json SHA-256 d20390fdacb913cfda4d21d8b31f7ebe1dffe1c0d6c0fb4aacfdf8cf48a8e2ac. The updated standalone probe compiled against W7 candidate 456e864d7; build receipt C:\\GPur-validation-20261009\\validation\\worldgen-plugin-w7-current\\build-receipt.json SHA-256 143d134d3301a772972c61bf8e3a1fa63e4d65ad1701e8be0f041f8fc6442870. Two fresh 1/1 CPU controls each passed self-roundtrip; unfiltered cross-world comparison remains failed on entity NBT. Combined portable CPU/probe receipt: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\portable-proof.json SHA-256 fbe8599e6178caf53ec1e0ea6acc591f74ec4f83485195e461b244487bdb7ef0.",
+      "evidence": "Worldgen Python source suite passed 44/44 and movement harness suite passed 9/9. Portable controls receipt: C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\request-window-worker-controls-python-tests.json SHA-256 d20390fdacb913cfda4d21d8b31f7ebe1dffe1c0d6c0fb4aacfdf8cf48a8e2ac. The updated standalone probe compiled against W7 candidate 456e864d7; build receipt C:\\GPur-validation-20261009\\validation\\worldgen-plugin-w7-current\\build-receipt.json SHA-256 143d134d3301a772972c61bf8e3a1fa63e4d65ad1701e8be0f041f8fc6442870. Two fresh 1/1 CPU controls each passed self-roundtrip; unfiltered cross-world comparison remains failed on entity NBT. Combined portable CPU/probe receipt: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\portable-proof.json SHA-256 fbe8599e6178caf53ec1e0ea6acc591f74ec4f83485195e461b244487bdb7ef0. Updated corner-graph harness: 47 tests pass, W6+W7 boundary/consumption gates and strict-reference flag identity checked; updated probe compiled with five existing deprecation warnings.",
       "acceptance": "Semantic decoding/comparison, strict-versus-verified-exact telemetry gates, immutable matrix references, and 20% server-observed movement gating pass their isolated source tests."
     },
     {
       "id": "production-build-and-plugin-compile",
-      "status": "W7 candidate built and full suite passed; updated standalone probe compiled",
+      "status": "W7v2 full source suite and new probe compile pass; new production JAR build pending",
       "blocking": true,
       "acceptance": "Finish production Gradle suites/build for the selected source, compile the benchmark plugin and standalone worldgen probe against the immutable candidate, then record candidate SHA-256. Verify probe raw per-tick CSV and generate/reload p50/p95/p99/max MSPT and start-interval statistics, >50/>100ms tick counts and measured TPS.",
       "evidence": "Current immutable candidate is from commit 456e864d73d08fe0b9ea32f6374a97a65996a7dd, 92,205,013 bytes, SHA-256 1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896. Its artifact-receipt.json SHA-256 is 488fb7db23ca728ac9940864b8cf35142d6f88752044dcf489d83697efffaea1; the unfiltered physical suite passed 9,435 tests across 153 unique suites, zero failures/errors, 24 skipped. The updated standalone probe source SHA-256 is 6582f48ce9f8bc2e75c1bb09c99fe7194124418ab2a09dee65a6c71613511d07; compiled probe SHA-256 is 6bc7972a90cace93572cd55fe71487278b84604cb2becdf001b9567e8a34da29. Initial javac attempt failed because the GPURWGEN_START log referenced undeclared local run; after changing it to active the compile succeeded with five existing deprecation warnings. The explicit movement plugin is the source-built 43,726-byte artifact SHA-256 99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e."
@@ -31,7 +31,7 @@
       "status": "W7 candidate unit coverage passed; live in-flight reload retirement remains not run",
       "blocking": true,
       "acceptance": "Verify pending worldgen futures, including a continuation accepted by an executor but dropped during shutdown, complete or cancel and release retained budgets/frames without hanging.",
-      "evidence": "The immutable 456e864d7 candidate full physical suite passed 9,435 tests (153 suites, 0 failures/errors, 24 skipped); receipt C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\artifact-receipt.json. The suite includes the lifecycle/cancellation source coverage. The separate live in-flight /gpur reload retirement test remains not run."
+      "evidence": "The immutable 456e864d7 candidate full physical suite passed 9,435 tests (153 suites, 0 failures/errors, 24 skipped); receipt C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\artifact-receipt.json. The suite includes the lifecycle/cancellation source coverage. The separate live in-flight /gpur reload retirement test remains not run. W7v2 all-roots preparation, partial/late/cancelled leases and single owner continuation pass in the full current source suite; no stale source or compiled-hash drift."
     },
     {
       "id": "inflight-worldgen-reload-retirement",
@@ -2442,5 +2442,14 @@
     "physical_test_notes_sha256": "7624297902e5e03c23d557a660f281ba5d21e0b1ed39ccabb52aafffe3433d6a",
     "paperclip_build_log": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\paperclip-build.log",
     "paperclip_build_log_sha256": "11d4094052b353dc3a43c8e14b4be15e14c55209d0cf6f9435b2107bc24cecb6"
+  },
+  "corner_graph_live_adoption": {
+    "status": "pass within bounded physical fixture",
+    "blocking": true,
+    "receipt": "docs/results/1.1.0-corner-graph-adoption-validation.json",
+    "sha256": "f77651820d991402fa48af869b3ae2651aa0d06e6c7a8e10c31fb4b4978a62e6",
+    "source_parent_commit": "2e3e712acf39a552d83c69f3d16cd67b85f9c20c",
+    "default_enabled": false,
+    "runtime_and_full_gpu_scope_complete": false
   }
 }

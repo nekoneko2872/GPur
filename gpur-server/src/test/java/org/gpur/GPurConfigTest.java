@@ -48,6 +48,7 @@ class GPurConfigTest {
         GPurConfig.init(config.toFile());
         assertFalse(GPurConfig.vanillaTerrainEnabled);
         assertTrue(GPurConfig.vanillaTerrainVerifyEveryBatch);
+        assertFalse(GPurConfig.vanillaCornerGraphsGpuEnabled);
         assertEquals(16, GPurConfig.vanillaTerrainMaxInterpolators);
         assertEquals(1_048_576, GPurConfig.vanillaTerrainMaxSlabValues);
         assertEquals(1024, GPurConfig.vanillaTerrainMinValues);

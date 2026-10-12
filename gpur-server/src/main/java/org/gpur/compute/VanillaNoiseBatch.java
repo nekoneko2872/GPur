@@ -186,6 +186,51 @@ public final class VanillaNoiseBatch {
 
     public sealed interface NoiseProfile permits ImprovedNoiseProfile, PerlinNoiseProfile, NormalNoiseProfile, BlendedNoiseProfile {}
 
+    /**
+     * Immutable CPU reference sampler with a profile validated and packed once. Corner density
+     * graphs use zero vertical smear; the arithmetic is the same evaluator as reference(int[]).
+     * No input/profile arrays escape, so the sampler can be shared by concurrent CPU verifiers.
+     */
+    public static final class ExactSampler {
+        private final int[] profileWire;
+        private final int profileOffset;
+
+        private ExactSampler(NoiseProfile profile) {
+            this(input(new NoiseSample(profile, 0.0, 0.0, 0.0, 0.0, 0.0)), -1);
+        }
+
+        private ExactSampler(int[] validatedPrivateWire, int profileOffset) {
+            this.profileWire = validatedPrivateWire;
+            this.profileOffset = profileOffset == -1 ? validatedPrivateWire[validatedPrivateWire[4]] : profileOffset;
+        }
+
+        public double sample(double x, double y, double z) {
+            if (!boundedCoordinate(x) || !boundedCoordinate(y) || !boundedCoordinate(z)) {
+                throw new IllegalArgumentException("Noise sample coordinates are non-finite or out of range");
+            }
+            return evaluate(this.profileWire, this.profileOffset, x, y, z, 0.0, 0.0);
+        }
+    }
+
+    public static ExactSampler exactSampler(NoiseProfile profile) {
+        return new ExactSampler(Objects.requireNonNull(profile, "profile"));
+    }
+
+    /** Packs an entire profile set once, sharing bounded private storage between immutable samplers. */
+    public static List<ExactSampler> exactSamplers(List<? extends NoiseProfile> profiles) {
+        Objects.requireNonNull(profiles, "profiles");
+        if (profiles.isEmpty()) return List.of();
+        if (profiles.size() > MAX_SAMPLES) throw new IllegalArgumentException("Too many reference noise profiles");
+        java.util.ArrayList<NoiseSample> samples = new java.util.ArrayList<>(profiles.size());
+        for (NoiseProfile profile : profiles) samples.add(new NoiseSample(profile, 0.0, 0.0, 0.0, 0.0, 0.0));
+        int[] wire = input(samples);
+        java.util.ArrayList<ExactSampler> samplers = new java.util.ArrayList<>(profiles.size());
+        for (int index = 0; index < profiles.size(); index++) {
+            samplers.add(new ExactSampler(wire, wire[wire[4] + index * SAMPLE_WORDS]));
+        }
+        return List.copyOf(samplers);
+    }
+
     /** yScale and yFudge are used by ImprovedNoise and PerlinNoise; other profiles ignore them. */
     public record NoiseSample(
         NoiseProfile profile,

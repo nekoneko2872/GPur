@@ -29,6 +29,8 @@ def invoke_case(args, output: Path, case: str) -> dict:
                "--phase-timeout", str(args.phase_timeout)]
     if args.freeze_simulation:
         command.append("--freeze-simulation")
+    if getattr(args, "corner_graphs", False):
+        command.append("--corner-graphs")
     if args.parity_dump_dir is not None:
         case_dump_dir = safe_output(args.parity_dump_dir / output.name / case)
         command.extend(("--parity-dump-dir", str(case_dump_dir)))
@@ -103,6 +105,8 @@ def validate_strict_reference(path: Path, jar_sha256: str, cases: list[str], cor
             raise ValueError(f"strict reference case {case} did not pass on the same candidate JAR")
         if row.get("mode") != "strict":
             raise ValueError(f"strict reference case {case} does not record mode=strict")
+        if row.get("corner_graphs", False) is not runtime.get("corner_graphs", False):
+            raise ValueError(f"strict reference case {case} corner-graph boundary does not match this matrix")
     for case in cases:
         if case != "cpu" and report.get("semantic_parity", {}).get(case, {}).get("pass") is not True:
             raise ValueError(f"strict reference lacks passing CPU-vs-{case} semantic parity")
@@ -170,6 +174,8 @@ def main() -> int:
                         help="initial Java heap in GiB (1..16); maximum remains fixed at 16 GiB")
     parser.add_argument("--freeze-simulation", action="store_true",
                         help="freeze world/entity/block/fluid simulation during saved-world parity validation")
+    parser.add_argument("--corner-graphs", action="store_true",
+                        help="validate W7 corner-graph adoption plus W6 aquifer ranking instead of W5 leaf batches")
     parser.add_argument("--request-window", dest="request_window_size", type=int, default=64,
                         help="maximum concurrent chunk requests in the validation probe (1..64; default 64)")
     parser.add_argument("--worker-threads", type=int, default=4,
@@ -185,7 +191,7 @@ def main() -> int:
     parser.add_argument("--phase-timeout", type=int, default=3600)
     args = parser.parse_args()
 
-    result = {"schema": 1, "pass": False, "mode": args.mode,
+    result = {"schema": 1, "pass": False, "mode": args.mode, "corner_graphs": args.corner_graphs,
               "stages": [], "cases": {}, "semantic_parity": {}, "parity_dump_dir": None}
     try:
         args.output = safe_output(args.output)
@@ -217,6 +223,7 @@ def main() -> int:
                    "request_window_size": args.request_window_size, "heap_gib": 16,
                    "initial_heap_gib": args.initial_heap_gib,
                    "freeze_simulation": args.freeze_simulation,
+                   "corner_graphs": args.corner_graphs,
                    "jvm_options": worldgen_jvm_options(args.initial_heap_gib)}
         strict_reference = None
         if args.mode == "verified-exact":

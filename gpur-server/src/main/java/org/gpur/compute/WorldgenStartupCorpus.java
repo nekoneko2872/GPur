@@ -57,4 +57,21 @@ final class WorldgenStartupCorpus {
         }
         return List.copyOf(batches);
     }
+
+    /** A separate opt-in corpus warms W7 without enabling leaf-noise or aquifer offload. */
+    static List<int[]> densityGraphs() {
+        List<org.gpur.terrain.VanillaDensityGraphBatch.Sample> samples = new ArrayList<>();
+        for (int x : new int[] {-29_999_984, -17, 0, 17, 29_999_984}) {
+            for (int y : new int[] {-65, -64, -1, 0, 1, 319, 320}) {
+                samples.add(new org.gpur.terrain.VanillaDensityGraphBatch.Sample(x, y, -x));
+            }
+        }
+        var gradient = net.minecraft.world.level.levelgen.DensityFunctions.yClampedGradient(-64, 320, -1.0, 1.0);
+        var root = net.minecraft.world.level.levelgen.DensityFunctions.rangeChoice(gradient, -0.5, 0.5,
+            net.minecraft.world.level.levelgen.DensityFunctions.mul(gradient, gradient),
+            net.minecraft.world.level.levelgen.DensityFunctions.add(gradient,
+                net.minecraft.world.level.levelgen.DensityFunctions.constant(-0.0)));
+        return List.of(org.gpur.terrain.VanillaDensityGraphBatch.input(
+            org.gpur.terrain.VanillaDensityGraph.snapshot(root), samples));
+    }
 }

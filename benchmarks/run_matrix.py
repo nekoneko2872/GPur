@@ -46,11 +46,13 @@ def build_java_command(jdk: Path, server_jar: Path, initial_heap_gib: int) -> li
             '-jar', str(server_jar), '--nogui']
 
 
-def render_gpur_config(case: str, force: bool, worldgen_mode: str) -> str:
+def render_gpur_config(case: str, force: bool, worldgen_mode: str, *, corner_graphs: bool = False) -> str:
     if case not in DEVICES:
         raise ValueError(f'unknown case: {case}')
     if worldgen_mode not in ('disabled', 'strict', 'verified-exact'):
         raise ValueError(f'unknown worldgen mode: {worldgen_mode}')
+    if corner_graphs and worldgen_mode == 'disabled':
+        raise ValueError('corner-graphs requires strict or verified-exact worldgen mode')
     gpu_enabled = case != 'cpu'
     lines = [
         'config-version: 2',
@@ -64,8 +66,9 @@ def render_gpur_config(case: str, force: bool, worldgen_mode: str) -> str:
             '  vanilla-terrain:',
             f'    enabled: {str(terrain_enabled).lower()}',
             f'    mode: {worldgen_mode if terrain_enabled else "disabled"}',
-            f'    noise-batches: {str(terrain_enabled).lower()}',
+            f'    noise-batches: {str(terrain_enabled and not corner_graphs).lower()}',
             f'    aquifer-ranking: {str(terrain_enabled).lower()}',
+            f'    corner-graphs: {str(terrain_enabled and corner_graphs).lower()}',
             f'    verify-every-batch: {str(worldgen_mode == "strict" if terrain_enabled else True).lower()}',
             '    minimum-values: 1024',
         ))
@@ -88,6 +91,8 @@ def add_runtime_arguments(parser: argparse.ArgumentParser) -> None:
                         help='initial Java heap in GiB (1..16); maximum remains fixed at 16 GiB')
     parser.add_argument('--worldgen-mode', choices=('disabled', 'strict', 'verified-exact'), default='disabled',
                         help='opt-in vanilla terrain GPU mode for GPU cases; CPU remains GPU-disabled')
+    parser.add_argument('--corner-graphs', action='store_true',
+                        help='use W7 corner graphs instead of W5 leaf batches; requires an enabled worldgen mode')
 
 
 def emit(**value):
@@ -126,6 +131,8 @@ class Controller:
                                          f'-Xms{args.initial_heap_gib}G', '-Xmx16G',
                                          '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=40'],
                          'worldgen_mode_requested': args.worldgen_mode,
+                         'corner_graphs_requested': bool(getattr(args, 'corner_graphs', False)),
+                         'corner_graphs_enabled': case != 'cpu' and bool(getattr(args, 'corner_graphs', False)),
                          'vanilla_terrain_mode': args.worldgen_mode if case != 'cpu' else 'disabled',
                          'vanilla_terrain_enabled': case != 'cpu' and args.worldgen_mode != 'disabled',
                          'gpu_acceleration_enabled': case != 'cpu',
@@ -180,7 +187,8 @@ class Controller:
         (config / 'paper-global.yml').write_text('_version: 31\nchunk-system:\n  worker-threads: 4\n  io-threads: 2\n', encoding='utf-8')
         (config / 'paper-world-defaults.yml').write_text('_version: 31\nanticheat:\n  anti-xray:\n    enabled: true\n    engine-mode: 1\n', encoding='utf-8')
         (directory / 'gpur.yml').write_text(
-            render_gpur_config(self.case, self.args.force, self.args.worldgen_mode), encoding='utf-8')
+            render_gpur_config(self.case, self.args.force, self.args.worldgen_mode,
+                               corner_graphs=bool(getattr(self.args, 'corner_graphs', False))), encoding='utf-8')
         (directory / 'run.json').write_text(json.dumps(self.metadata, indent=2), encoding='utf-8')
 
     def capture_server(self):
@@ -548,6 +556,8 @@ def main():
     parser.add_argument('--eula', type=Path, default=ROOT / 'validation/eula.txt', help='Existing accepted EULA file; never synthesized')
     parser.add_argument('--mojang', type=Path, default=ROOT / 'validation/smoke-gpu-final/cache/mojang_26.2.jar')
     args = parser.parse_args()
+    if args.corner_graphs and args.worldgen_mode == 'disabled':
+        parser.error('--corner-graphs requires --worldgen-mode strict or verified-exact')
     for key in ('jar', 'plugin', 'viaversion', 'viabackwards', 'eula', 'mojang'):
         if not getattr(args, key).is_file():
             parser.error(f'{key} input file not found; supply --{key}')

@@ -68,7 +68,7 @@
              this.barrierNoise = router.barrierNoise();
              this.fluidLevelFloodednessNoise = router.fluidLevelFloodednessNoise();
              this.fluidLevelSpreadNoise = router.fluidLevelSpreadNoise();
-@@ -138,6 +171,152 @@ public interface Aquifer {
+@@ -138,6 +171,153 @@ public interface Aquifer {
              this.skipSamplingAboveY = fromGridY(skipSamplingAboveGridY, 11) - 1;
          }
  
@@ -142,7 +142,8 @@
 +                    this.gridSizeX, gridSizeY, this.gridSizeZ,
 +                    queries, centers
 +                );
-+                return service.prepareWorldgenAsync(input, continuation).exceptionally(failure -> null);
++                // The serial owner lease handles failure and must cancel this source directly.
++                return service.prepareWorldgenAsync(input, continuation);
 +            } catch (RuntimeException rejected) {
 +                return CompletableFuture.completedFuture(null);
 +            }
@@ -221,7 +222,7 @@
          private int getIndex(final int gridX, final int gridY, final int gridZ) {
              int x = gridX - this.minGridX;
              int y = gridY - this.minGridY;
-@@ -178,60 +357,98 @@ public interface Aquifer {
+@@ -178,60 +358,98 @@ public interface Aquifer {
              int closestIndex3 = 0;
              int closestIndex4 = 0;
  

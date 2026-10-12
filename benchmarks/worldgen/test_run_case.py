@@ -111,6 +111,17 @@ class StatusParsingTests(unittest.TestCase):
             self.assertEqual(metadata["request_window_size"], 1)
             self.assertEqual(metadata["jvm_system_properties"], ["-Dgpur.worldgen.request-window=1"])
             self.assertEqual(json.loads((directory / "run.json").read_text(encoding="utf-8")), metadata)
+            args.corner_graphs = True
+            gpu_directory = root / "corner-run"
+            gpu_directory.mkdir()
+            gpu_metadata = write_case_files(args, gpu_directory, "rtx3070", "corner-run",
+                                            gpu_directory / "artifacts/GPurServer.jar",
+                                            gpu_directory / "artifacts/GPurWorldgenProbe.jar")
+            config = (gpu_directory / "gpur.yml").read_text(encoding="utf-8")
+            self.assertIn("corner-graphs: true", config)
+            self.assertIn("noise-batches: false", config)
+            self.assertIn("aquifer-ranking: true", config)
+            self.assertTrue(gpu_metadata["corner_graphs"])
 
     def test_gpu_use_and_strict_parity_metrics_are_extracted_per_device(self):
         status = extract_status([
@@ -196,6 +207,40 @@ class StatusParsingTests(unittest.TestCase):
     def test_cpu_case_does_not_require_gpu_telemetry(self):
         result = validate_worldgen_consumption({}, {}, "cpu")
         self.assertFalse(result["required"])
+
+    def test_corner_graph_gate_requires_live_consumption_instead_of_leaf_noise_counters(self):
+        boundaries = {"gpu_acceleration_enabled": True, "terrain_gpu_enabled": True,
+                      "vanilla_terrain_enabled": True, "noise_batches_enabled": False,
+                      "aquifer_ranking_enabled": True, "corner_graphs_enabled": True}
+        before_rows, after_rows = [], []
+        for name in ("RTX 3070", "GTX 1080"):
+            for workload in (6, 7):
+                base = {"name": name, "workload": workload, "boundaryEnabled": True,
+                        "dispatches": 2, "acceptedBatches": 2, "computedValues": 64,
+                        "consumedValues": 0, "paritySamples": 1}
+                before_rows.append(base)
+                after_rows.append({**base, "dispatches": 3, "acceptedBatches": 3,
+                                   "computedValues": 96, "consumedValues": 32, "paritySamples": 2})
+        before = {"configured_boundaries": boundaries, "compute_service_present": True, "devices": before_rows}
+        after = {"configured_boundaries": boundaries, "compute_service_present": True, "devices": after_rows}
+        result = validate_worldgen_consumption(before, after, "mixed", corner_graphs=True)
+        self.assertEqual(result["required_workloads"], [6, 7])
+        self.assertEqual(len(result["device_workload_deltas"]), 4)
+        after_rows[-1]["consumedValues"] = 0
+        with self.assertRaisesRegex(RuntimeError, "workload 7 did not prove consumed"):
+            validate_worldgen_consumption(before, after, "mixed", corner_graphs=True)
+
+    def test_corner_graph_gate_rejects_absent_or_redundant_boundaries(self):
+        boundaries = {"gpu_acceleration_enabled": True, "terrain_gpu_enabled": True,
+                      "vanilla_terrain_enabled": True, "noise_batches_enabled": False,
+                      "aquifer_ranking_enabled": True, "corner_graphs_enabled": None}
+        report = {"configured_boundaries": boundaries, "compute_service_present": True, "devices": []}
+        with self.assertRaisesRegex(RuntimeError, "corner_graphs_enabled"):
+            validate_worldgen_consumption(report, report, "rtx3070", corner_graphs=True)
+        boundaries["corner_graphs_enabled"] = True
+        boundaries["noise_batches_enabled"] = True
+        with self.assertRaisesRegex(RuntimeError, "redundant leaf-noise"):
+            validate_worldgen_consumption(report, report, "rtx3070", corner_graphs=True)
 
 
 if __name__ == "__main__":

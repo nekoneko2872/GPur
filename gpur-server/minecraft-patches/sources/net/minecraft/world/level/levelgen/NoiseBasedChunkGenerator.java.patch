@@ -12,7 +12,7 @@
          return cellCountY <= 0 ? CompletableFuture.completedFuture(centerChunk) : CompletableFuture.supplyAsync(() -> {
              int topSectionIndex = centerChunk.getSectionIndex(cellCountY * noiseSettings.getCellHeight() - 1 + minY);
              int bottomSectionIndex = centerChunk.getSectionIndex(minY);
-@@ -371,14 +376,314 @@
+@@ -371,14 +376,389 @@
                  sections.add(section);
              }
  
@@ -37,7 +37,8 @@
 +        Set<LevelChunkSection> sections = Sets.newHashSet();
 +        GpurAquiferRankingLease rankingLease = new GpurAquiferRankingLease();
 +        GpurStaticNoiseLease staticNoiseLease = new GpurStaticNoiseLease();
-+        GpurNoiseChunkCleanup cleanup = new GpurNoiseChunkCleanup(sections, rankingLease, staticNoiseLease);
++        GpurCornerGraphLease cornerGraphLease = new GpurCornerGraphLease();
++        GpurNoiseChunkCleanup cleanup = new GpurNoiseChunkCleanup(sections, rankingLease, staticNoiseLease, cornerGraphLease);
 +        try {
 +            int cellHeightForSections = this.settings.value().noiseSettings().getCellHeight();
 +            int topSectionIndex = centerChunk.getSectionIndex(cellCountY * cellHeightForSections - 1 + minY);
@@ -70,10 +71,15 @@
 +            CompletableFuture<org.gpur.terrain.VanillaNoiseCache> staticNoiseFuture = staticNoiseLease.track(
 +                noiseChunk.gpurPrepareStaticNoiseAsync(continuation.service(), continuation.executor())
 +            );
-+            BlockPos.MutableBlockPos blockPos = new BlockPos.MutableBlockPos();
-+            CompletableFuture<Void> prepared = rankingFuture.thenCombineAsync(
-+                staticNoiseFuture, (ranking, cache) -> null, continuation.executor()
++            CompletableFuture<org.gpur.terrain.VanillaCornerGraphPreparation.Prepared> cornerGraphFuture = cornerGraphLease.track(
++                noiseChunk.gpurPrepareCornerGraphsAsync(continuation.service(), continuation.executor())
 +            );
++            BlockPos.MutableBlockPos blockPos = new BlockPos.MutableBlockPos();
++            // Only the final dependent schedules the owner continuation. Cancelling
++            // it cannot leave an earlier combine callback queued after GPU completion.
++            CompletableFuture<Void> prepared = CompletableFuture.allOf(
++                rankingFuture, staticNoiseFuture, cornerGraphFuture
++            ).thenRunAsync(() -> {}, continuation.executor());
 +            CompletableFuture<ChunkAccess> result = new CompletableFuture<>();
 +            java.util.concurrent.atomic.AtomicBoolean starting = new java.util.concurrent.atomic.AtomicBoolean();
 +            java.util.concurrent.atomic.AtomicBoolean cancelled = new java.util.concurrent.atomic.AtomicBoolean();
@@ -105,6 +111,7 @@
 +                    }
 +                    rankingLease.install(aquifer);
 +                    staticNoiseLease.install(noiseChunk);
++                    cornerGraphLease.install(noiseChunk);
 +                    noiseChunk.initializeForFirstCellX();
 +                    if (result.isCancelled()) {
 +                        cleanup.close();
@@ -213,12 +220,17 @@
 +    private static final class GpurAquiferRankingLease {
 +        private final java.util.concurrent.atomic.AtomicReference<org.gpur.compute.WorldgenResult> pending =
 +            new java.util.concurrent.atomic.AtomicReference<>();
++        private final java.util.concurrent.atomic.AtomicReference<CompletableFuture<org.gpur.compute.WorldgenResult>> source =
++            new java.util.concurrent.atomic.AtomicReference<>();
 +        private final java.util.concurrent.atomic.AtomicBoolean released = new java.util.concurrent.atomic.AtomicBoolean();
 +
 +        private CompletableFuture<org.gpur.compute.WorldgenResult> track(
 +            CompletableFuture<org.gpur.compute.WorldgenResult> future
 +        ) {
++            this.source.set(future);
++            if (this.released.get()) future.cancel(false);
 +            return future.handle((result, failure) -> {
++                this.source.compareAndSet(future, null);
 +                if (failure != null) {
 +                    if (result != null) result.close();
 +                    return null;
@@ -248,6 +260,8 @@
 +
 +        private void close(final @Nullable Aquifer aquifer) {
 +            this.released.set(true);
++            CompletableFuture<org.gpur.compute.WorldgenResult> future = this.source.getAndSet(null);
++            if (future != null) future.cancel(false);
 +            org.gpur.compute.WorldgenResult result = this.pending.getAndSet(null);
 +            if (result != null) result.close();
 +            if (aquifer != null) aquifer.gpurClearRanking();
@@ -257,12 +271,17 @@
 +    private static final class GpurStaticNoiseLease {
 +        private final java.util.concurrent.atomic.AtomicReference<org.gpur.terrain.VanillaNoiseCache> pending =
 +            new java.util.concurrent.atomic.AtomicReference<>();
++        private final java.util.concurrent.atomic.AtomicReference<CompletableFuture<org.gpur.terrain.VanillaNoiseCache>> source =
++            new java.util.concurrent.atomic.AtomicReference<>();
 +        private final java.util.concurrent.atomic.AtomicBoolean released = new java.util.concurrent.atomic.AtomicBoolean();
 +
 +        private CompletableFuture<org.gpur.terrain.VanillaNoiseCache> track(
 +            CompletableFuture<org.gpur.terrain.VanillaNoiseCache> future
 +        ) {
++            this.source.set(future);
++            if (this.released.get()) future.cancel(false);
 +            return future.handle((cache, failure) -> {
++                this.source.compareAndSet(future, null);
 +                if (failure != null) {
 +                    if (cache != null) cache.close();
 +                    return null;
@@ -292,8 +311,60 @@
 +
 +        private void close() {
 +            this.released.set(true);
++            CompletableFuture<org.gpur.terrain.VanillaNoiseCache> future = this.source.getAndSet(null);
++            if (future != null) future.cancel(false);
 +            org.gpur.terrain.VanillaNoiseCache cache = this.pending.getAndSet(null);
 +            if (cache != null) cache.close();
++        }
++    }
++
++    private static final class GpurCornerGraphLease {
++        private final java.util.concurrent.atomic.AtomicReference<org.gpur.terrain.VanillaCornerGraphPreparation.Prepared> pending =
++            new java.util.concurrent.atomic.AtomicReference<>();
++        private final java.util.concurrent.atomic.AtomicReference<CompletableFuture<org.gpur.terrain.VanillaCornerGraphPreparation.Prepared>> source =
++            new java.util.concurrent.atomic.AtomicReference<>();
++        private final java.util.concurrent.atomic.AtomicBoolean released = new java.util.concurrent.atomic.AtomicBoolean();
++
++        private CompletableFuture<org.gpur.terrain.VanillaCornerGraphPreparation.Prepared> track(
++            CompletableFuture<org.gpur.terrain.VanillaCornerGraphPreparation.Prepared> future
++        ) {
++            this.source.set(future);
++            if (this.released.get()) future.cancel(false);
++            return future.handle((graphs, failure) -> {
++                this.source.compareAndSet(future, null);
++                if (failure != null) {
++                    if (graphs != null) graphs.close();
++                    return null;
++                }
++                if (graphs != null) {
++                    if (this.released.get()) {
++                        graphs.close();
++                    } else {
++                        this.pending.set(graphs);
++                        if (this.released.get() && this.pending.compareAndSet(graphs, null)) graphs.close();
++                    }
++                }
++                return graphs;
++            });
++        }
++
++        private void install(final NoiseChunk noiseChunk) {
++            org.gpur.terrain.VanillaCornerGraphPreparation.Prepared graphs = this.pending.getAndSet(null);
++            if (graphs == null) return;
++            try {
++                noiseChunk.gpurInstallCornerGraphs(graphs);
++            } catch (RuntimeException | Error failure) {
++                graphs.close();
++                throw failure;
++            }
++        }
++
++        private void close() {
++            this.released.set(true);
++            CompletableFuture<org.gpur.terrain.VanillaCornerGraphPreparation.Prepared> future = this.source.getAndSet(null);
++            if (future != null) future.cancel(false);
++            org.gpur.terrain.VanillaCornerGraphPreparation.Prepared graphs = this.pending.getAndSet(null);
++            if (graphs != null) graphs.close();
 +        }
 +    }
 +
@@ -301,16 +372,19 @@
 +        private final Set<LevelChunkSection> sections;
 +        private final GpurAquiferRankingLease ranking;
 +        private final GpurStaticNoiseLease staticNoise;
++        private final GpurCornerGraphLease cornerGraphs;
 +        private final java.util.concurrent.atomic.AtomicBoolean released = new java.util.concurrent.atomic.AtomicBoolean();
 +        private volatile NoiseChunk noiseChunk;
 +        private volatile Aquifer aquifer;
 +
 +        private GpurNoiseChunkCleanup(
-+            Set<LevelChunkSection> sections, GpurAquiferRankingLease ranking, GpurStaticNoiseLease staticNoise
++            Set<LevelChunkSection> sections, GpurAquiferRankingLease ranking, GpurStaticNoiseLease staticNoise,
++            GpurCornerGraphLease cornerGraphs
 +        ) {
 +            this.sections = sections;
 +            this.ranking = ranking;
 +            this.staticNoise = staticNoise;
++            this.cornerGraphs = cornerGraphs;
 +        }
 +
 +        private void noiseChunk(NoiseChunk noiseChunk) { this.noiseChunk = noiseChunk; }
@@ -321,6 +395,7 @@
 +            NoiseChunk noiseChunk = this.noiseChunk;
 +            if (noiseChunk != null) noiseChunk.gpurAbortInterpolation();
 +            this.staticNoise.close();
++            this.cornerGraphs.close();
 +            this.ranking.close(this.aquifer);
 +            for (LevelChunkSection section : this.sections) section.release();
 +        }

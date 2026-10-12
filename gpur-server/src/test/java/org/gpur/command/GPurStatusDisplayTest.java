@@ -10,6 +10,25 @@ import org.gpur.terrain.TerrainScheduler;
 import org.junit.jupiter.api.Test;
 
 class GPurStatusDisplayTest {
+    @Test void worldgenRowsDistinguishCompletedGpuWorkFromUsedResultsAndDisabledBoundaries() {
+        var device = new ComputeService.DeviceWorkloadStatus("uuid", "NVIDIA GeForce GTX 1080", 1, true, 0,
+            0, 0, 0, 0, 0, 0, 0);
+        var snapshot = new ComputeService.StatusSnapshot(false, false, 0, 0, 0, 0, List.of(device));
+        var worldgen = new GPurStatusDisplay.WorldgenOverview(List.of(
+            new ComputeService.WorldgenDeviceStatus("uuid", device.name(), 5, 8, 8, 1_024, 0, 8, 500_000),
+            new ComputeService.WorldgenDeviceStatus("uuid", device.name(), 6, 4, 4, 1_024, 1_024, 4, 500_000),
+            new ComputeService.WorldgenDeviceStatus("uuid", device.name(), 7, 56, 56, 9_800, 9_800, 56, 900_000)
+        ), java.util.Set.of(5, 7), "strict");
+        var options = new GPurStatusDisplay.Options(true, false, true, true, true, 0, false);
+        String output = GPurStatusDisplay.render(snapshot, options, true, null, null, worldgen).stream()
+            .map(PlainTextComponentSerializer.plainText()::serialize).collect(java.util.stream.Collectors.joining("\n"));
+        assertTrue(output.contains("Noise leaves: Computed (not consumed) | 0 values used"));
+        assertTrue(output.contains("Aquifer ranking: CPU (disabled in config) | 1,024 values used"));
+        assertTrue(output.contains("Corner density graph: GPU results used | 9,800 values used"));
+        assertTrue(output.contains("Accepted batches / computed values: 56 / 9,800"));
+        assertTrue(output.contains("GPU query results: 0"), "query totals do not silently include worldgen work");
+    }
+
     @Test void retiredCustomWorldsAreClearlyCpuOnlyRegardlessOfHistoricalGpuCounters() {
         var device = new ComputeService.DeviceWorkloadStatus("uuid", "NVIDIA GeForce GTX 1080", 1, true, 0,
             0, 0, 0, 0, 0, 0, 0);

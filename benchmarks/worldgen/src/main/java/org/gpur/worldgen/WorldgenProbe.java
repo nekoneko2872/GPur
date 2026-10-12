@@ -190,6 +190,8 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         boundaries.put("vanilla_terrain_enabled", configBoolean("vanillaTerrainEnabled"));
         boundaries.put("noise_batches_enabled", configBoolean("vanillaNoiseGpuEnabled"));
         boundaries.put("aquifer_ranking_enabled", configBoolean("vanillaAquiferGpuEnabled"));
+        Boolean cornerGraphsEnabled = optionalConfigBoolean("vanillaCornerGraphsGpuEnabled");
+        boundaries.put("corner_graphs_enabled", cornerGraphsEnabled);
         report.put("configured_boundaries", boundaries);
 
         Object compute = null;
@@ -206,6 +208,7 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
             Method fallbackCount = compute.getClass().getMethod("worldgenFallbacks", int.class);
             fallbacks.put("5", fallbackCount.invoke(compute, 5));
             fallbacks.put("6", fallbackCount.invoke(compute, 6));
+            if (cornerGraphsEnabled != null) fallbacks.put("7", fallbackCount.invoke(compute, 7));
             List<?> worldgenStatuses = (List<?>)compute.getClass().getMethod("worldgenDevices").invoke(compute);
             Map<String, String> namesByUuid = new LinkedHashMap<>();
             for (Object status : worldgenStatuses) {
@@ -277,6 +280,15 @@ public final class WorldgenProbe extends JavaPlugin implements CommandExecutor, 
         if (config == null) return null;
         Object value = config.getField(fieldName).get(null);
         return value instanceof Boolean flag ? flag : null;
+    }
+
+    /** A missing new boundary is explicit telemetry, never evidence that W7 was enabled. */
+    private static Boolean optionalConfigBoolean(String fieldName) throws Exception {
+        try {
+            return configBoolean(fieldName);
+        } catch (NoSuchFieldException absentInOlderCandidate) {
+            return null;
+        }
     }
 
     private static Class<?> loadServerClass(String name) {

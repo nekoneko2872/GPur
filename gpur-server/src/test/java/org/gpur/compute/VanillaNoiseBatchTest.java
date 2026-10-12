@@ -15,6 +15,43 @@ import org.junit.jupiter.api.Test;
 
 class VanillaNoiseBatchTest {
     @Test
+    void reusableExactSamplersMatchInitializedVanillaNoiseUnderConcurrentReads() {
+        ImprovedNoise improved = new ImprovedNoise(RandomSource.create(0x17e11L));
+        PerlinNoise perlin = PerlinNoise.create(RandomSource.create(0x51a9L), -3, 0.5, 1.0, 0.25, 0.0, 0.75);
+        NormalNoise normal = NormalNoise.create(RandomSource.create(0x6f2aL), -2, 0.75, 1.0, 0.375, 0.5);
+        BlendedNoise blended = new BlendedNoise(RandomSource.create(0x2cbbL), 1.0, 1.0, 8.55515, 4.277575, 2.0);
+        var samplers = VanillaNoiseBatch.exactSamplers(java.util.List.of(
+            snapshot(improved), snapshot(perlin), snapshot(normal), snapshot(blended)));
+        var improvedSampler = samplers.get(0);
+        var perlinSampler = samplers.get(1);
+        var normalSampler = samplers.get(2);
+        var blendedSampler = samplers.get(3);
+        int[] edgeX = {-1_000_000_000, -29_999_984, -1_025, -17, -1, 0, 1, 17, 1_025, 29_999_984, 1_000_000_000};
+        java.util.stream.IntStream.range(0, 512).parallel().forEach(index -> {
+            int x = edgeX[index % edgeX.length];
+            int y = -64 + index % 385;
+            int z = -x;
+            assertRawEquals(improved.noise(x, y, z), improvedSampler.sample(x, y, z));
+            assertRawEquals(perlin.getValue(x, y, z), perlinSampler.sample(x, y, z));
+            assertRawEquals(normal.getValue(x, y, z), normalSampler.sample(x, y, z));
+            assertRawEquals(blended.compute(context(x, y, z)), blendedSampler.sample(x, y, z));
+        });
+        assertRawEquals(improved.noise(-0.0, -0.0, -0.0), improvedSampler.sample(-0.0, -0.0, -0.0));
+        assertRawEquals(normal.getValue(-0.0, -0.0, -0.0), normalSampler.sample(-0.0, -0.0, -0.0));
+    }
+
+    @Test
+    void reusableSamplersRejectNonfiniteAndUnboundedCoordinatesOnEveryAxis() {
+        var sampler = VanillaNoiseBatch.exactSampler(snapshot(new ImprovedNoise(RandomSource.create(3L))));
+        for (double invalid : new double[] {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+            Math.nextUp(1_000_000_000.0), Math.nextDown(-1_000_000_000.0)}) {
+            assertThrows(IllegalArgumentException.class, () -> sampler.sample(invalid, 0.0, 0.0));
+            assertThrows(IllegalArgumentException.class, () -> sampler.sample(0.0, invalid, 0.0));
+            assertThrows(IllegalArgumentException.class, () -> sampler.sample(0.0, 0.0, invalid));
+        }
+    }
+
+    @Test
     void improvedNoiseReferenceMatchesVanillaIncludingVerticalFudge() {
         ImprovedNoise noise = new ImprovedNoise(RandomSource.create(0x17e11L));
         VanillaNoiseBatch.ImprovedNoiseProfile profile = snapshot(noise);
