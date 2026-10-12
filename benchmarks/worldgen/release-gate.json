@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "updated_utc": "2026-10-11T13:14:47Z",
+  "updated_utc": "2026-10-12T01:56:48.887822Z",
   "current_version": "1.1.0",
   "proposed_version": "2.0.0",
   "release_decision": "BLOCKED",
   "release_rule": "Do not change the version to 2.0.0 until every blocking stage below passes on the same source and artifacts intended for release.",
-  "runtime_execution_this_plan": "partial; immutable production81 candidate built and its unfiltered physical suite passed 9,424 tests across 151 XML suites with 23 skipped; CPU worldgen repeatability remains unresolved; a 10-player CPU movement pilot completed with server-observed movement proof, but the full 50/150/300 four-case replay is not run; configurable request-window/worker diagnostic source is prepared but uncompiled",
+  "runtime_execution_this_plan": "The immutable W7 candidate 456e864d73d08fe0b9ea32f6374a97a65996a7dd (JAR SHA-256 1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896) passed 9,435 unfiltered tests. The standalone worldgen probe compiled (SHA-256 6bc7972a90cace93572cd55fe71487278b84604cb2becdf001b9567e8a34da29); worldgen Python tests passed 44/44 and movement harness tests 9/9. Two fresh frozen CPU controls at request-window 1 / worker-threads 1 each passed their own 81-chunk roundtrip; the unfiltered cross-world comparison fails only on 70 entity NBT leaves while blocks and eight other non-entity categories match. The independent unfrozen normal 50/150/300 movement replay is complete on candidate 456 using the explicit current GPurBench plugin. CPU and mixed passed in the first cohort; the initial RTX 3070/GTX 1080 attempts failed and are retained, then clean GPU retries completed. All four completed cases passed six server-observed movement phases with exact 10/10/30/30/60/60 mover UUID counts and nonzero displacement. Full per-phase TPS/MSPT, all recorded phase metrics, raw evidence hashes and failed attempts are in docs/results/1.1.0-normal-movement-validation.json. This is descriptive load behavior, not a speedup, stability, worldgen-parity or 2.0.0 pass. No candidate worldgen GPU matrix has run.",
   "semantic_mismatch_policy": "Preserve every CPU-vs-GPU mismatch. Run a second fresh CPU world against the CPU reference as a repeatability control before attributing it. Do not normalize generated UUIDs or other semantic NBT fields to force equality.",
   "production_worldgen_gpu_integration": {
     "status": "incomplete",
@@ -14,24 +14,24 @@
   "stages": [
     {
       "id": "validation-harness-unit-tests",
-      "status": "pass; probe compilation pending",
+      "status": "pass; probe compiled; serial CPU diagnostic completed with strict cross-world entity mismatch",
       "blocking": true,
-      "evidence": "After adding opt-in request-window and worker-thread controls, Python harness suites passed: python -m unittest discover -v -s benchmarks/worldgen -p 'test_*.py' (44/44) and python -m unittest discover -v -s benchmarks -p 'test_run_matrix_movement.py' (9/9). Receipt: C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\request-window-worker-controls-python-tests.json SHA-256 d20390fdacb913cfda4d21d8b31f7ebe1dffe1c0d6c0fb4aacfdf8cf48a8e2ac; raw logs and source hashes are recorded beside it. Tests verify defaults/limits, opt-in JVM property, exact status readback, strict-reference matching, worker config metadata, and invalid-value rejection before Java launch. Java probe has not yet been compiled or run.",
+      "evidence": "Worldgen Python source suite passed 44/44 and movement harness suite passed 9/9. Portable controls receipt: C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\request-window-worker-controls-python-tests.json SHA-256 d20390fdacb913cfda4d21d8b31f7ebe1dffe1c0d6c0fb4aacfdf8cf48a8e2ac. The updated standalone probe compiled against W7 candidate 456e864d7; build receipt C:\\GPur-validation-20261009\\validation\\worldgen-plugin-w7-current\\build-receipt.json SHA-256 143d134d3301a772972c61bf8e3a1fa63e4d65ad1701e8be0f041f8fc6442870. Two fresh 1/1 CPU controls each passed self-roundtrip; unfiltered cross-world comparison remains failed on entity NBT. Combined portable CPU/probe receipt: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\portable-proof.json SHA-256 fbe8599e6178caf53ec1e0ea6acc591f74ec4f83485195e461b244487bdb7ef0.",
       "acceptance": "Semantic decoding/comparison, strict-versus-verified-exact telemetry gates, immutable matrix references, and 20% server-observed movement gating pass their isolated source tests."
     },
     {
       "id": "production-build-and-plugin-compile",
-      "status": "production81 candidate built; updated diagnostic probe compile pending",
+      "status": "W7 candidate built and full suite passed; updated standalone probe compiled",
       "blocking": true,
-      "acceptance": "Finish production Gradle suites/build, compile the updated benchmark plugin and standalone worldgen probe against the immutable candidate, then record candidate SHA-256. Verify the probe writes raw per-tick CSV and generate/reload p50/p95/p99/max MSPT and start-interval statistics, >50/>100ms tick counts and measured TPS.",
-      "evidence": "Current immutable production81 candidate is built from 81cd39cad0065edf3fb1e9e9888d5dc2509d9792, 92,174,774 bytes, SHA-256 175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a. Its unfiltered physical-enabled suite passed 9,424 tests across 151 XML suites, zero failures/errors, 23 skipped; artifact receipt C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\artifact-receipt.json SHA-256 7624297902e5e03c23d557a660f281ba5d21e0b1ed39ccabb52aafffe3433d6a. Worldgen probe source now adds opt-in request-window and worker-thread provenance/readback and needs compilation before use. The earlier b693 matrix and CPU lifecycle failures remain historical evidence."
+      "acceptance": "Finish production Gradle suites/build for the selected source, compile the benchmark plugin and standalone worldgen probe against the immutable candidate, then record candidate SHA-256. Verify probe raw per-tick CSV and generate/reload p50/p95/p99/max MSPT and start-interval statistics, >50/>100ms tick counts and measured TPS.",
+      "evidence": "Current immutable candidate is from commit 456e864d73d08fe0b9ea32f6374a97a65996a7dd, 92,205,013 bytes, SHA-256 1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896. Its artifact-receipt.json SHA-256 is 488fb7db23ca728ac9940864b8cf35142d6f88752044dcf489d83697efffaea1; the unfiltered physical suite passed 9,435 tests across 153 unique suites, zero failures/errors, 24 skipped. The updated standalone probe source SHA-256 is 6582f48ce9f8bc2e75c1bb09c99fe7194124418ab2a09dee65a6c71613511d07; compiled probe SHA-256 is 6bc7972a90cace93572cd55fe71487278b84604cb2becdf001b9567e8a34da29. Initial javac attempt failed because the GPURWGEN_START log referenced undeclared local run; after changing it to active the compile succeeded with five existing deprecation warnings. The explicit movement plugin is the source-built 43,726-byte artifact SHA-256 99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e."
     },
     {
       "id": "async-shutdown-close-tests",
-      "status": "prior candidate pass; replacement candidate rerun pending",
+      "status": "W7 candidate unit coverage passed; live in-flight reload retirement remains not run",
       "blocking": true,
       "acceptance": "Verify pending worldgen futures, including a continuation accepted by an executor but dropped during shutdown, complete or cancel and release retained budgets/frames without hanging.",
-      "evidence": "The frozen candidate physical suite includes WorldgenResultLifecycleTest and VanillaSlabPipelineCancellationTest, covering a queued continuation dropped during close and retained-result cancellation. The separate live in-flight /gpur reload retirement test remains not run. The current replacement candidate has not yet been built or retested."
+      "evidence": "The immutable 456e864d7 candidate full physical suite passed 9,435 tests (153 suites, 0 failures/errors, 24 skipped); receipt C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\artifact-receipt.json. The suite includes the lifecycle/cancellation source coverage. The separate live in-flight /gpur reload retirement test remains not run."
     },
     {
       "id": "inflight-worldgen-reload-retirement",
@@ -41,42 +41,79 @@
     },
     {
       "id": "frozen-simulation-cpu-pilot",
-      "status": "self-roundtrip passes; CPU repeatability fails",
+      "status": "two frozen CPU self-roundtrips pass; strict cross-world comparison fails on retained entity NBT",
       "blocking": true,
       "acceptance": "Compile the freeze-enabled probe against an immutable candidate. Run fresh radius-4 CPU-only generate/save/shutdown/restart/reload rounds with --freeze-simulation and require zero differences within each round, then require a zero-difference CPU-vs-CPU comparison before the all-four strict GPU matrix. Require requested/actual freeze state to match through both savepoints; preserve every semantic NBT field and label all timing as frozen-worldgen.",
-      "evidence": "Two fresh frozen CPU production81 rounds each passed their own 81-chunk generated-to-reload strict comparison with zero differences across all 10 semantic categories. First report: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-pilot-81cd39-reloadfix\\matrices\\20261010T140807Z-632beb00\\worldgen-matrix-report.json SHA-256 b948d80d22b76f9fb7a8e799ab783f398967e8f0d5835a5dd704c62d6a5cea52. Second: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-repeatability-81cd39\\matrices\\20261010T140950Z-9720340f\\worldgen-matrix-report.json SHA-256 90508fcce6b1ee5ed55ae1386294a80589ebb3085defed8915a3abdfc83b4daf. Both used JAR SHA-256 175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a and matching seed/corpus/JDK/JVM/worker/freeze settings. The separate CPU-vs-CPU comparison failed: C:\\GPur-validation-20261009\\validation\\worldgen-cpu-repeatability-81cd39.json SHA-256 334ab90af17422ea5b11f0ab64beded3a5d22a404efcdbf639711d5c2e780888 reports 1,784 differing block positions despite matching inputs. Preserve the mismatch; no structure/leaf/fluid/UUID normalization. The reference gate remains blocked and no GPU worldgen matrix is authorized until CPU repeatability is resolved."
+      "evidence": "Historical production81 two fresh frozen CPU rounds each passed their own 81-chunk all-category roundtrip, but cross-run comparison differed at 1,784 block positions; retain this failed evidence. On current immutable candidate 456e864d7, two fresh serial frozen CPU 1/1 controls each passed their own 81-chunk all-category roundtrip. Their unfiltered cross-world comparison C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\cpu-repeatability-comparison.json SHA-256 fa2e98630ef6adfc0c050334d8425845710ff928f7ec2c813584096e3b49530c has blocks=0 and the remaining eight non-entity categories=0, but entities=70 typed-NBT leaf differences. An external type+exact-Pos diagnostic finds six uniquely matched records and only UUID/world-UUID differences after alignment; it does not change the strict result. No entity fields were excluded or rewritten. Combined portable receipt is C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\portable-proof.json."
     },
     {
       "id": "cpu-repeatability-request-window-diagnostic",
-      "status": "source_prepared; runtime_not_run",
+      "status": "two CPU controls completed; strict all-category cross-world comparison fails on entity identities",
       "blocking": true,
-      "acceptance": "After the latest W7 immutable candidate and matching probe compile are ready, run two fresh CPU-only radius-4 strict worlds serially with identical seed/corpus/JVM and --freeze-simulation, --request-window 1 and --worker-threads 1. Compare the two generated snapshots with the unfiltered semantic comparator and retain every NBT field, including entity UUIDs. Report block-position differences separately from entity UUID/NBT differences. Exact CPU repeatability passes only if all semantic categories match; zero block differences with remaining UUID-only differences isolates block variance but does not pass the full semantic gate. This control certifies no GPU case or full radius-32 matrix.",
+      "acceptance": "Run two fresh CPU-only radius-4 strict worlds serially with identical seed/corpus/JVM and --freeze-simulation, --request-window 1 and --worker-threads 1. Compare generated snapshots with the unfiltered semantic comparator and retain every NBT field, including entity UUIDs. Report block-position differences separately from entity UUID/NBT differences. Exact CPU repeatability passes only if all semantic categories match; zero block differences with entity UUID/world-UUID differences does not pass the full semantic gate. This control certifies no GPU case or full radius-32 matrix.",
       "planned_controls": {
         "runs": 2,
         "execution": "serial, separate fresh matrices under one external output root",
-        "cases": ["cpu"],
+        "cases": [
+          "cpu"
+        ],
         "mode": "strict",
         "freeze_simulation": true,
         "request_window_size": 1,
         "worker_threads": 1,
         "seed": 1196459378,
-        "center_chunk": [128, 128],
+        "center_chunk": [
+          128,
+          128
+        ],
         "radius_chunks": 4,
         "expected_chunks": 81,
         "require_structure_starts": false,
-        "heap_gib": {"initial": 4, "maximum": 16},
+        "heap_gib": {
+          "initial": 4,
+          "maximum": 16
+        },
         "jdk_home": "C:\\Users\\caram\\.jdks\\openjdk-25.0.2",
         "output_root": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7",
         "comparison": "benchmarks/worldgen/semantic_snapshot.py compare on both runs' snapshots/generated; no normalization or field exclusions"
       },
-      "evidence": "Harness controls are opt-in request-window 1..64 (default 64) and worker-threads 1..64 (default 4); Python tests pass and probe property readback is required, but the updated Java probe still needs compilation. Source review identifies an expected independent entity-UUID source: Entity's constructor uses Mth.createInsecureUUID(this.random); the default entitySharedRandom setting is true and its SHARED_RANDOM uses a generated unique seed, while the opt-out branch uses RandomSource.create(). MineshaftPieces creates chest minecarts with EntityTypes.CHEST_MINECART.create. These UUIDs are not derived from the world-generation seed and must remain in semantic equality. They are tracked separately from the unresolved 1,784 differing block positions; the UUID source does not explain or excuse block variance. Do not run until the execution window and latest candidate/probe build are returned."
+      "evidence": "The opt-in controls remain 1..64 with defaults 64 request-window / 4 worker threads; probe property readback is validated and defaults are unchanged. Two serial fresh CPU runs completed on candidate 456e864d7 under C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7: 20261011T133204Z-85542813 (81 chunks, 17,886 ms generation, request-window=1, workers=1, self-pass) and 20261011T133407Z-4c5323d7 (81 chunks, 17,960 ms generation, request-window=1, workers=1, self-pass). Unfiltered cross-world report SHA-256 fa2e98630ef6adfc0c050334d8425845710ff928f7ec2c813584096e3b49530c: blocks=0; biomes=0; heightmaps=0; light=0; structures=0; block_entities=0; entities=70; poi=0; section_metadata=0; other_nbt=0. The original 70 entity leaf diffs include UUID=24, Paper.OriginWorld=24, WorldUUIDLeast=6, WorldUUIDMost=6 and 10 leaf differences from two chest-minecart rows swapped by UUID sort. Diagnostic C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\entity-key-diagnostic.json SHA-256 314e5f0fb8cb04792c8d90a18e23026bc21a06f8597f0093d4df27ef80bddee5 proves six unique (type, exact Pos bits) keys; after this diagnostic-only alignment, no position/origin/loot or other gameplay field differs, but UUID and fresh world UUID fields still differ. No normalization was applied to the official comparator. The earlier 1,784 block positions seen with default controls were not reproduced under 1/1; causality is not established and that historical failure remains recorded.",
+      "execution_results": {
+        "candidate_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+        "candidate_jar_sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896",
+        "probe_jar_sha256": "6bc7972a90cace93572cd55fe71487278b84604cb2becdf001b9567e8a34da29",
+        "matrix_reports": [
+          {
+            "id": "20261011T133204Z-85542813",
+            "pass": true,
+            "sha256": "e5a479ab46c77ee3a87abcf8b68eb2297460419f83c7221611b92a9c2b0ebf12"
+          },
+          {
+            "id": "20261011T133407Z-4c5323d7",
+            "pass": true,
+            "sha256": "8a7a298158a799aed9ba2a5c39ca8b5b5d25ffb3661cd101fba1cf749944c19d"
+          }
+        ],
+        "cross_world_comparison": {
+          "pass": false,
+          "report_sha256": "fa2e98630ef6adfc0c050334d8425845710ff928f7ec2c813584096e3b49530c",
+          "entity_difference_leaves": 70,
+          "block_position_differences": 0
+        },
+        "entity_key_diagnostic": {
+          "report_sha256": "314e5f0fb8cb04792c8d90a18e23026bc21a06f8597f0093d4df27ef80bddee5",
+          "unique_matches": 6,
+          "duplicates": 0,
+          "unmatched": 0
+        }
+      }
     },
     {
       "id": "isolated-radius4-four-case-smoke",
-      "status": "fail; replacement-candidate rerun pending",
+      "status": "not run on candidate 456; blocked by strict CPU cross-world entity mismatch",
       "blocking": true,
       "acceptance": "After a passing fresh frozen-simulation CPU pilot and CPU repeatability control on the replacement immutable candidate, run fresh strict radius-4 CPU, RTX 3070, GTX 1080 and mixed worlds on loopback port 25620 with Xms4G/Xmx16G. Preserve every report and fail closed on mismatch or zero consumed GPU work.",
-      "evidence": "Historical all-four Xms4G/Xmx16G run on b693 JAR SHA-256 32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c and probe SHA-256 b0983b4f33b02d68e665817519f20cad7828ff3c27151ac8d7ed7e12c9235a14 is preserved at validation_runs[id=radius4-xms4-all-four-paper-handlefix]. All GPUs showed positive workload-5/6 consumed-value and strict parity deltas, but CPU restart semantics failed; RTX alone passed its own restart comparison and GPU-vs-CPU comparisons were blocked. Separate CPU-only postprocessing pilot also failed. A fresh frozen-simulation pilot is pending the replacement candidate/probe build."
+      "evidence": "Historical all-four Xms4G/Xmx16G run on b693 JAR SHA-256 32ec7d79c7dedaf727e3d199618aeb75e221e63411c85405888e90b3869c126c and probe SHA-256 b0983b4f33b02d68e665817519f20cad7828ff3c27151ac8d7ed7e12c9235a14 is preserved at validation_runs[id=radius4-xms4-all-four-paper-handlefix]. All GPUs showed positive workload-5/6 consumed-value and strict parity deltas, but CPU restart semantics failed; RTX alone passed its own restart comparison and GPU-vs-CPU comparisons were blocked. Separate CPU-only postprocessing pilot also failed. Two fresh frozen CPU controls completed on candidate 456, each passing its own 81-chunk save/reload comparison. Their unfiltered cross-world comparison still fails the all-category gate on retained entity UUID/world-UUID NBT. No four-case worldgen GPU matrix was run on candidate 456."
     },
     {
       "id": "production-integration-and-build",
@@ -116,17 +153,17 @@
     },
     {
       "id": "save-restart-and-reload",
-      "status": "fail",
+      "status": "historical all-case matrix failed; candidate 456 CPU self-roundtrips pass but cross-world strict CPU reference remains failed",
       "blocking": true,
       "acceptance": "Each case saves, exits cleanly, restarts, loads every requested chunk with generation disabled, saves again, then matches its pre-restart snapshot.",
-      "evidence": "The all-four radius-4 matrix saved/reloaded every case, but CPU/GTX/mixed semantic comparisons failed and RTX alone passed. A separate CPU-only postprocessing-completion pilot still differed: 111 blocks, 29 light entries, 23 entities, one section-metadata item and 137 other-NBT entries. The pilot was unfrozen normal-world-ticks; differences included minecart tick state/position, fluid ticks, leaves and light. No fields were normalized. Frozen pilot pending."
+      "evidence": "The all-four radius-4 matrix saved/reloaded every case, but CPU/GTX/mixed semantic comparisons failed and RTX alone passed. A separate CPU-only postprocessing-completion pilot still differed: 111 blocks, 29 light entries, 23 entities, one section-metadata item and 137 other-NBT entries. The pilot was unfrozen normal-world-ticks; differences included minecart tick state/position, fluid ticks, leaves and light. No fields were normalized. On candidate 456, both fresh serial CPU controls passed their individual save/restart/reload comparison with all 10 categories equal; strict cross-world CPU comparison still has 70 retained entity-NBT differences, so the reference gate remains blocked."
     },
     {
       "id": "semantic-worldgen-parity",
-      "status": "blocked; CPU reference failed its own save/reload gate",
+      "status": "blocked; candidate 456 CPU self-roundtrips pass but exact CPU cross-world reference fails on entity UUID/world UUID NBT",
       "blocking": true,
       "acceptance": "Every chunk is Status=full and has complete saved-light metadata: isLightOn is present, Starlight light_version matches, and Status is at least LIGHT. Preserve and compare the original isLightOn value because Paper/Starlight may deliberately save false to trigger vanilla relighting. CPU versus every GPU case matches decoded blocks, biomes, all named heightmaps, light flags/arrays, structure starts/references, block entities, entity-store NBT, POI-store NBT and remaining chunk NBT. Require structure starts for the full radius-32 release corpus; a radius-4 smoke may contain zero starts.",
-      "evidence": "The comparator preserves structure Children/Pieces order, generated minecart UUIDs and all semantic NBT. CPU-vs-GPU comparisons were blocked because the normal-tick CPU reference failed its own save/reload gate. The CPU lifecycle pilot still differed after light and postprocessing completion because simulation advanced. The opt-in frozen-worldgen harness has passed source tests only; no frozen runtime comparison exists yet."
+      "evidence": "The comparator preserves structure Children/Pieces order, generated minecart UUIDs and all semantic NBT. Historical production81 fresh CPU worlds differed at 1,784 block positions. The current 456e864d7 serial 1/1 CPU controls have zero block-position and zero other terrain-category differences across runs, but 70 entity leaf differences remain in the unfiltered strict comparator; diagnostic type+exact-Pos matching shows only UUID/world-UUID NBT differences after accounting for UUID-sort row order. No candidate GPU worldgen matrix has run, and no entity fields were normalized."
     },
     {
       "id": "gpu-use-and-no-fallback-only-pass",
@@ -144,18 +181,35 @@
     },
     {
       "id": "1.0.0-twenty-percent-walking-regression",
-      "status": "10-player CPU pilot completed; full replay_not_run",
+      "status": "completed; all four normal-simulation cases pass server-observed mover validation; heavy-load performance remains descriptive",
       "blocking": true,
       "artifact_sha256": "bfe87ccaf419065f49acc0b7cf1b24dbda93d6abe8680dc5d3073f7043e2c846",
-      "artifact_note": "The archived exact 1.0.0 SHA is historical provenance only. Replay its documented scenarios on the new 1.1.0 candidate JAR; do not rebuild or rerun the old artifact as a release gate.",
+      "artifact_note": "The archived exact 1.0.0 SHA is historical provenance only. This completed replay uses immutable 1.1.0 candidate 456e864d7 and does not establish a 1.0.0 or 2.0.0 release pass.",
       "acceptance": "On the same immutable 1.1.0 candidate used by all release tests, replay 50/150/300 network-client targets with configured 20% walking (10/30/60 clients), 3,000 AI mobs, redstone fixtures, identical CPU/3070/1080/mixed settings, and retain raw client/server/tick evidence plus server-observed per-client UUID/name, phase sample counts, nonzero from/to displacement and distinct-mover validation.",
       "replay_plan": {
-        "candidate": "Wait for the immutable candidate built from the W7-passed source; use its exact path and hash for all four cases. Production81 pilot is historical only.",
-        "cases": ["cpu", "rtx3070", "gtx1080", "mixed"],
-        "player_targets": [50, 150, 300],
+        "candidate": "Immutable 456e864d7 candidate: C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\gpur-server-26.2-SNAPSHOT1.1.0.jar, SHA-256 1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896; artifact receipt SHA-256 488fb7db23ca728ac9940864b8cf35142d6f88752044dcf489d83697efffaea1.",
+        "cases": [
+          "cpu",
+          "rtx3070",
+          "gtx1080",
+          "mixed"
+        ],
+        "player_targets": [
+          50,
+          150,
+          300
+        ],
         "walking_percent": 20,
-        "expected_server_observed_movers": [10, 30, 60],
-        "fixed_normal_ai_mobs": [500, 1500, 3000],
+        "expected_server_observed_movers": [
+          10,
+          30,
+          60
+        ],
+        "fixed_normal_ai_mobs": [
+          500,
+          1500,
+          3000
+        ],
         "fresh_world_per_case": true,
         "walk_and_mob_phase_seconds": 90,
         "settle_seconds": 45,
@@ -166,7 +220,10 @@
         "recovery_seconds": 45,
         "measured_phase_seconds_per_case": 1145,
         "minimum_measured_seconds_all_four": 4580,
-        "heap_gib": {"initial": 4, "maximum": 16},
+        "heap_gib": {
+          "initial": 4,
+          "maximum": 16
+        },
         "view_distance": 6,
         "simulation_distance": 4,
         "seed": 1196459378,
@@ -179,7 +236,1854 @@
         "output_root": "C:\\GPur-validation-20261009\\validation\\movement-full-replay-w7-current-plugin-20261011",
         "runner_note": "Use explicit --plugin, omit --pilot and --force, and retain fresh run directories; defaults retain historic 90-second phases, 45-second settles, 20-second travel and 45-second recovery. No shortened full replay."
       },
-      "evidence": "A CPU-only 10-player pilot completed on immutable production81 JAR SHA-256 175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a, using current GPurBench source artifact SHA-256 99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e. Server-observed PlayerMoveEvent telemetry passed for 2/2 movers in both the 10-player walking phase and 100-fixed-mob phase. Portable proof: C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\movement-pilot-proof.json SHA-256 8f98eb9b7b9d0047ee5b0faae47d442c51b6af7d9d8801e77fd0367414c8127a. It is a pilot only: no 50/150/300 targets, full 500/1500/3000 AI ladder, natural-spawn phase, redstone, synthetic travel or recovery; do not treat it as the full replay or as validation of a later W7 candidate."
+      "evidence": "Portable report docs/results/1.1.0-normal-movement-validation.json SHA-256 d07546fda28577bc61d452b92ed7b444f1592ce9031cc490c034f0e9af1075ca. It records four completed fresh-world runs, the final candidate/plugin/dependency hashes, all 11 workload phase metrics and all 40 recorded tick-phase metrics per case, exact per-UUID server PlayerMoveEvent evidence, and the initial failed RTX/GTX attempts. CPU and mixed completed on 2026-10-11; the original RTX3070 attempt stopped during players-300-walk and the original GTX1080 attempt stopped during idle baseline, both exit 1 and preserved. Separate RTX3070 and GTX1080 retries completed cleanly on 2026-10-12. Each final case used JAR SHA-256 1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896 and explicit GPurBench SHA-256 99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e. Every case completed with server exit 0, finished summary, dropped_samples=0 and writer queue depth 0. Per-case, per-workload-phase actual wall TPS / p95 / p99 / max MSPT and all underlying phase rows are in the linked report. The movement gate passed all six phases per case: expected and observed mover UUID counts 10/10/30/30/60/60; each expected mover has at least one server-observed nonzero displacement sample and matching start/end player counts. The strict frozen CPU worldgen reference remains separately failed on retained entity NBT. No performance equivalence, speedup, worldgen parity, stability or 2.0.0 release claim follows from this workload replay.",
+      "current_execution": {
+        "status": "completed",
+        "candidate_jar_sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896",
+        "candidate_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+        "benchmark_plugin_sha256": "99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e",
+        "plugin_build_provenance_sha256": "ae9d6039a3cb10fe6c06d129a211df09ac588589ae81b576281eb526ebe60c7f",
+        "original_output_root": "C:\\GPur-validation-20261009\\validation\\movement-full-replay-w7-current-plugin-20261011",
+        "retry_output_root": "C:\\GPur-validation-20261009\\validation\\movement-full-replay-w7-current-plugin-20261012-retry",
+        "portable_report": "docs/results/1.1.0-normal-movement-validation.json",
+        "portable_report_sha256": "d07546fda28577bc61d452b92ed7b444f1592ce9031cc490c034f0e9af1075ca",
+        "same_candidate_jar_all_cases": true,
+        "same_explicit_plugin_all_cases": true,
+        "worldgen_reference_gate_is_separate": true,
+        "measurement_scope": "normal-world-ticks; unfrozen; fresh world per case; Xms4G/Xmx16G; loopback port 25620; 50/150/300 targets; 20% walking; full 90-second phases and 45-second settles",
+        "initial_failed_attempts_preserved": [
+          {
+            "case": "rtx3070",
+            "run_id": "20261011-140656-737900-rtx3070",
+            "server_exit": 1,
+            "error": "RuntimeError('server stopped during players-300-walk')"
+          },
+          {
+            "case": "gtx1080",
+            "run_id": "20261011-142330-554900-gtx1080",
+            "server_exit": 1,
+            "error": "RuntimeError('server stopped during idle baseline')"
+          }
+        ],
+        "cases": [
+          {
+            "case": "cpu",
+            "run_id": "20261011-134031-552100-cpu",
+            "cohort": "original-completed-cohort",
+            "completed": true,
+            "server_exit": 0,
+            "summary_finished": true,
+            "dropped_samples": 0,
+            "writer_queue_depth_at_finish": 0,
+            "movement_validation_pass": true,
+            "movement_phases": [
+              {
+                "phase": "players-50-walk",
+                "expected_movers": 10,
+                "observed_movers": 10,
+                "movers_with_nonzero_displacement": 10
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "expected_movers": 10,
+                "observed_movers": 10,
+                "movers_with_nonzero_displacement": 10
+              },
+              {
+                "phase": "players-150-walk",
+                "expected_movers": 30,
+                "observed_movers": 30,
+                "movers_with_nonzero_displacement": 30
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "expected_movers": 30,
+                "observed_movers": 30,
+                "movers_with_nonzero_displacement": 30
+              },
+              {
+                "phase": "players-300-walk",
+                "expected_movers": 60,
+                "observed_movers": 60,
+                "movers_with_nonzero_displacement": 60
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "expected_movers": 60,
+                "observed_movers": 60,
+                "movers_with_nonzero_displacement": 60
+              }
+            ],
+            "workload_phase_metrics": [
+              {
+                "phase": "players-50-walk",
+                "actual_wall_tps": 19.996721002281223,
+                "p95_ms": 15.5336,
+                "p99_ms": 18.6381,
+                "max_ms": 24.9166
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "actual_wall_tps": 20.000673651008103,
+                "p95_ms": 28.3183,
+                "p99_ms": 33.0926,
+                "max_ms": 53.7532
+              },
+              {
+                "phase": "players-150-walk",
+                "actual_wall_tps": 19.996370592377847,
+                "p95_ms": 30.8544,
+                "p99_ms": 47.6022,
+                "max_ms": 95.5211
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "actual_wall_tps": 18.058504122624676,
+                "p95_ms": 71.9602,
+                "p99_ms": 82.6226,
+                "max_ms": 637.2846
+              },
+              {
+                "phase": "players-150-mobs-natural",
+                "actual_wall_tps": 5.129502265763477,
+                "p95_ms": 234.1721,
+                "p99_ms": 281.4512,
+                "max_ms": 434.4464
+              },
+              {
+                "phase": "players-300-walk",
+                "actual_wall_tps": 12.408475576285825,
+                "p95_ms": 135.3149,
+                "p99_ms": 218.0527,
+                "max_ms": 1283.4454
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "actual_wall_tps": 3.20989761111472,
+                "p95_ms": 453.4933,
+                "p99_ms": 645.4268,
+                "max_ms": 1141.4691
+              },
+              {
+                "phase": "players-300-mobs-natural",
+                "actual_wall_tps": 1.0694717506328923,
+                "p95_ms": 1211.6621,
+                "p99_ms": 1697.4731,
+                "max_ms": 1697.4731
+              },
+              {
+                "phase": "players-300-mobs-3000-redstone-300",
+                "actual_wall_tps": 2.4376944330173687,
+                "p95_ms": 639.0472,
+                "p99_ms": 1058.0028,
+                "max_ms": 1710.2486
+              },
+              {
+                "phase": "synthetic-server-teleport-travel",
+                "actual_wall_tps": 5.458891744750563,
+                "p95_ms": 251.4603,
+                "p99_ms": 461.2672,
+                "max_ms": 591.9418
+              },
+              {
+                "phase": "post-generation-recovery",
+                "actual_wall_tps": 7.204025753671667,
+                "p95_ms": 165.9034,
+                "p99_ms": 197.2579,
+                "max_ms": 266.4263
+              }
+            ],
+            "all_recorded_phase_metrics": [
+              {
+                "phase": "startup",
+                "complete": true,
+                "actual_wall_tps": 9.433659675067027,
+                "p95_ms": 1596.6942,
+                "p99_ms": 1596.6942,
+                "max_ms": 1596.6942
+              },
+              {
+                "phase": "setup-world",
+                "complete": true,
+                "actual_wall_tps": 5.017129595356234,
+                "p95_ms": 24.0955,
+                "p99_ms": 24.0955,
+                "max_ms": 24.0955
+              },
+              {
+                "phase": "idle-baseline",
+                "complete": true,
+                "actual_wall_tps": 20.007894627222473,
+                "p95_ms": 1.9057,
+                "p99_ms": 2.6728,
+                "max_ms": 8.5007
+              },
+              {
+                "phase": "network-ramp-50",
+                "complete": true,
+                "actual_wall_tps": 19.26970820956801,
+                "p95_ms": 24.7464,
+                "p99_ms": 63.9761,
+                "max_ms": 142.1866
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 3.1846447538012606,
+                "p95_ms": 409.1843,
+                "p99_ms": 636.1771,
+                "max_ms": 636.1771
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 8.940317569020369,
+                "p95_ms": 115.436,
+                "p99_ms": 115.436,
+                "max_ms": 115.436
+              },
+              {
+                "phase": "players-50-settle",
+                "complete": true,
+                "actual_wall_tps": 20.099888467437964,
+                "p95_ms": 21.0641,
+                "p99_ms": 29.8646,
+                "max_ms": 76.8506
+              },
+              {
+                "phase": "players-50-walk",
+                "complete": true,
+                "actual_wall_tps": 19.996721002281223,
+                "p95_ms": 15.5336,
+                "p99_ms": 18.6381,
+                "max_ms": 24.9166
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 21.38824694442157,
+                "p95_ms": 13.0615,
+                "p99_ms": 13.0615,
+                "max_ms": 13.0615
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 19.63552662165697,
+                "p95_ms": 31.604,
+                "p99_ms": 32.4366,
+                "max_ms": 32.4366
+              },
+              {
+                "phase": "players-50-mobs-500-settle",
+                "complete": true,
+                "actual_wall_tps": 20.006607071816926,
+                "p95_ms": 29.8197,
+                "p99_ms": 34.0727,
+                "max_ms": 52.4506
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "complete": true,
+                "actual_wall_tps": 20.000673651008103,
+                "p95_ms": 28.3183,
+                "p99_ms": 33.0926,
+                "max_ms": 53.7532
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 20.645094989228994,
+                "p95_ms": 17.3988,
+                "p99_ms": 17.3988,
+                "max_ms": 17.3988
+              },
+              {
+                "phase": "network-ramp-150",
+                "complete": true,
+                "actual_wall_tps": 19.996194383947152,
+                "p95_ms": 22.7976,
+                "p99_ms": 30.4565,
+                "max_ms": 74.5961
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 5.494274533719601,
+                "p95_ms": 411.7191,
+                "p99_ms": 523.0879,
+                "max_ms": 571.4065
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 18.597281449397727,
+                "p95_ms": 78.6396,
+                "p99_ms": 78.6396,
+                "max_ms": 78.6396
+              },
+              {
+                "phase": "players-150-settle",
+                "complete": true,
+                "actual_wall_tps": 20.09575056646715,
+                "p95_ms": 43.2882,
+                "p99_ms": 64.7065,
+                "max_ms": 84.1023
+              },
+              {
+                "phase": "players-150-walk",
+                "complete": true,
+                "actual_wall_tps": 19.996370592377847,
+                "p95_ms": 30.8544,
+                "p99_ms": 47.6022,
+                "max_ms": 95.5211
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 19.87299170998151,
+                "p95_ms": 29.4114,
+                "p99_ms": 29.4114,
+                "max_ms": 29.4114
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 19.937226219161385,
+                "p95_ms": 50.4106,
+                "p99_ms": 62.0969,
+                "max_ms": 62.0969
+              },
+              {
+                "phase": "players-150-mobs-1500-settle",
+                "complete": true,
+                "actual_wall_tps": 18.11433976201041,
+                "p95_ms": 71.6751,
+                "p99_ms": 86.8756,
+                "max_ms": 108.6171
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "complete": true,
+                "actual_wall_tps": 18.058504122624676,
+                "p95_ms": 71.9602,
+                "p99_ms": 82.6226,
+                "max_ms": 637.2846
+              },
+              {
+                "phase": "players-150-mobs-natural",
+                "complete": true,
+                "actual_wall_tps": 5.129502265763477,
+                "p95_ms": 234.1721,
+                "p99_ms": 281.4512,
+                "max_ms": 434.4464
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 8.410245103552938,
+                "p95_ms": 165.7,
+                "p99_ms": 198.5405,
+                "max_ms": 198.5405
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 25.571664141251734,
+                "p95_ms": 50.6093,
+                "p99_ms": 68.9809,
+                "max_ms": 68.9809
+              },
+              {
+                "phase": "network-ramp-300",
+                "complete": true,
+                "actual_wall_tps": 19.96727492658847,
+                "p95_ms": 49.9052,
+                "p99_ms": 80.5135,
+                "max_ms": 106.1539
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 6.570744744636219,
+                "p95_ms": 324.6382,
+                "p99_ms": 511.9256,
+                "max_ms": 868.6128
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 9.895616093636278,
+                "p95_ms": 107.7147,
+                "p99_ms": 107.7147,
+                "max_ms": 107.7147
+              },
+              {
+                "phase": "players-300-settle",
+                "complete": true,
+                "actual_wall_tps": 7.8838195948469,
+                "p95_ms": 316.9083,
+                "p99_ms": 889.4934,
+                "max_ms": 1350.3634
+              },
+              {
+                "phase": "players-300-walk",
+                "complete": true,
+                "actual_wall_tps": 12.408475576285825,
+                "p95_ms": 135.3149,
+                "p99_ms": 218.0527,
+                "max_ms": 1283.4454
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 29.17433708612556,
+                "p95_ms": 47.0611,
+                "p99_ms": 47.0611,
+                "max_ms": 47.0611
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 12.499512148974844,
+                "p95_ms": 124.2942,
+                "p99_ms": 128.3929,
+                "max_ms": 128.4664
+              },
+              {
+                "phase": "players-300-mobs-3000-settle",
+                "complete": true,
+                "actual_wall_tps": 3.3319147560122997,
+                "p95_ms": 408.2864,
+                "p99_ms": 551.8419,
+                "max_ms": 690.6199
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "complete": true,
+                "actual_wall_tps": 3.20989761111472,
+                "p95_ms": 453.4933,
+                "p99_ms": 645.4268,
+                "max_ms": 1141.4691
+              },
+              {
+                "phase": "players-300-mobs-natural",
+                "complete": true,
+                "actual_wall_tps": 1.0694717506328923,
+                "p95_ms": 1211.6621,
+                "p99_ms": 1697.4731,
+                "max_ms": 1697.4731
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 1.6070960948207735,
+                "p95_ms": 873.2038,
+                "p99_ms": 1275.4697,
+                "max_ms": 1663.6801
+              },
+              {
+                "phase": "setup-redstone",
+                "complete": true,
+                "actual_wall_tps": 2.7920821893362553,
+                "p95_ms": 506.019,
+                "p99_ms": 584.3911,
+                "max_ms": 797.1669
+              },
+              {
+                "phase": "players-300-mobs-3000-redstone-300",
+                "complete": true,
+                "actual_wall_tps": 2.4376944330173687,
+                "p95_ms": 639.0472,
+                "p99_ms": 1058.0028,
+                "max_ms": 1710.2486
+              },
+              {
+                "phase": "synthetic-server-teleport-travel",
+                "complete": true,
+                "actual_wall_tps": 5.458891744750563,
+                "p95_ms": 251.4603,
+                "p99_ms": 461.2672,
+                "max_ms": 591.9418
+              },
+              {
+                "phase": "post-generation-recovery",
+                "complete": true,
+                "actual_wall_tps": 7.204025753671667,
+                "p95_ms": 165.9034,
+                "p99_ms": 197.2579,
+                "max_ms": 266.4263
+              }
+            ],
+            "movement_validation_sha256": "075960a649233084386a1489ee525bce777d46ddbdd7037c81bcd587c9d52e06",
+            "result_sha256": "2a7b43fa1216e7dcd45e3e14e25a1d22bb5bfc5e74c35e7fee607ccd7cfbe205",
+            "summary_sha256": "80f38be9fb64d8ad2bf9f0ee842e61b5f6d5d5b4e15f8320ae3798273e2277e1",
+            "movement_telemetry_sha256": "8c60adde2d956cb84632dc1ee6ceace9c60d3fd16d124a8b452aa0237ff6d56f"
+          },
+          {
+            "case": "rtx3070",
+            "run_id": "20261012-005740-348500-rtx3070",
+            "cohort": "clean-retry-after-preserved-failure",
+            "completed": true,
+            "server_exit": 0,
+            "summary_finished": true,
+            "dropped_samples": 0,
+            "writer_queue_depth_at_finish": 0,
+            "movement_validation_pass": true,
+            "movement_phases": [
+              {
+                "phase": "players-50-walk",
+                "expected_movers": 10,
+                "observed_movers": 10,
+                "movers_with_nonzero_displacement": 10
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "expected_movers": 10,
+                "observed_movers": 10,
+                "movers_with_nonzero_displacement": 10
+              },
+              {
+                "phase": "players-150-walk",
+                "expected_movers": 30,
+                "observed_movers": 30,
+                "movers_with_nonzero_displacement": 30
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "expected_movers": 30,
+                "observed_movers": 30,
+                "movers_with_nonzero_displacement": 30
+              },
+              {
+                "phase": "players-300-walk",
+                "expected_movers": 60,
+                "observed_movers": 60,
+                "movers_with_nonzero_displacement": 60
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "expected_movers": 60,
+                "observed_movers": 60,
+                "movers_with_nonzero_displacement": 60
+              }
+            ],
+            "workload_phase_metrics": [
+              {
+                "phase": "players-50-walk",
+                "actual_wall_tps": 20.001639957372884,
+                "p95_ms": 19.1195,
+                "p99_ms": 21.7278,
+                "max_ms": 28.4287
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "actual_wall_tps": 20.00223854792868,
+                "p95_ms": 37.1334,
+                "p99_ms": 42.7285,
+                "max_ms": 49.1005
+              },
+              {
+                "phase": "players-150-walk",
+                "actual_wall_tps": 19.99913366584695,
+                "p95_ms": 33.6,
+                "p99_ms": 40.8132,
+                "max_ms": 53.3976
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "actual_wall_tps": 19.803390400693445,
+                "p95_ms": 59.3465,
+                "p99_ms": 66.9215,
+                "max_ms": 545.6682
+              },
+              {
+                "phase": "players-150-mobs-natural",
+                "actual_wall_tps": 5.7909493776015255,
+                "p95_ms": 200.5888,
+                "p99_ms": 239.9377,
+                "max_ms": 308.5238
+              },
+              {
+                "phase": "players-300-walk",
+                "actual_wall_tps": 16.593087349456532,
+                "p95_ms": 90.6116,
+                "p99_ms": 104.4255,
+                "max_ms": 136.9168
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "actual_wall_tps": 3.9783199885009672,
+                "p95_ms": 295.6397,
+                "p99_ms": 418.5157,
+                "max_ms": 579.8933
+              },
+              {
+                "phase": "players-300-mobs-natural",
+                "actual_wall_tps": 1.2470173229715042,
+                "p95_ms": 920.2128,
+                "p99_ms": 1000.9759,
+                "max_ms": 1083.6854
+              },
+              {
+                "phase": "players-300-mobs-3000-redstone-300",
+                "actual_wall_tps": 3.4834059694579134,
+                "p95_ms": 329.8994,
+                "p99_ms": 413.9644,
+                "max_ms": 568.6686
+              },
+              {
+                "phase": "synthetic-server-teleport-travel",
+                "actual_wall_tps": 5.1062117967754155,
+                "p95_ms": 291.5918,
+                "p99_ms": 493.4135,
+                "max_ms": 642.7909
+              },
+              {
+                "phase": "post-generation-recovery",
+                "actual_wall_tps": 6.505555543333219,
+                "p95_ms": 198.8955,
+                "p99_ms": 269.3942,
+                "max_ms": 303.5283
+              }
+            ],
+            "all_recorded_phase_metrics": [
+              {
+                "phase": "startup",
+                "complete": true,
+                "actual_wall_tps": 8.408594929393029,
+                "p95_ms": 2204.0628,
+                "p99_ms": 2204.0628,
+                "max_ms": 2204.0628
+              },
+              {
+                "phase": "setup-world",
+                "complete": true,
+                "actual_wall_tps": 4.417255744530665,
+                "p95_ms": 16.9324,
+                "p99_ms": 16.9324,
+                "max_ms": 16.9324
+              },
+              {
+                "phase": "idle-baseline",
+                "complete": true,
+                "actual_wall_tps": 20.01877957786949,
+                "p95_ms": 0.7972,
+                "p99_ms": 1.3789,
+                "max_ms": 1.5894
+              },
+              {
+                "phase": "network-ramp-50",
+                "complete": true,
+                "actual_wall_tps": 19.59066429977335,
+                "p95_ms": 23.036,
+                "p99_ms": 46.7771,
+                "max_ms": 132.0706
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 2.184273744698093,
+                "p95_ms": 677.9267,
+                "p99_ms": 1072.0849,
+                "max_ms": 1072.0849
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 20.37267047001788,
+                "p95_ms": 50.5698,
+                "p99_ms": 50.5698,
+                "max_ms": 50.5698
+              },
+              {
+                "phase": "players-50-settle",
+                "complete": true,
+                "actual_wall_tps": 20.11073927977515,
+                "p95_ms": 24.2492,
+                "p99_ms": 33.2741,
+                "max_ms": 51.3681
+              },
+              {
+                "phase": "players-50-walk",
+                "complete": true,
+                "actual_wall_tps": 20.001639957372884,
+                "p95_ms": 19.1195,
+                "p99_ms": 21.7278,
+                "max_ms": 28.4287
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 19.680692571443867,
+                "p95_ms": 21.1267,
+                "p99_ms": 21.1267,
+                "max_ms": 21.1267
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 20.013519132173784,
+                "p95_ms": 36.6048,
+                "p99_ms": 53.3002,
+                "max_ms": 53.3002
+              },
+              {
+                "phase": "players-50-mobs-500-settle",
+                "complete": true,
+                "actual_wall_tps": 19.998141253248146,
+                "p95_ms": 37.0497,
+                "p99_ms": 42.6261,
+                "max_ms": 50.9446
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "complete": true,
+                "actual_wall_tps": 20.00223854792868,
+                "p95_ms": 37.1334,
+                "p99_ms": 42.7285,
+                "max_ms": 49.1005
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 20.13980549479348,
+                "p95_ms": 25.4136,
+                "p99_ms": 25.4136,
+                "max_ms": 25.4136
+              },
+              {
+                "phase": "network-ramp-150",
+                "complete": true,
+                "actual_wall_tps": 19.990217345497644,
+                "p95_ms": 25.1261,
+                "p99_ms": 34.2849,
+                "max_ms": 46.0789
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 3.942194747323644,
+                "p95_ms": 575.6003,
+                "p99_ms": 719.6772,
+                "max_ms": 721.8246
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 17.541951577196865,
+                "p95_ms": 81.4449,
+                "p99_ms": 81.4449,
+                "max_ms": 81.4449
+              },
+              {
+                "phase": "players-150-settle",
+                "complete": true,
+                "actual_wall_tps": 20.101167943979807,
+                "p95_ms": 45.2998,
+                "p99_ms": 59.3376,
+                "max_ms": 78.2572
+              },
+              {
+                "phase": "players-150-walk",
+                "complete": true,
+                "actual_wall_tps": 19.99913366584695,
+                "p95_ms": 33.6,
+                "p99_ms": 40.8132,
+                "max_ms": 53.3976
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 18.711401886296425,
+                "p95_ms": 33.5056,
+                "p99_ms": 33.5056,
+                "max_ms": 33.5056
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 19.920983419267476,
+                "p95_ms": 43.1027,
+                "p99_ms": 58.0285,
+                "max_ms": 58.0285
+              },
+              {
+                "phase": "players-150-mobs-1500-settle",
+                "complete": true,
+                "actual_wall_tps": 19.87626145811659,
+                "p95_ms": 59.0653,
+                "p99_ms": 69.4501,
+                "max_ms": 91.7093
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "complete": true,
+                "actual_wall_tps": 19.803390400693445,
+                "p95_ms": 59.3465,
+                "p99_ms": 66.9215,
+                "max_ms": 545.6682
+              },
+              {
+                "phase": "players-150-mobs-natural",
+                "complete": true,
+                "actual_wall_tps": 5.7909493776015255,
+                "p95_ms": 200.5888,
+                "p99_ms": 239.9377,
+                "max_ms": 308.5238
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 10.01607965121961,
+                "p95_ms": 146.1513,
+                "p99_ms": 155.8922,
+                "max_ms": 155.8922
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 28.897845794030925,
+                "p95_ms": 51.0717,
+                "p99_ms": 51.0717,
+                "max_ms": 51.0717
+              },
+              {
+                "phase": "network-ramp-300",
+                "complete": true,
+                "actual_wall_tps": 20.000156382175142,
+                "p95_ms": 33.376,
+                "p99_ms": 48.6678,
+                "max_ms": 65.1812
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 5.077400012300803,
+                "p95_ms": 491.3273,
+                "p99_ms": 682.3108,
+                "max_ms": 1074.2376
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 6.675086175362524,
+                "p95_ms": 149.7059,
+                "p99_ms": 149.7059,
+                "max_ms": 149.7059
+              },
+              {
+                "phase": "players-300-settle",
+                "complete": true,
+                "actual_wall_tps": 11.78063868357584,
+                "p95_ms": 121.9099,
+                "p99_ms": 770.8637,
+                "max_ms": 1463.8305
+              },
+              {
+                "phase": "players-300-walk",
+                "complete": true,
+                "actual_wall_tps": 16.593087349456532,
+                "p95_ms": 90.6116,
+                "p99_ms": 104.4255,
+                "max_ms": 136.9168
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 31.101022860806854,
+                "p95_ms": 42.6304,
+                "p99_ms": 42.6304,
+                "max_ms": 42.6304
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 14.211185566192473,
+                "p95_ms": 108.1239,
+                "p99_ms": 117.4017,
+                "max_ms": 118.1586
+              },
+              {
+                "phase": "players-300-mobs-3000-settle",
+                "complete": true,
+                "actual_wall_tps": 4.203537335780303,
+                "p95_ms": 271.3968,
+                "p99_ms": 349.1262,
+                "max_ms": 408.8416
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "complete": true,
+                "actual_wall_tps": 3.9783199885009672,
+                "p95_ms": 295.6397,
+                "p99_ms": 418.5157,
+                "max_ms": 579.8933
+              },
+              {
+                "phase": "players-300-mobs-natural",
+                "complete": true,
+                "actual_wall_tps": 1.2470173229715042,
+                "p95_ms": 920.2128,
+                "p99_ms": 1000.9759,
+                "max_ms": 1083.6854
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 1.90470938859432,
+                "p95_ms": 744.2954,
+                "p99_ms": 883.5781,
+                "max_ms": 1075.715
+              },
+              {
+                "phase": "setup-redstone",
+                "complete": true,
+                "actual_wall_tps": 3.646831180956427,
+                "p95_ms": 313.0085,
+                "p99_ms": 331.7225,
+                "max_ms": 336.5556
+              },
+              {
+                "phase": "players-300-mobs-3000-redstone-300",
+                "complete": true,
+                "actual_wall_tps": 3.4834059694579134,
+                "p95_ms": 329.8994,
+                "p99_ms": 413.9644,
+                "max_ms": 568.6686
+              },
+              {
+                "phase": "synthetic-server-teleport-travel",
+                "complete": true,
+                "actual_wall_tps": 5.1062117967754155,
+                "p95_ms": 291.5918,
+                "p99_ms": 493.4135,
+                "max_ms": 642.7909
+              },
+              {
+                "phase": "post-generation-recovery",
+                "complete": true,
+                "actual_wall_tps": 6.505555543333219,
+                "p95_ms": 198.8955,
+                "p99_ms": 269.3942,
+                "max_ms": 303.5283
+              }
+            ],
+            "movement_validation_sha256": "5117dbaee113d9c94b571d63c76b5727489c50cbcae4926798386d4a463d50b8",
+            "result_sha256": "124bb64a9c8f9349e14e281b5160a95b94b2594a348d3d8c29a494a4ad203964",
+            "summary_sha256": "fb84d371a6efcc154910e17bb0dd5d4fd1f0b7b8bf6106918e131c8e366dcaa1",
+            "movement_telemetry_sha256": "5d123b152599202b15a6347b638ce65d3593f2f9309081d9da6dffcd61253059"
+          },
+          {
+            "case": "gtx1080",
+            "run_id": "20261012-012407-318300-gtx1080",
+            "cohort": "clean-retry-after-preserved-failure",
+            "completed": true,
+            "server_exit": 0,
+            "summary_finished": true,
+            "dropped_samples": 0,
+            "writer_queue_depth_at_finish": 0,
+            "movement_validation_pass": true,
+            "movement_phases": [
+              {
+                "phase": "players-50-walk",
+                "expected_movers": 10,
+                "observed_movers": 10,
+                "movers_with_nonzero_displacement": 10
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "expected_movers": 10,
+                "observed_movers": 10,
+                "movers_with_nonzero_displacement": 10
+              },
+              {
+                "phase": "players-150-walk",
+                "expected_movers": 30,
+                "observed_movers": 30,
+                "movers_with_nonzero_displacement": 30
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "expected_movers": 30,
+                "observed_movers": 30,
+                "movers_with_nonzero_displacement": 30
+              },
+              {
+                "phase": "players-300-walk",
+                "expected_movers": 60,
+                "observed_movers": 60,
+                "movers_with_nonzero_displacement": 60
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "expected_movers": 60,
+                "observed_movers": 60,
+                "movers_with_nonzero_displacement": 60
+              }
+            ],
+            "workload_phase_metrics": [
+              {
+                "phase": "players-50-walk",
+                "actual_wall_tps": 19.99968115552565,
+                "p95_ms": 17.6578,
+                "p99_ms": 20.9929,
+                "max_ms": 25.3321
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "actual_wall_tps": 20.00010584126808,
+                "p95_ms": 30.4783,
+                "p99_ms": 41.1066,
+                "max_ms": 55.7558
+              },
+              {
+                "phase": "players-150-walk",
+                "actual_wall_tps": 19.998413931100437,
+                "p95_ms": 24.3772,
+                "p99_ms": 28.2622,
+                "max_ms": 44.3494
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "actual_wall_tps": 16.77009423689232,
+                "p95_ms": 72.0606,
+                "p99_ms": 80.9885,
+                "max_ms": 698.1253
+              },
+              {
+                "phase": "players-150-mobs-natural",
+                "actual_wall_tps": 4.992645915409178,
+                "p95_ms": 239.8791,
+                "p99_ms": 274.3424,
+                "max_ms": 356.8654
+              },
+              {
+                "phase": "players-300-walk",
+                "actual_wall_tps": 11.278019833936996,
+                "p95_ms": 129.6174,
+                "p99_ms": 174.4576,
+                "max_ms": 240.6268
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "actual_wall_tps": 2.8416360040153084,
+                "p95_ms": 433.6964,
+                "p99_ms": 626.0577,
+                "max_ms": 720.8227
+              },
+              {
+                "phase": "players-300-mobs-natural",
+                "actual_wall_tps": 1.024549981950449,
+                "p95_ms": 1211.3172,
+                "p99_ms": 1456.0999,
+                "max_ms": 1456.0999
+              },
+              {
+                "phase": "players-300-mobs-3000-redstone-300",
+                "actual_wall_tps": 2.3756087319204893,
+                "p95_ms": 533.1408,
+                "p99_ms": 711.4936,
+                "max_ms": 870.4644
+              },
+              {
+                "phase": "synthetic-server-teleport-travel",
+                "actual_wall_tps": 5.012390032940112,
+                "p95_ms": 285.7304,
+                "p99_ms": 549.4192,
+                "max_ms": 671.8052
+              },
+              {
+                "phase": "post-generation-recovery",
+                "actual_wall_tps": 6.9692333768771615,
+                "p95_ms": 166.6323,
+                "p99_ms": 193.9177,
+                "max_ms": 203.555
+              }
+            ],
+            "all_recorded_phase_metrics": [
+              {
+                "phase": "startup",
+                "complete": true,
+                "actual_wall_tps": 5.376914540037222,
+                "p95_ms": 2990.2593,
+                "p99_ms": 2990.2593,
+                "max_ms": 2990.2593
+              },
+              {
+                "phase": "setup-world",
+                "complete": true,
+                "actual_wall_tps": 3.4018985996084417,
+                "p95_ms": 27.9716,
+                "p99_ms": 27.9716,
+                "max_ms": 27.9716
+              },
+              {
+                "phase": "idle-baseline",
+                "complete": true,
+                "actual_wall_tps": 20.016293655511934,
+                "p95_ms": 1.8121,
+                "p99_ms": 2.6807,
+                "max_ms": 3.6473
+              },
+              {
+                "phase": "network-ramp-50",
+                "complete": true,
+                "actual_wall_tps": 19.471805181326317,
+                "p95_ms": 21.1871,
+                "p99_ms": 57.0369,
+                "max_ms": 77.4604
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 1.6988138361958647,
+                "p95_ms": 1262.143,
+                "p99_ms": 1567.8534,
+                "max_ms": 1567.8534
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 13.343515918592098,
+                "p95_ms": 94.4549,
+                "p99_ms": 94.4549,
+                "max_ms": 94.4549
+              },
+              {
+                "phase": "players-50-settle",
+                "complete": true,
+                "actual_wall_tps": 20.114236171641082,
+                "p95_ms": 25.3923,
+                "p99_ms": 52.0607,
+                "max_ms": 60.4984
+              },
+              {
+                "phase": "players-50-walk",
+                "complete": true,
+                "actual_wall_tps": 19.99968115552565,
+                "p95_ms": 17.6578,
+                "p99_ms": 20.9929,
+                "max_ms": 25.3321
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 19.2395256815602,
+                "p95_ms": 7.4572,
+                "p99_ms": 7.4572,
+                "max_ms": 7.4572
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 19.852761990696003,
+                "p95_ms": 43.5997,
+                "p99_ms": 73.1553,
+                "max_ms": 73.1553
+              },
+              {
+                "phase": "players-50-mobs-500-settle",
+                "complete": true,
+                "actual_wall_tps": 20.00783127206155,
+                "p95_ms": 33.3592,
+                "p99_ms": 41.2891,
+                "max_ms": 50.2079
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "complete": true,
+                "actual_wall_tps": 20.00010584126808,
+                "p95_ms": 30.4783,
+                "p99_ms": 41.1066,
+                "max_ms": 55.7558
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 19.96366114579936,
+                "p95_ms": 13.9629,
+                "p99_ms": 13.9629,
+                "max_ms": 13.9629
+              },
+              {
+                "phase": "network-ramp-150",
+                "complete": true,
+                "actual_wall_tps": 19.99312404307386,
+                "p95_ms": 24.4875,
+                "p99_ms": 28.8252,
+                "max_ms": 38.7902
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 3.5128283714679425,
+                "p95_ms": 665.8846,
+                "p99_ms": 1032.65,
+                "max_ms": 1155.8872
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 17.318836312750474,
+                "p95_ms": 103.759,
+                "p99_ms": 103.759,
+                "max_ms": 103.759
+              },
+              {
+                "phase": "players-150-settle",
+                "complete": true,
+                "actual_wall_tps": 20.047070035789595,
+                "p95_ms": 52.0814,
+                "p99_ms": 74.9059,
+                "max_ms": 112.8615
+              },
+              {
+                "phase": "players-150-walk",
+                "complete": true,
+                "actual_wall_tps": 19.998413931100437,
+                "p95_ms": 24.3772,
+                "p99_ms": 28.2622,
+                "max_ms": 44.3494
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 20.69699189919737,
+                "p95_ms": 16.8216,
+                "p99_ms": 16.8216,
+                "max_ms": 16.8216
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 19.803291151571155,
+                "p95_ms": 46.4628,
+                "p99_ms": 58.5863,
+                "max_ms": 58.5863
+              },
+              {
+                "phase": "players-150-mobs-1500-settle",
+                "complete": true,
+                "actual_wall_tps": 16.706218142876306,
+                "p95_ms": 73.8381,
+                "p99_ms": 84.9485,
+                "max_ms": 105.7379
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "complete": true,
+                "actual_wall_tps": 16.77009423689232,
+                "p95_ms": 72.0606,
+                "p99_ms": 80.9885,
+                "max_ms": 698.1253
+              },
+              {
+                "phase": "players-150-mobs-natural",
+                "complete": true,
+                "actual_wall_tps": 4.992645915409178,
+                "p95_ms": 239.8791,
+                "p99_ms": 274.3424,
+                "max_ms": 356.8654
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 8.7745521316533,
+                "p95_ms": 165.6868,
+                "p99_ms": 183.4638,
+                "max_ms": 183.4638
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 26.171622533418045,
+                "p95_ms": 52.7886,
+                "p99_ms": 53.1094,
+                "max_ms": 53.1094
+              },
+              {
+                "phase": "network-ramp-300",
+                "complete": true,
+                "actual_wall_tps": 19.99360924274165,
+                "p95_ms": 39.3721,
+                "p99_ms": 66.0677,
+                "max_ms": 138.2391
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 4.419204136365675,
+                "p95_ms": 571.5602,
+                "p99_ms": 782.2966,
+                "max_ms": 1230.9918
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 7.491186618942813,
+                "p95_ms": 131.8217,
+                "p99_ms": 131.8217,
+                "max_ms": 131.8217
+              },
+              {
+                "phase": "players-300-settle",
+                "complete": true,
+                "actual_wall_tps": 7.442243549661643,
+                "p95_ms": 159.3667,
+                "p99_ms": 1482.4077,
+                "max_ms": 3706.3683
+              },
+              {
+                "phase": "players-300-walk",
+                "complete": true,
+                "actual_wall_tps": 11.278019833936996,
+                "p95_ms": 129.6174,
+                "p99_ms": 174.4576,
+                "max_ms": 240.6268
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 18.94430941361679,
+                "p95_ms": 61.1457,
+                "p99_ms": 61.1457,
+                "max_ms": 61.1457
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 12.30238406862353,
+                "p95_ms": 140.0858,
+                "p99_ms": 156.9759,
+                "max_ms": 164.9986
+              },
+              {
+                "phase": "players-300-mobs-3000-settle",
+                "complete": true,
+                "actual_wall_tps": 2.9588751790856462,
+                "p95_ms": 406.579,
+                "p99_ms": 560.2267,
+                "max_ms": 570.2635
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "complete": true,
+                "actual_wall_tps": 2.8416360040153084,
+                "p95_ms": 433.6964,
+                "p99_ms": 626.0577,
+                "max_ms": 720.8227
+              },
+              {
+                "phase": "players-300-mobs-natural",
+                "complete": true,
+                "actual_wall_tps": 1.024549981950449,
+                "p95_ms": 1211.3172,
+                "p99_ms": 1456.0999,
+                "max_ms": 1456.0999
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 1.456961776156336,
+                "p95_ms": 914.5424,
+                "p99_ms": 1072.935,
+                "max_ms": 1246.2681
+              },
+              {
+                "phase": "setup-redstone",
+                "complete": true,
+                "actual_wall_tps": 2.4935460329588133,
+                "p95_ms": 510.7351,
+                "p99_ms": 669.1387,
+                "max_ms": 756.3206
+              },
+              {
+                "phase": "players-300-mobs-3000-redstone-300",
+                "complete": true,
+                "actual_wall_tps": 2.3756087319204893,
+                "p95_ms": 533.1408,
+                "p99_ms": 711.4936,
+                "max_ms": 870.4644
+              },
+              {
+                "phase": "synthetic-server-teleport-travel",
+                "complete": true,
+                "actual_wall_tps": 5.012390032940112,
+                "p95_ms": 285.7304,
+                "p99_ms": 549.4192,
+                "max_ms": 671.8052
+              },
+              {
+                "phase": "post-generation-recovery",
+                "complete": true,
+                "actual_wall_tps": 6.9692333768771615,
+                "p95_ms": 166.6323,
+                "p99_ms": 193.9177,
+                "max_ms": 203.555
+              }
+            ],
+            "movement_validation_sha256": "9786f30aa98efdace88c2352fb29bb88fad474dedb2dffaf8540e853f2a78f67",
+            "result_sha256": "0dddfa1aa8c04af57ccce612f3bf197533fe3016440585c4755b9c1383fae73b",
+            "summary_sha256": "e07b6ecdec8329002aa4a5109ac1ef6753f4f1280627564df4ff462e567aa8b9",
+            "movement_telemetry_sha256": "4fb7a0c57a6fcd467ee12b023d28458323da312b60ecabd1314af28d9d86ae40"
+          },
+          {
+            "case": "mixed",
+            "run_id": "20261011-142352-344700-mixed",
+            "cohort": "original-completed-cohort",
+            "completed": true,
+            "server_exit": 0,
+            "summary_finished": true,
+            "dropped_samples": 0,
+            "writer_queue_depth_at_finish": 0,
+            "movement_validation_pass": true,
+            "movement_phases": [
+              {
+                "phase": "players-50-walk",
+                "expected_movers": 10,
+                "observed_movers": 10,
+                "movers_with_nonzero_displacement": 10
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "expected_movers": 10,
+                "observed_movers": 10,
+                "movers_with_nonzero_displacement": 10
+              },
+              {
+                "phase": "players-150-walk",
+                "expected_movers": 30,
+                "observed_movers": 30,
+                "movers_with_nonzero_displacement": 30
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "expected_movers": 30,
+                "observed_movers": 30,
+                "movers_with_nonzero_displacement": 30
+              },
+              {
+                "phase": "players-300-walk",
+                "expected_movers": 60,
+                "observed_movers": 60,
+                "movers_with_nonzero_displacement": 60
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "expected_movers": 60,
+                "observed_movers": 60,
+                "movers_with_nonzero_displacement": 60
+              }
+            ],
+            "workload_phase_metrics": [
+              {
+                "phase": "players-50-walk",
+                "actual_wall_tps": 20.00051846476737,
+                "p95_ms": 18.9355,
+                "p99_ms": 21.5885,
+                "max_ms": 24.495
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "actual_wall_tps": 19.994965493295698,
+                "p95_ms": 37.9447,
+                "p99_ms": 45.3811,
+                "max_ms": 54.342
+              },
+              {
+                "phase": "players-150-walk",
+                "actual_wall_tps": 20.002116086699317,
+                "p95_ms": 20.738,
+                "p99_ms": 25.6733,
+                "max_ms": 35.5577
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "actual_wall_tps": 18.386447708325804,
+                "p95_ms": 65.0254,
+                "p99_ms": 73.5002,
+                "max_ms": 503.218
+              },
+              {
+                "phase": "players-150-mobs-natural",
+                "actual_wall_tps": 5.277443618500106,
+                "p95_ms": 239.5522,
+                "p99_ms": 323.1906,
+                "max_ms": 333.8626
+              },
+              {
+                "phase": "players-300-walk",
+                "actual_wall_tps": 13.927727933412866,
+                "p95_ms": 102.7123,
+                "p99_ms": 129.4365,
+                "max_ms": 165.4478
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "actual_wall_tps": 3.209916983115288,
+                "p95_ms": 362.6533,
+                "p99_ms": 578.7836,
+                "max_ms": 672.0863
+              },
+              {
+                "phase": "players-300-mobs-natural",
+                "actual_wall_tps": 1.08439774734716,
+                "p95_ms": 1008.4915,
+                "p99_ms": 1273.0867,
+                "max_ms": 1384.44
+              },
+              {
+                "phase": "players-300-mobs-3000-redstone-300",
+                "actual_wall_tps": 2.7524198893080434,
+                "p95_ms": 430.3684,
+                "p99_ms": 635.8246,
+                "max_ms": 760.7541
+              },
+              {
+                "phase": "synthetic-server-teleport-travel",
+                "actual_wall_tps": 5.360644955797927,
+                "p95_ms": 263.7773,
+                "p99_ms": 509.6386,
+                "max_ms": 652.0474
+              },
+              {
+                "phase": "post-generation-recovery",
+                "actual_wall_tps": 7.588464748417556,
+                "p95_ms": 145.1866,
+                "p99_ms": 163.5885,
+                "max_ms": 177.308
+              }
+            ],
+            "all_recorded_phase_metrics": [
+              {
+                "phase": "startup",
+                "complete": true,
+                "actual_wall_tps": 3.8818157892080865,
+                "p95_ms": 2014.1602,
+                "p99_ms": 2014.1602,
+                "max_ms": 2014.1602
+              },
+              {
+                "phase": "setup-world",
+                "complete": true,
+                "actual_wall_tps": 4.4983907456946355,
+                "p95_ms": 56.6005,
+                "p99_ms": 56.6005,
+                "max_ms": 56.6005
+              },
+              {
+                "phase": "idle-baseline",
+                "complete": true,
+                "actual_wall_tps": 20.018154110701452,
+                "p95_ms": 2.1064,
+                "p99_ms": 3.6285,
+                "max_ms": 6.0088
+              },
+              {
+                "phase": "network-ramp-50",
+                "complete": true,
+                "actual_wall_tps": 19.44277138721561,
+                "p95_ms": 24.3584,
+                "p99_ms": 39.7549,
+                "max_ms": 132.8334
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 2.1636913609728143,
+                "p95_ms": 617.1356,
+                "p99_ms": 944.1977,
+                "max_ms": 944.1977
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 10.009879751314548,
+                "p95_ms": 102.0609,
+                "p99_ms": 102.0609,
+                "max_ms": 102.0609
+              },
+              {
+                "phase": "players-50-settle",
+                "complete": true,
+                "actual_wall_tps": 20.12042889887462,
+                "p95_ms": 24.0986,
+                "p99_ms": 46.0033,
+                "max_ms": 65.8252
+              },
+              {
+                "phase": "players-50-walk",
+                "complete": true,
+                "actual_wall_tps": 20.00051846476737,
+                "p95_ms": 18.9355,
+                "p99_ms": 21.5885,
+                "max_ms": 24.495
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 18.92705371545162,
+                "p95_ms": 19.249,
+                "p99_ms": 19.249,
+                "max_ms": 19.249
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 20.03775568574733,
+                "p95_ms": 32.1897,
+                "p99_ms": 53.5607,
+                "max_ms": 53.5607
+              },
+              {
+                "phase": "players-50-mobs-500-settle",
+                "complete": true,
+                "actual_wall_tps": 20.00004947148801,
+                "p95_ms": 38.9637,
+                "p99_ms": 46.6224,
+                "max_ms": 56.353
+              },
+              {
+                "phase": "players-50-mobs-500",
+                "complete": true,
+                "actual_wall_tps": 19.994965493295698,
+                "p95_ms": 37.9447,
+                "p99_ms": 45.3811,
+                "max_ms": 54.342
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 21.61008650787755,
+                "p95_ms": 34.3,
+                "p99_ms": 34.3,
+                "max_ms": 34.3
+              },
+              {
+                "phase": "network-ramp-150",
+                "complete": true,
+                "actual_wall_tps": 19.984171792343375,
+                "p95_ms": 25.8415,
+                "p99_ms": 35.0739,
+                "max_ms": 55.5101
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 4.0620720440650775,
+                "p95_ms": 543.431,
+                "p99_ms": 617.5211,
+                "max_ms": 760.1278
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 15.793014644336045,
+                "p95_ms": 70.9643,
+                "p99_ms": 70.9643,
+                "max_ms": 70.9643
+              },
+              {
+                "phase": "players-150-settle",
+                "complete": true,
+                "actual_wall_tps": 20.08970177264597,
+                "p95_ms": 46.3021,
+                "p99_ms": 66.1771,
+                "max_ms": 86.0381
+              },
+              {
+                "phase": "players-150-walk",
+                "complete": true,
+                "actual_wall_tps": 20.002116086699317,
+                "p95_ms": 20.738,
+                "p99_ms": 25.6733,
+                "max_ms": 35.5577
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 20.79732795930379,
+                "p95_ms": 15.7632,
+                "p99_ms": 15.7632,
+                "max_ms": 15.7632
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 19.8573508242912,
+                "p95_ms": 43.2166,
+                "p99_ms": 45.2624,
+                "max_ms": 45.2624
+              },
+              {
+                "phase": "players-150-mobs-1500-settle",
+                "complete": true,
+                "actual_wall_tps": 18.318029746010016,
+                "p95_ms": 65.5519,
+                "p99_ms": 75.5754,
+                "max_ms": 103.6986
+              },
+              {
+                "phase": "players-150-mobs-1500",
+                "complete": true,
+                "actual_wall_tps": 18.386447708325804,
+                "p95_ms": 65.0254,
+                "p99_ms": 73.5002,
+                "max_ms": 503.218
+              },
+              {
+                "phase": "players-150-mobs-natural",
+                "complete": true,
+                "actual_wall_tps": 5.277443618500106,
+                "p95_ms": 239.5522,
+                "p99_ms": 323.1906,
+                "max_ms": 333.8626
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 9.1506615085176,
+                "p95_ms": 146.1121,
+                "p99_ms": 164.368,
+                "max_ms": 164.368
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 25.632052857687057,
+                "p95_ms": 63.6524,
+                "p99_ms": 67.3178,
+                "max_ms": 67.3178
+              },
+              {
+                "phase": "network-ramp-300",
+                "complete": true,
+                "actual_wall_tps": 19.998848411635347,
+                "p95_ms": 28.6015,
+                "p99_ms": 39.8479,
+                "max_ms": 82.0406
+              },
+              {
+                "phase": "setup-placement",
+                "complete": true,
+                "actual_wall_tps": 4.767980228266736,
+                "p95_ms": 510.8478,
+                "p99_ms": 671.3324,
+                "max_ms": 1068.8984
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 8.886852812166813,
+                "p95_ms": 164.824,
+                "p99_ms": 164.824,
+                "max_ms": 164.824
+              },
+              {
+                "phase": "players-300-settle",
+                "complete": true,
+                "actual_wall_tps": 8.925174549638667,
+                "p95_ms": 167.7265,
+                "p99_ms": 949.2955,
+                "max_ms": 2710.6438
+              },
+              {
+                "phase": "players-300-walk",
+                "complete": true,
+                "actual_wall_tps": 13.927727933412866,
+                "p95_ms": 102.7123,
+                "p99_ms": 129.4365,
+                "max_ms": 165.4478
+              },
+              {
+                "phase": "setup-remove",
+                "complete": true,
+                "actual_wall_tps": 28.434633611215528,
+                "p95_ms": 39.4965,
+                "p99_ms": 39.4965,
+                "max_ms": 39.4965
+              },
+              {
+                "phase": "setup-spawn",
+                "complete": true,
+                "actual_wall_tps": 13.256685503486473,
+                "p95_ms": 120.3157,
+                "p99_ms": 132.5942,
+                "max_ms": 132.7621
+              },
+              {
+                "phase": "players-300-mobs-3000-settle",
+                "complete": true,
+                "actual_wall_tps": 3.3897331814228076,
+                "p95_ms": 339.5606,
+                "p99_ms": 365.6948,
+                "max_ms": 650.1903
+              },
+              {
+                "phase": "players-300-mobs-3000",
+                "complete": true,
+                "actual_wall_tps": 3.209916983115288,
+                "p95_ms": 362.6533,
+                "p99_ms": 578.7836,
+                "max_ms": 672.0863
+              },
+              {
+                "phase": "players-300-mobs-natural",
+                "complete": true,
+                "actual_wall_tps": 1.08439774734716,
+                "p95_ms": 1008.4915,
+                "p99_ms": 1273.0867,
+                "max_ms": 1384.44
+              },
+              {
+                "phase": "setup-remove-natural",
+                "complete": true,
+                "actual_wall_tps": 1.5881223412515997,
+                "p95_ms": 897.8615,
+                "p99_ms": 1031.3997,
+                "max_ms": 1258.9248
+              },
+              {
+                "phase": "setup-redstone",
+                "complete": true,
+                "actual_wall_tps": 2.8634946792212244,
+                "p95_ms": 424.5723,
+                "p99_ms": 508.6315,
+                "max_ms": 705.2438
+              },
+              {
+                "phase": "players-300-mobs-3000-redstone-300",
+                "complete": true,
+                "actual_wall_tps": 2.7524198893080434,
+                "p95_ms": 430.3684,
+                "p99_ms": 635.8246,
+                "max_ms": 760.7541
+              },
+              {
+                "phase": "synthetic-server-teleport-travel",
+                "complete": true,
+                "actual_wall_tps": 5.360644955797927,
+                "p95_ms": 263.7773,
+                "p99_ms": 509.6386,
+                "max_ms": 652.0474
+              },
+              {
+                "phase": "post-generation-recovery",
+                "complete": true,
+                "actual_wall_tps": 7.588464748417556,
+                "p95_ms": 145.1866,
+                "p99_ms": 163.5885,
+                "max_ms": 177.308
+              }
+            ],
+            "movement_validation_sha256": "ae9e8f6b924c86abe1e758453b674939f8a236c103f08bb8b79a19ca9ffa3a3b",
+            "result_sha256": "b2a03109b500fd27ad757d692522cb012f605aabecde97112b64759362b4ace5",
+            "summary_sha256": "ed86b6a616a3ad227e86e9fe883024ce7fb97906dc283a045433bea8a0c269ad",
+            "movement_telemetry_sha256": "93bb27a8cdbd8cafeb357a16571ebd473ec403199b3904bb227960c56ed34db1"
+          }
+        ]
+      }
     },
     {
       "id": "1.0.0-all-walking-diagnostic",
@@ -198,7 +2102,7 @@
   "historical_movement_limits": [
     "The bot clients implement login/control packets and consume many large world packets as opaque buffers; they are not complete Minecraft clients.",
     "Walkers send grounded position/look packets at 20 Hz around a bounded 2-block-radius route, capped near 2 blocks per second. This tests real network movement callbacks but not ordinary exploration, collision physics, block interaction, combat or inventory use.",
-    "The new candidate GPurBench source records server-observed per-phase PlayerMoveEvent displacement and was compiled into the current benchmark plugin JAR (SHA-256 5280196a91191c5ca1faa9644f5e476c3bbce90d975f5135b4242abd966d89e1); four isolated movement gate tests pass. No runtime regression replay has yet exercised this evidence.",
+    "The new candidate GPurBench source records server-observed per-phase PlayerMoveEvent displacement and was compiled into the current benchmark plugin JAR (SHA-256 99d581c4382a84de3282ed3dd93fa1ceee923a63b57273e3ffff50c6c7eed71e). The 10-player pilot proved 2/2 server-observed movers in both its walk and fixed-mob phases. The full normal replay is running on candidate 456e864d7; final per-UUID evidence and GPU cases are pending.",
     "The synthetic travel phase is server-directed teleport exploration, not client walking."
   ],
   "historical_workload_limits": [
@@ -211,32 +2115,42 @@
     "archived_1_0_0_artifact": "C:\\GPur-validation-20261007\\artifacts\\result-gate-bfe87ccaf419065f49acc0b7cf1b24dbda93d6abe8680dc5d3073f7043e2c846.jar",
     "historical_20_percent_report": "docs/results/controlled-matrix.json",
     "historical_all_walking_report": "docs/results/all-walking-before-retry-fix.json",
-    "current_candidate_jar": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "current_candidate_jar": "C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
     "prior_radius4_matrix_b693": "C:\\GPur-validation-20261009\\validation\\worldgen-smoke-b693a6a90-xms4-paper-handlefix\\matrices\\20261010T133250Z-8e6ae37b\\worldgen-matrix-report.json",
     "prior_cpu_lifecycle_pilot_b693": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-postprocessingpilot-b693a6a90\\matrices\\20261010T133957Z-761e2665\\worldgen-matrix-report.json",
-  "movement_pilot_proof": "C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\movement-pilot-proof.json",
-  "request_window_worker_controls_python_tests": "C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\request-window-worker-controls-python-tests.json"
+    "movement_pilot_proof": "C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\movement-pilot-proof.json",
+    "request_window_worker_controls_python_tests": "C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\request-window-worker-controls-python-tests.json",
+    "historical_production81_candidate": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "current_worldgen_probe": "C:\\GPur-validation-20261009\\validation\\worldgen-plugin-w7-current\\GPurWorldgenProbe.jar",
+    "current_worldgen_probe_build_receipt": "C:\\GPur-validation-20261009\\validation\\worldgen-plugin-w7-current\\build-receipt.json",
+    "serial_cpu_control_root": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7",
+    "entity_key_diagnostic": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\entity-key-diagnostic.json",
+    "serial_cpu_portable_proof": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\portable-proof.json",
+    "current_movement_replay_root": "C:\\GPur-validation-20261009\\validation\\movement-full-replay-w7-current-plugin-20261011",
+    "movement_retry_root": "C:\\GPur-validation-20261009\\validation\\movement-full-replay-w7-current-plugin-20261012-retry",
+    "normal_movement_portable_report": "docs/results/1.1.0-normal-movement-validation.json"
   },
   "candidate_artifact": {
-    "git_commit": "81cd39cad0065edf3fb1e9e9888d5dc2509d9792",
-    "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
-    "bytes": 92174774,
-    "sha256": "175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a",
+    "git_commit": "456e864d73d08fe0b9ea32f6374a97a65996a7dd",
+    "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "bytes": 92205013,
+    "sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896",
     "main_class": "io.papermc.paperclip.Main",
+    "artifact_receipt": "C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\artifact-receipt.json",
+    "artifact_receipt_sha256": "488fb7db23ca728ac9940864b8cf35142d6f88752044dcf489d83697efffaea1",
     "physical_test_command": ":purpur-server:test -PgpurGpuTests=true --no-daemon",
     "physical_tests": {
-      "count": 9424,
+      "count": 9435,
       "failures": 0,
       "errors": 0,
-      "skipped": 23,
-      "xml_suites": 151,
+      "skipped": 24,
+      "unique_suites": 153,
       "scope": "unfiltered physical enabled, nonduplicated",
       "result": "BUILD SUCCESSFUL"
     },
-    "physical_test_notes": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\artifact-receipt.json",
-    "physical_test_notes_sha256": "7624297902e5e03c23d557a660f281ba5d21e0b1ed39ccabb52aafffe3433d6a",
-    "paperclip_build_log": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\paperclip-build.log",
-    "paperclip_build_log_sha256": "11d4094052b353dc3a43c8e14b4be15e14c55209d0cf6f9435b2107bc24cecb6"
+    "source_manifest_sha256": "93b1c53082b901b19f66f57cc4542c302eba2af2655d20f5600390fe27e13c0a",
+    "paperclip_build_log": "C:\\GPur-validation-20261009\\validation\\artifacts\\456e864d7\\build-console.log",
+    "paperclip_build_log_sha256": "0fddaa6761154730e50873609af557fc8059c215b9cb361a39b80e3362288899"
   },
   "validation_runs": [
     {
@@ -388,7 +2302,9 @@
       "id": "production81-frozen-cpu-repeatability-control",
       "status": "failed",
       "candidate_jar_sha256": "175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a",
-      "cases": ["cpu"],
+      "cases": [
+        "cpu"
+      ],
       "frozen": true,
       "first_matrix_report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-frozen-pilot-81cd39-reloadfix\\matrices\\20261010T140807Z-632beb00\\worldgen-matrix-report.json",
       "first_matrix_report_sha256": "b948d80d22b76f9fb7a8e799ab783f398967e8f0d5835a5dd704c62d6a5cea52",
@@ -396,8 +2312,12 @@
       "second_matrix_report_sha256": "90508fcce6b1ee5ed55ae1386294a80589ebb3085defed8915a3abdfc83b4daf",
       "cross_repeatability_report": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-repeatability-81cd39.json",
       "cross_repeatability_report_sha256": "334ab90af17422ea5b11f0ab64beded3a5d22a404efcdbf639711d5c2e780888",
-      "roundtrip_differences_each": {"all_10_semantic_categories": 0},
-      "cross_repeatability_differences": {"block_positions": 1784},
+      "roundtrip_differences_each": {
+        "all_10_semantic_categories": 0
+      },
+      "cross_repeatability_differences": {
+        "block_positions": 1784
+      },
       "inputs_match": true,
       "diagnosis": "The two fresh rounds self-pass but differ across CPU generation. Source review identifies non-world-seed entity UUID generation (Entity uses Mth.createInsecureUUID(this.random); MineshaftPieces creates chest minecarts), which remains preserved and is tracked separately. The 1,784 differing block positions remain unexplained and independent of the known UUID source. No semantic NBT categories were excluded or normalized; no GPU worldgen run while this reference gate is unresolved."
     },
@@ -411,8 +2331,16 @@
       "movement_validation_pass": true,
       "server_exit_code": 0,
       "phases": {
-        "players-10-walk": {"expected_movers": 2, "observed_distinct_uuids": 2, "nonzero_displacement_uuids": 2},
-        "players-10-mobs-100": {"expected_movers": 2, "observed_distinct_uuids": 2, "nonzero_displacement_uuids": 2}
+        "players-10-walk": {
+          "expected_movers": 2,
+          "observed_distinct_uuids": 2,
+          "nonzero_displacement_uuids": 2
+        },
+        "players-10-mobs-100": {
+          "expected_movers": 2,
+          "observed_distinct_uuids": 2,
+          "nonzero_displacement_uuids": 2
+        }
       },
       "portable_proof": "C:\\GPur-validation-20261009\\validation\\movement-pilot-current-plugin-20261010\\movement-pilot-proof.json",
       "portable_proof_sha256": "8f98eb9b7b9d0047ee5b0faae47d442c51b6af7d9d8801e77fd0367414c8127a",
@@ -426,6 +2354,93 @@
       },
       "full_replay_pass": null,
       "full_replay_status": "not_run; this pilot omits 50/150/300 targets, the full 500/1500/3000 mob ladder, natural spawn, redstone, synthetic travel and recovery; future full replay must use the new immutable W7 candidate and same hash across all four hardware cases"
+    },
+    {
+      "id": "frozen-cpu-serial-controls-request-window1-worker1-456",
+      "status": "each self-roundtrip passed; unfiltered cross-world strict comparison failed only on entity NBT",
+      "candidate_jar_sha256": "1a1e290183e3de847e9d675bbbc9b2ecc4656023aa1bd379092354ece762e896",
+      "probe_jar_sha256": "6bc7972a90cace93572cd55fe71487278b84604cb2becdf001b9567e8a34da29",
+      "request_window_size": 1,
+      "worker_threads": 1,
+      "freeze_simulation": true,
+      "fresh_worlds": 2,
+      "corpus": {
+        "seed": 1196459378,
+        "center_chunk": [
+          128,
+          128
+        ],
+        "radius_chunks": 4,
+        "chunks": 81
+      },
+      "matrix_reports": [
+        {
+          "path": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\matrices\\20261011T133204Z-85542813\\worldgen-matrix-report.json",
+          "sha256": "e5a479ab46c77ee3a87abcf8b68eb2297460419f83c7221611b92a9c2b0ebf12",
+          "self_roundtrip_pass": true
+        },
+        {
+          "path": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\matrices\\20261011T133407Z-4c5323d7\\worldgen-matrix-report.json",
+          "sha256": "8a7a298158a799aed9ba2a5c39ca8b5b5d25ffb3661cd101fba1cf749944c19d",
+          "self_roundtrip_pass": true
+        }
+      ],
+      "cross_world_report": {
+        "path": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\cpu-repeatability-comparison.json",
+        "sha256": "fa2e98630ef6adfc0c050334d8425845710ff928f7ec2c813584096e3b49530c",
+        "pass": false,
+        "differences": {
+          "blocks": 0,
+          "biomes": 0,
+          "heightmaps": 0,
+          "light": 0,
+          "structures": 0,
+          "block_entities": 0,
+          "entities": 70,
+          "poi": 0,
+          "section_metadata": 0,
+          "other_nbt": 0
+        }
+      },
+      "entity_key_diagnostic": {
+        "path": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\entity-key-diagnostic.json",
+        "sha256": "314e5f0fb8cb04792c8d90a18e23026bc21a06f8597f0093d4df27ef80bddee5",
+        "entity_records_each_run": 6,
+        "unique_type_exact_pos_keys": 6,
+        "duplicate_keys": 0,
+        "unmatched_keys": 0,
+        "keyed_leaf_differences": {
+          "UUID": 24,
+          "Paper.OriginWorld": 24,
+          "WorldUUIDLeast": 6,
+          "WorldUUIDMost": 6
+        }
+      },
+      "portable_proof": {
+        "path": "C:\\GPur-validation-20261009\\validation\\worldgen-cpu-serial-requestwindow1-worker1-w7\\portable-proof.json",
+        "sha256": "fbe8599e6178caf53ec1e0ea6acc591f74ec4f83485195e461b244487bdb7ef0"
+      }
     }
-  ]
+  ],
+  "prior_candidate_artifact_81cd39cad": {
+    "git_commit": "81cd39cad0065edf3fb1e9e9888d5dc2509d9792",
+    "path": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\gpur-server-26.2-SNAPSHOT1.1.0.jar",
+    "bytes": 92174774,
+    "sha256": "175469927553c38137f487a45cccf125dbd4fbbf1f314f639fa35879a40ff31a",
+    "main_class": "io.papermc.paperclip.Main",
+    "physical_test_command": ":purpur-server:test -PgpurGpuTests=true --no-daemon",
+    "physical_tests": {
+      "count": 9424,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 23,
+      "xml_suites": 151,
+      "scope": "unfiltered physical enabled, nonduplicated",
+      "result": "BUILD SUCCESSFUL"
+    },
+    "physical_test_notes": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\artifact-receipt.json",
+    "physical_test_notes_sha256": "7624297902e5e03c23d557a660f281ba5d21e0b1ed39ccabb52aafffe3433d6a",
+    "paperclip_build_log": "C:\\GPur-validation-20261009\\validation\\artifacts\\81cd39cad\\paperclip-build.log",
+    "paperclip_build_log_sha256": "11d4094052b353dc3a43c8e14b4be15e14c55209d0cf6f9435b2107bc24cecb6"
+  }
 }
